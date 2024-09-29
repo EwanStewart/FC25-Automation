@@ -1,7 +1,4 @@
-﻿using Automation.Setup;
-using System.Linq.Expressions;
-
-namespace Automation
+﻿namespace Automation
 {
     class Program
     {
@@ -11,18 +8,17 @@ namespace Automation
         /// <param name="args">CLI arguments.</param>
         static void Main (string [] args)
         {
-            try
+            List<string> toRun = new ()
             {
-                FC25 WebApplication = new();
-            }
-            catch (Exception)
-            {
+                "",
+            };
 
-            }
-            finally
+            foreach (string run in toRun)
             {
-                Utility.Utility.ShutdownPC ();
-            }                
+                _ = new FC25(run);
+            }
+
+            Utility.Utility.ShutdownPC ();                
         }
     }
 }

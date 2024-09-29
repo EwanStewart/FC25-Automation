@@ -2,12 +2,10 @@
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
-using Org.BouncyCastle.Bcpg;
 using SeleniumExtras.WaitHelpers;
 using System.Data;
-using System.Linq;
-using System.Xml.Linq;
 using static Automation.Definitions.FC25Definitions;
+using System.Text.Json;
 
 namespace Automation
 {
@@ -16,27 +14,29 @@ namespace Automation
         const string FC_URL = @"https://www.ea.com/fifa/ultimate-team/web-app/";
 
         private readonly ChromeDriver driver;
-        private static readonly TimeSpan STANDARD_WAIT = TimeSpan.FromSeconds(10);
-        private WebDriverWait wait; 
-
+        private static readonly TimeSpan STANDARD_WAIT = TimeSpan.FromSeconds(20);
+        private readonly WebDriverWait wait;
+        private byte counter;
+        private readonly string user;
+        private byte transferTargetTotal;
+        public uint total;
         #region Constructor
-        public FC25 ()
+        public FC25 (string configuration)
         {
-            Browser browser = new();
-            driver = browser.Chrome;
-            wait = new(driver, TimeSpan.FromSeconds(10));
             try
             {
+                Browser browser = new (configuration);
+                user = configuration;
+                driver = browser.Chrome;
+                wait = new(driver, STANDARD_WAIT);
+
                 LoginToFC25();
                 GetCoinTotal();
                 ListAndBidRoutine();
             }
             catch (Exception)
             {
-                driver.Close();
-                throw;
             }
-
         }
         #endregion
 
@@ -57,42 +57,39 @@ namespace Automation
                                         Elements[ElementKeys.SECOND_LOGIN]
                                         );
 
+            Browser.WaitAndClickElementByXPath(
+                            driver,
+                            STANDARD_WAIT,
+                            Elements[ElementKeys.CONTINUE]
+                            );
         }
 
         private void ListAndBidRoutine()
         {
-            try
+            Utility.Utility.RetryAction(ClearItemsFromTransferTargets);
+            Utility.Utility.RetryAction(ClearSoldItemsFromTransferList);
+            Utility.Utility.RetryAction(ListItemsFromTransferList);
+
+            byte timesToRepeat = 3;
+
+            for (byte i = 1; i < timesToRepeat; i++)
             {
-                ClearItemsFromTransferTargets();
+                if (total == 49)
+                {
+                    break;
+                }
+
+                BidOnSilverClubItems(false, i);
+
+                if (total == 49)
+                {
+                    break;
+                }
+
+                BidOnSilverClubItems(true, i);
             }
-            catch (NoSuchElementException) {}
 
-            try
-            {
-                ClearSoldItemsFromTransferList();
-            }
-            catch (NoSuchElementException) {}
-
-
-            try
-            {
-                ListItemsFromTransferList();
-            }
-            catch (NoSuchElementException) {}
-
-
-            try
-            {
-                BidOnSilverClubItems(false);
-            }
-            catch (NoSuchElementException) {}
-
-
-            try
-            {
-                BidOnSilverClubItems(true);
-            }
-            catch (NoSuchElementException) {}
+            BidOnPlayerItems(1);
         }
         #endregion
 
@@ -106,12 +103,96 @@ namespace Automation
         }
         #endregion
 
-        private void BidOnSilverBadges()
+        private void BidOnItems(byte pageToStart, string itemType, ElementKeys itemMarketElement)
         {
-            throw new NotImplementedException();
+            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string directoryPath = $@"{baseDirectory}/Configuration/Filters/Active{itemType}{user}";
+
+            if (!Directory.Exists(directoryPath))
+            {
+                Console.WriteLine($"Directory {directoryPath} does not exist.");
+                return;
+            }
+
+            string[] filterFiles = Directory.GetFiles(directoryPath, "*.json");
+
+            if (filterFiles.Length > 0)
+            {
+                foreach (string fi in filterFiles)
+                {
+                    string json = Utility.Utility.ReadJson(fi);
+
+                    Filter filterData = JsonSerializer.Deserialize<Filter>(json);
+
+                    GoToTransfers();
+                    GoToTransferMarket();
+                    SendXPathClickCommandStandardWait(itemMarketElement);
+                    SendXPathClickCommandStandardWait(ElementKeys.RESET);
+
+                    if (filterData.Quality != null)
+                    {
+                        SendXPathClickCommandStandardWait(ElementKeys.QUALITY_DROPDOWN);
+                        CustomXPathClick($"//li[text()='{filterData.Quality}']");
+                    }
+
+                    if (filterData.Nationality != null)
+                    {
+                        SendXPathClickCommandStandardWait(ElementKeys.NATIONALITY_DROPDOWN);
+                        CustomXPathClick($"//li[text()='{filterData.Nationality}']");
+                    }
+
+                    if (filterData.Rarity != null)
+                    {
+                        SendXPathClickCommandStandardWait(ElementKeys.RARITY_DROPDOWN);
+                        CustomXPathClick($"//li[text()='{filterData.Rarity}']");
+                    }
+
+                    IList<IWebElement> inputs = driver.FindElements(By.XPath(Elements[ElementKeys.FIND_ALL_PRICE_INPUTS].Item1));
+
+                    UpdateInputElementText(filterData.MaxBidPrice, inputs[1]);
+                    UpdateInputElementText(filterData.MinBuyPrice, inputs[2]);
+                    SendXPathClickCommandStandardWait(ElementKeys.SEARCH);
+
+                    Thread.Sleep(1000);
+
+                    for (byte i = 0; i < pageToStart; i++)
+                    {
+                        SendXPathClickCommandStandardWait(ElementKeys.NEXT);
+                        Thread.Sleep(1000);
+                    }
+
+                    Bid(filterData.MaxBidPrice);
+                }
+            }
         }
 
-        private void BidOnSilverClubItems(bool badges)
+        private void BidOnPlayerItems(byte pageToStart)
+        {
+            BidOnItems(pageToStart, "Player", ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
+        }
+
+        private void BidOnManagerItems(byte pageToStart)
+        {
+            BidOnItems(pageToStart, "Manager", ElementKeys.MANAGER_ITEMS_TRANSFER_MARKET);
+        }
+
+
+        private void CustomXPathClick (string xPath)
+        {
+            try
+            {
+                WebDriverWait wait = new(driver, STANDARD_WAIT);
+                IWebElement element = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(xPath)));
+                Thread.Sleep(500);
+                element.Click();
+            }
+            catch (WebDriverTimeoutException)
+            {
+                throw new Exception($"Invalid XPath {xPath}");
+            }
+        }
+
+        private void BidOnSilverClubItems(bool badges, byte pageToStart)
         {
             GoToTransfers ();
             GoToTransferMarket ();
@@ -139,18 +220,44 @@ namespace Automation
 
             Thread.Sleep(1000);
 
+
+            for (byte i = 0; i < pageToStart; i++)
+            {
+                SendXPathClickCommandStandardWait(ElementKeys.NEXT);
+                Thread.Sleep(1000);
+            }
+
+            CompareAndBid(MIN_BUY_NOW_FOR_BID, 500, false);
+        }
+
+        private void CompareAndBid(uint bidThreshold, uint maxBid, bool isFixedBid)
+        {
+            Dictionary<string, uint> bidItems = new();
             IList<IWebElement> items = driver.FindElements(By.XPath(Elements[ElementKeys.AUCTION_ITEMS].Item1));
 
             foreach (IWebElement item in items)
             {
+                if (total == 49)
+                {
+                    return;
+                }
+
+                Thread.Sleep(500);
                 uint lowestPrice = 0;
                 uint bidPrice = 0;
 
-                item.Click();
+                try
+                {
+                    item.Click();
+                }
+                catch (StaleElementReferenceException)
+                {
+                    break;
+                }
 
                 string info = GetItemInfo(item);
 
-                if (Database.HasBeenSeenTodayAndLessThanBidThreshold(info))
+                if (Database.HasBeenSeenTodayAndLessThanBidThreshold(info, bidThreshold))
                 {
                     continue;
                 }
@@ -161,33 +268,83 @@ namespace Automation
 
                 Thread.Sleep(2000);
 
-                IWebElement comparePriceList = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("/html/body/main/section/section/div[2]/div/div/section/div[2]/section/div[2]")));
-                
-                if (comparePriceList != null)
+                if (!bidItems.TryGetValue(info, out bidPrice))
                 {
-                    lowestPrice = (uint)FindLowestPrice(comparePriceList);
-                    bidPrice = (uint)Math.Min(lowestPrice - (lowestPrice * 0.1), 500);
+                    IWebElement comparePriceList = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("/html/body/main/section/section/div[2]/div/div/section/div[2]/section/div[2]")));
 
-                    Database.AddToSeenTable(lowestPrice, info);
+                    if (comparePriceList != null)
+                    {
+    
+                        lowestPrice = (uint)FindLowestPrice(comparePriceList);
+
+                        bidPrice = (uint)Math.Min((lowestPrice * 0.1), maxBid);
+
+                        bidItems.Add(info, bidPrice);
+
+                        Database.AddToSeenTable(lowestPrice, info);
+
+                        SendXPathClickCommandStandardWait(ElementKeys.COMPARE_PRICE_BACK_BUTTON);
+                    }
                 }
 
-                SendXPathClickCommandStandardWait(ElementKeys.COMPARE_PRICE_BACK_BUTTON);
-
-                if (lowestPrice >= MIN_BUY_NOW_FOR_BID)
+                if (lowestPrice >= bidThreshold)
                 {
                     Thread.Sleep(1000);
                     IWebElement bidInput = driver.FindElement(By.XPath(Elements[ElementKeys.FIND_ALL_PRICE_INPUTS].Item1));
+
+                    if (Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value")) > maxBid)
+                    {
+                        continue;
+                    }
+
                     UpdateInputElementText(bidPrice, bidInput);
+
                     SendXPathClickCommandStandardWait(ElementKeys.MAKE_BID);
+                    total += 1;
                 }
 
                 Thread.Sleep(1000);
             }
         }
 
-        private void ListNewItemsFromTransferList()
+        private void Bid(uint maxBid)
         {
-            throw new NotImplementedException();
+            Dictionary<string, uint> bidItems = new();
+            IList<IWebElement> items = driver.FindElements(By.XPath(Elements[ElementKeys.AUCTION_ITEMS].Item1));
+
+            foreach (IWebElement item in items)
+            {
+                if (total == 49)
+                {
+                    return;
+                }
+
+                Thread.Sleep(500);
+
+                try
+                {
+                    item.Click();
+                }
+                catch (StaleElementReferenceException)
+                {
+                    break;
+                }
+
+                IWebElement bidInput = driver.FindElement(By.XPath(Elements[ElementKeys.FIND_ALL_PRICE_INPUTS].Item1));
+
+                if (Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value")) > maxBid)
+                {
+                    continue;
+                }
+
+                UpdateInputElementText(maxBid, bidInput);
+
+                SendXPathClickCommandStandardWait(ElementKeys.MAKE_BID);
+                total += 1;
+
+
+                Thread.Sleep(1000);
+            }
         }
 
         public void UpdateInputElementText(uint listPrice, string xPath)
@@ -227,14 +384,21 @@ namespace Automation
 
         private void ListItemsFromTransferList()
         {
+            Dictionary<string, uint> listItems = new();
+
             GoToTransfers();
             GoToTransferList();
 
-            WebDriverWait wait = new (driver, TimeSpan.FromSeconds(10));
+            WebDriverWait wait = new(driver, TimeSpan.FromSeconds(10));
+
+            int clickCounter = 0; // Counter for item clicks
 
             while (true)
             {
+                Thread.Sleep(1000);
+
                 IWebElement item;
+                uint listPrice = 0;
 
                 try
                 {
@@ -246,39 +410,43 @@ namespace Automation
                 }
 
                 item.Click();
+                clickCounter++; // Increment the click counter
+
+                if (clickCounter == 10)
+                {
+                    ListItemsFromTransferList();
+                    clickCounter = 0;
+                }
 
                 Thread.Sleep(500);
 
-                SendXPathClickCommandStandardWait(ElementKeys.COMPARE_PRICE);
-                Thread.Sleep(1000);
+                string info = GetItemInfo(item);
 
-                IWebElement comparePriceList = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("/html/body/main/section/section/div[2]/div/div/section/div[2]/section/div[2]")));
-                if (comparePriceList != null)
+                if (!listItems.TryGetValue(info, out listPrice))
                 {
-                    uint lowestPrice = (uint) FindLowestPrice(comparePriceList);
-                    uint listPrice = (uint)(lowestPrice - (lowestPrice * 0.1));
+                    SendXPathClickCommandStandardWait(ElementKeys.COMPARE_PRICE);
+                    Thread.Sleep(1000);
 
-
-                    try
+                    IWebElement comparePriceList = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("/html/body/main/section/section/div[2]/div/div/section/div[2]/section/div[2]")));
+                    if (comparePriceList != null)
                     {
-                        Database.AddToSeenTable(lowestPrice, GetItemInfo(item));
+                        uint lowestPrice = (uint)FindLowestPrice(comparePriceList);
+                        listPrice = (uint)(lowestPrice - (lowestPrice * 0.1));
+
+                        Database.AddToSeenTable(lowestPrice, info);
+                        listItems.Add(info, listPrice);
                         item.Click();
                     }
-                    catch (StaleElementReferenceException)
-                    {
-                        ListItemsFromTransferList ();
-                        return;
-                    }
+                }
 
-                    SendXPathClickCommandStandardWait(ElementKeys.LIST_ITEM_PRE_PRICE);
-                    UpdateInputElementText(listPrice - 100, Elements[ElementKeys.MIN_PRICE_LIST_ITEM].Item1);
-                    UpdateInputElementText(listPrice, Elements[ElementKeys.MAX_PRICE_LIST_ITEM].Item1);
+                SendXPathClickCommandStandardWait(ElementKeys.LIST_ITEM_PRE_PRICE);
+                UpdateInputElementText(listPrice - 100, Elements[ElementKeys.MIN_PRICE_LIST_ITEM].Item1);
+                UpdateInputElementText(listPrice, Elements[ElementKeys.MAX_PRICE_LIST_ITEM].Item1);
 
-                    SendXPathClickCommandStandardWait(ElementKeys.LIST_ITEM);
+                SendXPathClickCommandStandardWait(ElementKeys.LIST_ITEM);
 
-                    Thread.Sleep(500);
-                }                       
-            }  
+                Thread.Sleep(2000);
+            }
         }
 
         private int FindLowestPrice (IWebElement list)
@@ -347,6 +515,7 @@ namespace Automation
         private void GoToTransfers()
         {
             SendXPathClickCommandStandardWait(ElementKeys.LEFT_HAND_PANE_TRANSFERS);
+            total = Utility.Utility.CommaSeperatedNumberToUInt(driver.FindElements(By.XPath(Elements[ElementKeys.TRANSFER_TARGETS_TOTAL].Item1))[1].Text);
         }
 
         private void GoToTransferList()
@@ -378,14 +547,16 @@ namespace Automation
             {
                 foreach (IWebElement item in items)
                 {
-                    wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementToBeClickable(item));
+                    wait.Until(ExpectedConditions.ElementToBeClickable(item));
 
                     item.Click();
 
-                    Thread.Sleep(500);
+                    Thread.Sleep(1000);
 
                     SendXPathClickCommandStandardWait(ElementKeys.SEND_TO_TRANSFER_LIST);
-                }    
+
+                    Thread.Sleep(1000);
+                }
             }
         }
 

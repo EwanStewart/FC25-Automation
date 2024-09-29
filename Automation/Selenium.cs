@@ -2,6 +2,7 @@
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
+using System.Diagnostics;
 
 namespace Automation.Setup
 {
@@ -11,19 +12,21 @@ namespace Automation.Setup
         /// Chrome driver object to fire browser commands.
         /// </summary>
         public ChromeDriver Chrome;
+        private readonly string configurationToUse;
 
         /// <summary>
         /// Constructor for BrowserSetup, create a new browser instance with configuration.
         /// </summary>
-        public Browser ()
+        public Browser (string profileArg)
         {
+            configurationToUse = profileArg;
             Chrome = InitialiseChrome();
         }
 
-        public static string GetChromeConfigurationPath()
+        public string GetChromeConfigurationPath()
         {
             string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string pathToChromeConfiguration = Path.Combine(baseDirectory, "Configuration", "ChromeConfiguration.json");
+            string pathToChromeConfiguration = Path.Combine(baseDirectory, "Configuration", $"ChromeConfiguration{configurationToUse}.json");
 
             if (!File.Exists(pathToChromeConfiguration))
             {
@@ -33,7 +36,7 @@ namespace Automation.Setup
             return pathToChromeConfiguration;
         }
 
-        private static (string, string, string) FetchConfigurationFromJson ()
+        private (string, string, string) FetchConfigurationFromJson ()
         {
             string pathToChromeConfiguration = GetChromeConfigurationPath ();
             string configuration = Utility.Utility.ReadJson (pathToChromeConfiguration);
@@ -43,12 +46,28 @@ namespace Automation.Setup
                     Utility.Utility.GetJsonValue(configuration, "Profile"));
         }
 
-        private static ChromeDriver InitialiseChrome ()
+        private void KillChromeProcesses()
+        {
+            foreach (Process process in Process.GetProcessesByName("chrome"))
+            {
+                try
+                {
+                    process.Kill();
+                    process.WaitForExit();
+                }
+                catch
+                {                 
+                }
+            }
+        }
+
+        private ChromeDriver InitialiseChrome ()
         {
             string profileToUse;
             string userDataDir;
             string userAgent;
 
+            KillChromeProcesses();
 
             (userDataDir, userAgent, profileToUse) = FetchConfigurationFromJson();
 

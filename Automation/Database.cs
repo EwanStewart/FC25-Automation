@@ -113,13 +113,13 @@ namespace Automation
         /// </summary>
         /// <param name="name"></param>
         /// <returns>True if the name has been seen at least twice today and price is less than 1000, otherwise false</returns>
-        public static bool HasBeenSeenTodayAndLessThanBidThreshold (string name)
+        public static bool HasBeenSeenTodayAndLessThanBidThreshold (string name, uint price)
         {
             using (MySqlConnection connection = new(connectionString))
             {
                 try
                 {
-                    string query = $@"SELECT COUNT(*) FROM ItemSeenPrice WHERE name = @name AND DATE(timestamp) = CURDATE() AND price < {FC25Definitions.MIN_BUY_NOW_FOR_BID};";
+                    string query = $@"WITH RankedItems AS (SELECT name, price, timestamp, ROW_NUMBER() OVER (PARTITION BY name ORDER BY timestamp) AS row_num FROM ItemSeenPrice WHERE name = @name AND timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND price < {price}) SELECT COUNT(*) FROM RankedItems AS currentItem WHERE NOT EXISTS (SELECT 1 FROM RankedItems AS previousItem WHERE currentItem.row_num = previousItem.row_num + 1 AND previousItem.timestamp >= DATE_SUB(currentItem.timestamp, INTERVAL 6 HOUR));";
 
                     using (MySqlCommand cmd = new(query, connection))
                     {
@@ -128,7 +128,7 @@ namespace Automation
                         connection.Open();
                         int count = Convert.ToInt32(cmd.ExecuteScalar()); 
 
-                        return count > 1; 
+                        return count > 3; 
                     }
                 }
                 catch (MySqlException ex)

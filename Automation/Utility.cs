@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Automation.Utility
 {
@@ -99,6 +98,33 @@ namespace Automation.Utility
             processInfo.Arguments = "/s /t 60";
 
             Process.Start(processInfo);
+        }
+
+        public static void RetryAction(Action action, int maxRetries = 3, int delayMilliseconds = 5000)
+        {
+            int retryCount = 0;
+            bool success = false;
+
+            while (retryCount < maxRetries && !success)
+            {
+                try
+                {
+                    action.Invoke(); 
+                    success = true;
+                }
+                catch (Exception)
+                {
+                    retryCount++;
+                    if (retryCount < maxRetries)
+                    {
+                        Thread.Sleep(delayMilliseconds);
+                    }
+                    else
+                    {
+                        return; 
+                    }
+                }
+            }
         }
     }
 }
