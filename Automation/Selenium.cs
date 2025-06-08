@@ -4,183 +4,208 @@ using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
 using System.Diagnostics;
 
-namespace Automation.Setup
+namespace Automation.Setup;
+
+public class Browser
 {
-    public class Browser
+    /// <summary>
+    /// Chrome driver object to fire browser commands.
+    /// </summary>
+    public ChromeDriver Chrome;
+
+    private readonly string _configurationToUse;
+
+    /// <summary>
+    /// Constructor for BrowserSetup, create a new browser instance with configuration.
+    /// </summary>
+    public Browser(string profileArg)
     {
-        /// <summary>
-        /// Chrome driver object to fire browser commands.
-        /// </summary>
-        public ChromeDriver Chrome;
-        private readonly string configurationToUse;
+        _configurationToUse = profileArg;
+        Chrome = CreateDefaultChromeDriver();
+    }
 
-        /// <summary>
-        /// Constructor for BrowserSetup, create a new browser instance with configuration.
-        /// </summary>
-        public Browser (string profileArg)
-        {
-            configurationToUse = profileArg;
-            Chrome = InitialiseChrome();
-        }
+    public string GetChromeConfigurationPath()
+    {
+        var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        var pathToChromeConfiguration =
+            Path.Combine(baseDirectory, "Configuration", $"ChromeConfiguration{_configurationToUse}.json");
 
-        public string GetChromeConfigurationPath()
-        {
-            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string pathToChromeConfiguration = Path.Combine(baseDirectory, "Configuration", $"ChromeConfiguration{configurationToUse}.json");
+        if (!File.Exists(pathToChromeConfiguration))
+            throw new FileNotFoundException(
+                $"The Chrome configuration file was not found at {pathToChromeConfiguration}");
 
-            if (!File.Exists(pathToChromeConfiguration))
-            {
-                throw new FileNotFoundException($"The Chrome configuration file was not found at {pathToChromeConfiguration}");
-            }
+        return pathToChromeConfiguration;
+    }
 
-            return pathToChromeConfiguration;
-        }
+    private (string, string, string) FetchConfigurationFromJson()
+    {
+        var pathToChromeConfiguration = GetChromeConfigurationPath();
+        var configuration = Utility.Utility.ReadJson(pathToChromeConfiguration);
 
-        private (string, string, string) FetchConfigurationFromJson ()
-        {
-            string pathToChromeConfiguration = GetChromeConfigurationPath ();
-            string configuration = Utility.Utility.ReadJson (pathToChromeConfiguration);
+        return (Utility.Utility.GetJsonValue(configuration, "UserDataDir"),
+            Utility.Utility.GetJsonValue(configuration, "UserAgent"),
+            Utility.Utility.GetJsonValue(configuration, "Profile"));
+    }
 
-            return (Utility.Utility.GetJsonValue(configuration, "UserDataDir"),
-                    Utility.Utility.GetJsonValue(configuration, "UserAgent"),
-                    Utility.Utility.GetJsonValue(configuration, "Profile"));
-        }
-
-        private void KillChromeProcesses()
-        {
-            foreach (Process process in Process.GetProcessesByName("chrome"))
-            {
-                try
-                {
-                    process.Kill();
-                    process.WaitForExit();
-                }
-                catch
-                {                 
-                }
-            }
-        }
-
-        private ChromeDriver InitialiseChrome ()
-        {
-            string profileToUse;
-            string userDataDir;
-            string userAgent;
-
-            KillChromeProcesses();
-
-            (userDataDir, userAgent, profileToUse) = FetchConfigurationFromJson();
-
-            ChromeOptions options = new ();
-            options.AddArgument($"user-agent={userAgent}");
-            options.AddArgument($@"--user-data-dir={userDataDir}");
-            options.AddArgument($"--profile-directory={profileToUse}");
-            options.AddExcludedArgument("enable-automation");
-            options.AddAdditionalOption("useAutomationExtension", false);
-
-            ChromeDriver chromeBrowser = new (options);
-            chromeBrowser.ExecuteScript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
-
-            return chromeBrowser;
-        }
-
-        /// <summary>
-        /// Click the desired CSS selector.
-        /// </summary>
-        /// <param name="chromeDriver"> Chrome instance.</param>
-        /// <param name="timeToWait"> Time to wait until timeout. </param>
-        /// <param name="elementToClick"> CSS selector to click and alias for logging. </param>
-        public static void WaitAndClickElementByCssSelector(ChromeDriver chromeDriver, TimeSpan timeToWait, (string cssSelector, string alias) elementToClick)
-        {
+    private void KillChromeProcesses()
+    {
+        foreach (var process in Process.GetProcessesByName("chrome"))
             try
             {
-                WebDriverWait wait = new (chromeDriver, timeToWait);
-                IWebElement element = wait.Until(ExpectedConditions.ElementToBeClickable(By.CssSelector(elementToClick.cssSelector)));
-                element.Click();
+                process.Kill();
+                process.WaitForExit();
             }
-            catch (WebDriverTimeoutException)
+            catch
             {
-                Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
             }
-        }
+    }
 
-        /// <summary>
-        /// Click the desired XPath.
-        /// </summary>
-        /// <param name="chromeDriver"> Chrome instance.</param>
-        /// <param name="timeToWait"> Time to wait until timeout. </param>
-        /// <param name="elementToClick"> XPath to click and alias for logging. </param>
-        public static void WaitAndClickElementByXPath(ChromeDriver chromeDriver, TimeSpan timeToWait, (string xPath, string alias) elementToClick)
+    /// <summary>
+    /// Create a new ChromeDriver instance with default profile and basic options.
+    /// </summary>
+    private ChromeDriver CreateDefaultChromeDriver()
+    {
+        KillChromeProcesses();
+        var options = new ChromeOptions();
+
+        // Default Chrome options for stability
+        options.AddArgument("--no-sandbox");
+        options.AddArgument("--disable-dev-shm-usage");
+        options.AddArgument("--disable-extensions");
+        options.AddArgument("--disable-gpu");
+
+        options.AddArgument("--user-data-dir=C:/SeleniumChromeProfile");
+        options.AddArgument("--remote-debugging-port=9222");
+
+        return new ChromeDriver(options);
+    }
+
+    /// <summary>
+    /// Recursively copy a directory and its contents.
+    /// </summary>
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir))
         {
-            try
-            {
-                WebDriverWait wait = new(chromeDriver, timeToWait);
-                IWebElement element = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(elementToClick.xPath)));
-                Thread.Sleep (500);
-                element.Click();
-            }
-            catch (WebDriverTimeoutException)
-            {
-                Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
-            }
+            var fileName = Path.GetFileName(file);
+            var destFile = Path.Combine(destinationDir, fileName);
+            File.Copy(file, destFile, true);
         }
 
-        public static IList<IWebElement>? FindAllElementsWithXPath (ChromeDriver chromeDriver, (string xPath, string alias) element)
+        foreach (var directory in Directory.GetDirectories(sourceDir))
         {
-            IList<IWebElement>? items = null;
-
-            try
-            {
-                items = chromeDriver.FindElements(By.XPath(element.xPath));
-            }
-            catch (WebDriverTimeoutException)
-            {
-                Console.WriteLine($"Element '{element.alias}' was not found.");
-            }
-
-            return items;
+            var dirName = Path.GetFileName(directory);
+            var destDir = Path.Combine(destinationDir, dirName);
+            CopyDirectory(directory, destDir);
         }
+    }
 
-        /// <summary>
-        /// Return the value of the element's text.
-        /// </summary>
-        /// <param name="chromeDriver"> Chrome instance.</param>
-        /// <param name="timeToWait"> Time to wait until timeout. </param>
-        /// <param name="elementToClick"> CSS selector to click and alias for logging. </param>
-        public static string WaitAndGetElementTextByCssSelector(ChromeDriver chromeDriver, TimeSpan timeToWait, (string cssSelector, string alias) elementToClick)
+
+    /// <summary>
+    /// Click the desired CSS selector.
+    /// </summary>
+    /// <param name="chromeDriver"> Chrome instance.</param>
+    /// <param name="timeToWait"> Time to wait until timeout. </param>
+    /// <param name="elementToClick"> CSS selector to click and alias for logging. </param>
+    public static void WaitAndClickElementByCssSelector(ChromeDriver chromeDriver, TimeSpan timeToWait,
+        (string cssSelector, string alias) elementToClick)
+    {
+        try
         {
-            string returnValue = string.Empty;
-
-            try
-            {
-                WebDriverWait wait = new(chromeDriver, timeToWait);
-                IWebElement element = wait.Until(ExpectedConditions.ElementToBeClickable(By.CssSelector(elementToClick.cssSelector)));
-                returnValue = element.Text;
-            }
-            catch (WebDriverTimeoutException)
-            {
-                Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
-            }
-
-            return returnValue;
+            WebDriverWait wait = new(chromeDriver, timeToWait);
+            var element =
+                wait.Until(ExpectedConditions.ElementToBeClickable(By.CssSelector(elementToClick.cssSelector)));
+            element.Click();
         }
-
-        public static string WaitAndGetElementTextByXPath(ChromeDriver chromeDriver, TimeSpan timeToWait, (string xPath, string alias) elementToClick)
+        catch (WebDriverTimeoutException)
         {
-            string returnValue = string.Empty;
-
-            try
-            {
-                WebDriverWait wait = new(chromeDriver, timeToWait);
-                IWebElement element = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(elementToClick.xPath)));
-                returnValue = element.Text;
-            }
-            catch (WebDriverTimeoutException)
-            {
-                Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
-            }
-
-            return returnValue;
+            Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
         }
+    }
+
+    /// <summary>
+    /// Click the desired XPath.
+    /// </summary>
+    /// <param name="chromeDriver"> Chrome instance.</param>
+    /// <param name="timeToWait"> Time to wait until timeout. </param>
+    /// <param name="elementToClick"> XPath to click and alias for logging. </param>
+    public static void WaitAndClickElementByXPath(ChromeDriver chromeDriver, TimeSpan timeToWait,
+        (string xPath, string alias) elementToClick)
+    {
+        try
+        {
+            WebDriverWait wait = new(chromeDriver, timeToWait);
+            var element = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(elementToClick.xPath)));
+            Thread.Sleep(500);
+            element.Click();
+        }
+        catch (WebDriverTimeoutException)
+        {
+            Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
+        }
+    }
+
+    public static IList<IWebElement>? FindAllElementsWithXPath(ChromeDriver chromeDriver,
+        (string xPath, string alias) element)
+    {
+        IList<IWebElement>? items = null;
+
+        try
+        {
+            items = chromeDriver.FindElements(By.XPath(element.xPath));
+        }
+        catch (WebDriverTimeoutException)
+        {
+            Console.WriteLine($"Element '{element.alias}' was not found.");
+        }
+
+        return items;
+    }
+
+    /// <summary>
+    /// Return the value of the element's text.
+    /// </summary>
+    /// <param name="chromeDriver"> Chrome instance.</param>
+    /// <param name="timeToWait"> Time to wait until timeout. </param>
+    /// <param name="elementToClick"> CSS selector to click and alias for logging. </param>
+    public static string WaitAndGetElementTextByCssSelector(ChromeDriver chromeDriver, TimeSpan timeToWait,
+        (string cssSelector, string alias) elementToClick)
+    {
+        var returnValue = string.Empty;
+
+        try
+        {
+            WebDriverWait wait = new(chromeDriver, timeToWait);
+            var element =
+                wait.Until(ExpectedConditions.ElementToBeClickable(By.CssSelector(elementToClick.cssSelector)));
+            returnValue = element.Text;
+        }
+        catch (WebDriverTimeoutException)
+        {
+            Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
+        }
+
+        return returnValue;
+    }
+
+    public static string WaitAndGetElementTextByXPath(ChromeDriver chromeDriver, TimeSpan timeToWait,
+        (string xPath, string alias) elementToClick)
+    {
+        var returnValue = string.Empty;
+
+        try
+        {
+            WebDriverWait wait = new(chromeDriver, timeToWait);
+            var element = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(elementToClick.xPath)));
+            returnValue = element.Text;
+        }
+        catch (WebDriverTimeoutException)
+        {
+            Console.WriteLine($"Element '{elementToClick.alias}' was not found.");
+        }
+
+        return returnValue;
     }
 }
