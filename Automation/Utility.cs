@@ -77,9 +77,16 @@ public static class Utility
     {
         ProcessStartInfo processInfo = new();
 
-        processInfo.FileName = "shutdown.exe";
-
-        processInfo.Arguments = "/s /t 60";
+        if (OperatingSystem.IsWindows())
+        {
+            processInfo.FileName = "shutdown.exe";
+            processInfo.Arguments = "/s /t 60";
+        }
+        else
+        {
+            processInfo.FileName = "shutdown";
+            processInfo.Arguments = "-h +1";
+        }
 
         Process.Start(processInfo);
     }

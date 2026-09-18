@@ -74,7 +74,10 @@ public class Browser
         options.AddArgument("--disable-extensions");
         options.AddArgument("--disable-gpu");
 
-        options.AddArgument("--user-data-dir=C:/SeleniumChromeProfile");
+        var profileDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SeleniumChromeProfile");
+        options.AddArgument($"--user-data-dir={profileDirectory}");
         options.AddArgument("--remote-debugging-port=9222");
 
         return new ChromeDriver(options);
