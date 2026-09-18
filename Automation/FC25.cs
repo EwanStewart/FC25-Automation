@@ -262,11 +262,18 @@ public class Fc25
 
     private bool GoToNextResultsPage()
     {
-        var moved = _screen.IsVisible(ElementKeys.RESULTS_NEXT) && _screen.Click(ElementKeys.RESULTS_NEXT, ShortWait);
+        var moved = _screen.Click(ElementKeys.RESULTS_NEXT, ShortWait);
 
-        if (moved) Thread.Sleep(1500);
+        if (moved) WaitForResultsToSettle();
 
         return moved;
+    }
+
+    private void WaitForResultsToSettle()
+    {
+        _screen.WaitHidden(ElementKeys.CLICK_SHIELD, ShortWait);
+        _screen.WaitVisible(ElementKeys.AUCTION_ITEMS, ShortWait);
+        Thread.Sleep(500);
     }
 
     private void SelectDropdownOption(ElementKeys dropdown, ElementKeys option)
@@ -300,7 +307,7 @@ public class Fc25
     {
         RequireClick(ElementKeys.SEARCH);
         RequireTitle("Search Results");
-        Thread.Sleep(1000);
+        WaitForResultsToSettle();
     }
 
     #endregion
@@ -493,8 +500,7 @@ public class Fc25
 
             if (list != null) prices.AddRange(ReadBuyNowPrices(list));
 
-            morePages = list != null && _screen.IsVisible(ElementKeys.COMPARE_PRICE_NEXT) &&
-                        _screen.Click(ElementKeys.COMPARE_PRICE_NEXT, ShortWait);
+            morePages = list != null && _screen.Click(ElementKeys.COMPARE_PRICE_NEXT, TimeSpan.FromSeconds(1));
 
             if (morePages) Thread.Sleep(1500);
         }

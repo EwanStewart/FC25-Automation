@@ -229,12 +229,12 @@ public static class Fc25Definitions
         { ElementKeys.UNSUPPORTED_BROWSER, ("#unsupported-browser-shield", "Unsupported Browser") },
         {
             ElementKeys.COMPARE_PRICE_NEXT,
-            ("//section[contains(@class, 'ui-layout-right')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled'))]",
+            ("//section[contains(@class, 'ui-layout-right')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled')) and not(@disabled)]",
                 "Compare Price Next Page")
         },
         {
             ElementKeys.RESULTS_NEXT,
-            ("//section[contains(@class, 'ui-layout-left')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled'))]",
+            ("//section[contains(@class, 'ui-layout-left')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled')) and not(@disabled)]",
                 "Results Next Page")
         }
     };
