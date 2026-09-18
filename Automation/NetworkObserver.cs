@@ -9,10 +9,12 @@ public sealed record Capture(DateTime Time, CaptureKind Kind, string Method, str
 public sealed class NetworkObserver : IDisposable
 {
     private const int BUFFER_SIZE = 200;
+    private static readonly TimeSpan SearchMemory = TimeSpan.FromHours(1);
     private const string PAGE_URL_FRAGMENT = "ea.com";
 
     private readonly ConcurrentDictionary<string, (CaptureKind kind, string method, string url, int status)> _requests = new();
     private readonly ConcurrentQueue<Capture> _captures = new();
+    private readonly ConcurrentQueue<DateTime> _searchTimes = new();
     private CdpClient? _client;
     private int _events;
 
@@ -52,6 +54,16 @@ public sealed class NetworkObserver : IDisposable
     public IReadOnlyList<Capture> Failures()
     {
         return _captures.Where(capture => capture.Status != 200).ToList();
+    }
+
+    public IReadOnlyList<Capture> FailuresSince(DateTime time)
+    {
+        return _captures.Where(capture => capture.Time >= time && capture.Status != 200).ToList();
+    }
+
+    public IReadOnlyList<DateTime> SearchTimes()
+    {
+        return _searchTimes.ToList();
     }
 
     public void Dispose()
@@ -107,11 +119,18 @@ public sealed class NetworkObserver : IDisposable
 
             _captures.Enqueue(new Capture(DateTime.UtcNow, request.kind, request.method, request.url, request.status, body));
             while (_captures.Count > BUFFER_SIZE) _captures.TryDequeue(out _);
+            if (request.kind == CaptureKind.Search) RecordSearch(DateTime.UtcNow);
         }
         catch (Exception exception)
         {
             Console.WriteLine($"Network observer could not read a response body: {exception.Message}");
         }
+    }
+
+    private void RecordSearch(DateTime time)
+    {
+        _searchTimes.Enqueue(time);
+        while (_searchTimes.TryPeek(out var oldest) && time - oldest > SearchMemory) _searchTimes.TryDequeue(out _);
     }
 
     private static string RequestId(JsonNode data)

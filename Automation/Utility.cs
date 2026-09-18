@@ -1,3 +1,4 @@
+using Automation.Trading;
 ﻿using System.Diagnostics;
 using System.Text.Json;
 using OpenQA.Selenium;
@@ -148,7 +149,7 @@ public static class Utility
                 action.Invoke();
                 success = true;
             }
-            catch (Exception exception) when (!IsSessionLost(exception))
+            catch (Exception exception) when (!IsSessionLost(exception) && exception is not RunStoppedException)
             {
                 Console.WriteLine(exception.Message);
                 retryCount++;

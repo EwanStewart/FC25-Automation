@@ -30,6 +30,9 @@ public class Fc25 : IDisposable
     private readonly string _smokeTarget;
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly HashSet<string> _bidNamesThisRun = new();
+    private readonly Random _random = new();
+    private PassPacing _pacing = new(PAGE_TURN_GAP_MS, COMPARE_READ_GAP_MS);
+    private DateTime _passStarted = DateTime.UtcNow;
     private string _segment = string.Empty;
     private double _calibrationRatio = 1.0;
     private uint _segmentBidAllowance = uint.MaxValue;
@@ -65,6 +68,10 @@ public class Fc25 : IDisposable
                 SmokeTestRoutine();
             else
                 ListAndBidRoutine();
+        }
+        catch (RunStoppedException exception)
+        {
+            Console.WriteLine($"Run stopped: {exception.Message}");
         }
         catch (Exception exception)
         {
@@ -192,6 +199,10 @@ public class Fc25 : IDisposable
             GetCoinTotal();
             RunCycle();
         }
+        catch (RunStoppedException exception)
+        {
+            Console.WriteLine($"Run stopped: {exception.Message}");
+        }
         catch (Exception exception)
         {
             Console.WriteLine(exception);
@@ -290,6 +301,8 @@ public class Fc25 : IDisposable
         var bidsBefore = _bidsPlaced;
         var readsBefore = _compareReads;
         _rowsConsidered = 0;
+        _pacing = new PassPacing(PAGE_TURN_GAP_MS, COMPARE_READ_GAP_MS);
+        _passStarted = started;
 
         Utility.Utility.RetryAction(pass, 2, 3000);
 
@@ -297,6 +310,85 @@ public class Fc25 : IDisposable
         Database.AddPass(segment, role, _rowsConsidered, _compareReads - readsBefore, _bidsPlaced - bidsBefore, seconds);
         Console.WriteLine(
             $"Pass {segment} ({role}): {_rowsConsidered} rows considered, {_compareReads - readsBefore} compare reads, {_bidsPlaced - bidsBefore} bids, {seconds} s.");
+        LogPacing(segment, started, seconds);
+    }
+
+    private void LogPacing(string segment, DateTime started, int seconds)
+    {
+        var searches = _network.SearchTimes().Count(time => time >= started);
+        var ended = _pacing.Ended ? ", pass ended early" : string.Empty;
+
+        Console.WriteLine(
+            $"Pacing {segment}: {_pacing.PagesTurned} page(s) in {seconds} s, {searches} searches, {_pacing.Waits} wait(s) totalling {_pacing.WaitMs / 1000} s, {_pacing.Backoffs} backoff(s){ended}.");
+    }
+
+    private void PaceSearch(int gapWaitMs)
+    {
+        CheckBackoff();
+
+        var wait = Math.Max(gapWaitMs, SearchBudgetWaitMs());
+
+        if (wait > 0) Pause(wait);
+    }
+
+    private void Pause(int milliseconds)
+    {
+        _pacing.RecordWait(milliseconds);
+        Thread.Sleep(milliseconds);
+    }
+
+    private int SearchBudgetWaitMs()
+    {
+        var seconds = SearchBudget.WaitSeconds(_network.SearchTimes(), DateTime.UtcNow, SEARCHES_PER_MINUTE,
+            SEARCHES_PER_HOUR);
+
+        if (seconds > 0) Console.WriteLine($"Search budget reached; waiting {seconds} s for a slot.");
+
+        return seconds * 1000;
+    }
+
+    private int PageTurnJitterMs()
+    {
+        return _random.Next(PAGE_TURN_JITTER_MIN_MS, PAGE_TURN_JITTER_MAX_MS + 1);
+    }
+
+    private void CheckBackoff()
+    {
+        var statuses = _network.FailuresSince(_passStarted).Select(failure => failure.Status).ToList();
+        var action = Backoff.Decide(statuses);
+
+        if (action == BackoffAction.StopRun) StopRun(statuses);
+        else if (action == BackoffAction.EndPass && !_pacing.Ended) EndPass(statuses);
+        else if (action == BackoffAction.SlowDown && _pacing.Multiplier == 1) SlowDown(statuses);
+    }
+
+    private void SlowDown(List<int> statuses)
+    {
+        Console.WriteLine(
+            $"Backoff: statuses [{string.Join(", ", statuses)}] this pass; pausing {BACKOFF_PAUSE_SECONDS} s and doubling the pacing gaps.");
+        Database.AddSnipeEvent("pacing", "backoff", (uint)statuses.Last(Backoff.THROTTLE_STATUSES.Contains), null, null, null,
+            $"{_segment}: {string.Join(",", statuses)}");
+        _pacing.SlowDown();
+        Pause(BACKOFF_PAUSE_SECONDS * 1000);
+    }
+
+    private void EndPass(List<int> statuses)
+    {
+        Console.WriteLine($"Backoff: second throttle in statuses [{string.Join(", ", statuses)}]; ending the pass.");
+        Database.AddSnipeEvent("pacing", "pass-ended", (uint)statuses.Last(Backoff.THROTTLE_STATUSES.Contains), null, null, null,
+            $"{_segment}: {string.Join(",", statuses)}");
+        _pacing.End();
+    }
+
+    private void StopRun(List<int> statuses)
+    {
+        var fatal = statuses.First(Backoff.FATAL_STATUSES.Contains);
+        var reason = $"status {fatal} in [{string.Join(", ", statuses)}] means the market is locked or a captcha is due";
+
+        Console.WriteLine($"Stopping the run: {reason}.");
+        Database.AddSnipeEvent("pacing", "run-stopped", (uint)fatal, null, null, null, $"{_segment}: {reason}");
+
+        throw new RunStoppedException(reason);
     }
 
     private static double ReadCalibrationRatio(string segment)
@@ -465,8 +557,11 @@ public class Fc25 : IDisposable
 
     private bool GoToNextResultsPage()
     {
+        PaceSearch(_pacing.PageTurnWaitMs(DateTime.UtcNow, PageTurnJitterMs()));
+
         var moved = _screen.TryClick(ElementKeys.RESULTS_NEXT, ShortWait);
 
+        if (moved) _pacing.RecordPageTurn(DateTime.UtcNow);
         if (moved) WaitForResultsToSettle();
 
         return moved;
@@ -508,7 +603,9 @@ public class Fc25 : IDisposable
 
     private void Search()
     {
+        PaceSearch(0);
         RequireClick(ElementKeys.SEARCH);
+        _pacing.RecordPageTurn(DateTime.UtcNow);
         RequireTitle("Search Results");
         WaitForResultsToSettle();
     }
@@ -605,7 +702,7 @@ public class Fc25 : IDisposable
 
     private bool CanPlaceMoreBids()
     {
-        return HasBidCapacity() && _segmentBidsPlaced < _segmentBidAllowance;
+        return HasBidCapacity() && _segmentBidsPlaced < _segmentBidAllowance && !_pacing.Ended;
     }
 
     private bool HasBidCapacity()
@@ -621,8 +718,9 @@ public class Fc25 : IDisposable
         {
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
             var requiredResale = Pricing.RequiredResale(minimumBid, MARGIN_COINS);
-            var resaleEstimate = GetResaleEstimate(info, requiredResale);
+            var resaleEstimate = minimumBid > maxBidCap ? null : GetResaleEstimate(info, requiredResale);
 
+            if (minimumBid > maxBidCap) Console.WriteLine($"{info}: minimum {minimumBid} is over the cap {maxBidCap}; no compare read.");
             if (resaleEstimate.HasValue)
                 PlaceBidIfWorthwhile(row, info, bidInput, minimumBid, resaleEstimate.Value, maxBidCap);
         }
@@ -660,7 +758,11 @@ public class Fc25 : IDisposable
     private bool TryRecordLowestPrice(string info, int maxPages = MAX_COMPARE_PAGES)
     {
         var recorded = false;
+
+        PaceSearch(_pacing.CompareWaitMs(DateTime.UtcNow));
+
         var clicked = DateTime.UtcNow;
+        _pacing.RecordCompareRead(clicked);
         var comparePriceList = _screen.Click(ElementKeys.COMPARE_PRICE, StandardWait)
             ? _screen.WaitVisible(ElementKeys.COMPARE_PRICE_LIST, StandardWait)
             : null;
@@ -800,8 +902,7 @@ public class Fc25 : IDisposable
             else if (list != null) prices.AddRange(ScrapeComparePage(list));
 
             clicked = DateTime.UtcNow;
-            morePages = list != null && _screen.IsVisible(ElementKeys.COMPARE_PRICE_NEXT) &&
-                        _screen.TryClick(ElementKeys.COMPARE_PRICE_NEXT, ShortWait);
+            morePages = list != null && prices.Count < MIN_COMPARE_LISTINGS && page < maxPages && TurnComparePage();
 
             if (morePages && asks == null) Thread.Sleep(1000);
         }
@@ -809,6 +910,19 @@ public class Fc25 : IDisposable
         Console.WriteLine($"Compare price read {prices.Count} listings over {page} page(s), {captured} from responses.");
 
         return (prices, page);
+    }
+
+    private bool TurnComparePage()
+    {
+        var visible = _screen.IsVisible(ElementKeys.COMPARE_PRICE_NEXT);
+
+        if (visible) PaceSearch(_pacing.CompareWaitMs(DateTime.UtcNow));
+
+        var moved = visible && _screen.TryClick(ElementKeys.COMPARE_PRICE_NEXT, ShortWait);
+
+        if (moved) _pacing.RecordCompareRead(DateTime.UtcNow);
+
+        return moved;
     }
 
     private List<uint> ScrapeComparePage(IWebElement list)
@@ -946,7 +1060,7 @@ public class Fc25 : IDisposable
 
     private bool CanWatchMore(Dictionary<string, uint> estimates)
     {
-        return estimates.Count < SNIPE_BATCH_SIZE && HasBidCapacity();
+        return estimates.Count < SNIPE_BATCH_SIZE && HasBidCapacity() && !_pacing.Ended;
     }
 
     private void TryWatchSelectedItem(IWebElement row, string info, Dictionary<string, uint> estimates)
@@ -956,13 +1070,16 @@ public class Fc25 : IDisposable
         if (bidInput != null && !estimates.ContainsKey(info))
         {
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
-            var estimate = GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, MARGIN_COINS));
+            var estimate = minimumBid > SNIPE_MAX_BID
+                ? null
+                : GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, MARGIN_COINS));
 
             if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, MARGIN_COINS, SNIPE_MAX_BID,
                     estimates.Count, SNIPE_BATCH_SIZE))
                 WatchSelectedItem(row, info, minimumBid, estimate.Value, estimates);
             else
-                Database.AddSnipeEvent(info, "skip", null, minimumBid, estimate, ReadTimeText(row), "margin");
+                Database.AddSnipeEvent(info, "skip", null, minimumBid, estimate, ReadTimeText(row),
+                    minimumBid > SNIPE_MAX_BID ? "cap" : "margin");
         }
     }
 
@@ -1026,6 +1143,8 @@ public class Fc25 : IDisposable
 
         try
         {
+            CheckBackoff();
+
             var started = DateTime.UtcNow;
             var snapshot = _screen.Snapshot(ElementKeys.TARGET_ROWS, true);
             var live = LiveWatchedRows(snapshot, estimates);

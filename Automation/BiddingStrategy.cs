@@ -11,7 +11,7 @@ public static class BiddingStrategy
     public const uint RESALE_MAX_AGE_HOURS = 6;
     public const uint OPEN_BID_TIMEOUT_HOURS = 2;
     public const int MIN_COMPARE_LISTINGS = 2;
-    public const int MAX_COMPARE_PAGES = 5;
+    public const int MAX_COMPARE_PAGES = 2;
     public const int MAX_COMPARE_PAGES_FOR_LISTING = 1;
     public const uint LOOP_MINUTES_DEFAULT = 10;
     public const int MAX_RESULT_PAGES = 100;
@@ -39,4 +39,11 @@ public static class BiddingStrategy
     public const uint SNIPE_MAX_MINUTES = 25;
     public const int SNIPE_AIM_SECONDS = 15;
     public const bool NETWORK_OBSERVER = true;
+    public const int PAGE_TURN_GAP_MS = 2500;
+    public const int PAGE_TURN_JITTER_MIN_MS = 500;
+    public const int PAGE_TURN_JITTER_MAX_MS = 1000;
+    public const int COMPARE_READ_GAP_MS = 3000;
+    public const int SEARCHES_PER_MINUTE = 20;
+    public const int SEARCHES_PER_HOUR = 300;
+    public const int BACKOFF_PAUSE_SECONDS = 60;
 }
