@@ -54,6 +54,7 @@ public static class Fc25Definitions
         COMPARE_PRICE_BACK_BUTTON,
         RESET,
         MAKE_BID,
+        WATCH,
         NEXT,
         TRANSFER_TARGETS_TOTAL,
         RARITY_DROPDOWN,
@@ -191,6 +192,7 @@ public static class Fc25Definitions
         },
         { ElementKeys.RESET, ("//button[contains(text(), 'Reset')]", "Reset") },
         { ElementKeys.MAKE_BID, ("//button[contains(text(), 'Make Bid')]", "Make Bid") },
+        { ElementKeys.WATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Watch']", "Watch") },
         { ElementKeys.NEXT, ("//button[contains(text(), 'Next')]", "Next") },
         {
             ElementKeys.TRANSFER_TARGETS_TOTAL,

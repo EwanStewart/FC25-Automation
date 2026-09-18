@@ -168,7 +168,7 @@ public class Fc25 : IDisposable
 
         if (clubItems) RunClubItemBidPass(true);
         if (clubItems && _bidsPlaced == 0) RunClubItemBidPass(false);
-        if (players && _bidsPlaced == 0) RunPlayerPasses();
+        if (players && _bidsPlaced == 0) RunSnipePass();
     }
 
     public void RunCycleSafely()
@@ -192,7 +192,7 @@ public class Fc25 : IDisposable
         RunClubItemBidPass(true);
 
         if (HasBidCapacity()) RunClubItemBidPass(false);
-        if (HasBidCapacity()) RunPlayerPasses();
+        if (HasBidCapacity()) RunSnipePass();
     }
 
     private void MaintainTransfers()
@@ -341,6 +341,12 @@ public class Fc25 : IDisposable
 
     private void BidWithFilter(Filter filterData, ElementKeys itemMarketElement)
     {
+        SearchWithFilter(filterData, itemMarketElement);
+        BidAcrossResultPages(filterData.MaxBidPrice, DEEP_RESULT_PAGES_TO_SCAN);
+    }
+
+    private void SearchWithFilter(Filter filterData, ElementKeys itemMarketElement)
+    {
         GoToTransfers();
         GoToTransferMarket();
         RequireClick(itemMarketElement);
@@ -354,7 +360,6 @@ public class Fc25 : IDisposable
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, filterData.MaxBidPrice);
         SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, filterData.MinBuyPrice);
         Search();
-        BidAcrossResultPages(filterData.MaxBidPrice, DEEP_RESULT_PAGES_TO_SCAN);
     }
 
     private void BidOnSilverPlayers(string nation)
@@ -788,6 +793,338 @@ public class Fc25 : IDisposable
             .Select(span => span.FindElement(By.XPath("./following-sibling::span")).Text)
             .Select(Utility.Utility.CommaSeperatedNumberToUInt)
             .ToList();
+    }
+
+    #endregion
+
+    #region Sniping
+
+    private void RunSnipePass()
+    {
+        var nation = NationRotation.NextExploratory(NationRotation.NATIONS, Database.GetLastSnipeNation(),
+            new HashSet<string>());
+
+        if (nation != null) RunTimedPass(Segments.SNIPE, Segments.ROLE_SNIPE, () => SnipeSilverPlayers(nation));
+    }
+
+    private void SnipeSilverPlayers(string nation)
+    {
+        Dictionary<string, uint> estimates = new();
+        Filter filter = new()
+        {
+            Quality = PLAYER_QUALITY,
+            Nationality = nation,
+            MaxBidPrice = PLAYER_MAX_BID,
+            MinBuyPrice = PLAYER_MIN_BUY_NOW
+        };
+
+        Database.AddSnipeEvent(nation, "search", null, null, null, null, _segment);
+        Console.WriteLine($"Snipe {nation}: searching silver players.");
+        SearchWithFilter(filter, ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
+        WatchAcrossResultPages(estimates);
+        Console.WriteLine($"Snipe {nation}: watching {estimates.Count} item(s).");
+
+        if (estimates.Count > 0) SnipeWatchedTargets(estimates);
+    }
+
+    private void WatchAcrossResultPages(Dictionary<string, uint> estimates)
+    {
+        var page = 0;
+        var morePages = true;
+
+        while (morePages && page < DEEP_RESULT_PAGES_TO_SCAN && CanWatchMore(estimates))
+        {
+            page++;
+            HideUnwantedRows();
+            WatchCandidatesOnPage(estimates);
+            morePages = CanWatchMore(estimates) && page < DEEP_RESULT_PAGES_TO_SCAN && !PageIsBeyondWindow() &&
+                        GoToNextResultsPage();
+        }
+    }
+
+    private bool CanWatchMore(Dictionary<string, uint> estimates)
+    {
+        return estimates.Count < SNIPE_BATCH_SIZE && _total < MAX_TRANSFER_TARGETS;
+    }
+
+    private void WatchCandidatesOnPage(Dictionary<string, uint> estimates)
+    {
+        var rows = _screen.FindAll(ElementKeys.AUCTION_ITEMS);
+        var index = 0;
+        var refreshes = 0;
+
+        while (index < rows.Count && refreshes < 3 && CanWatchMore(estimates))
+        {
+            if (TryWatchRow(rows[index], estimates))
+            {
+                index++;
+            }
+            else
+            {
+                refreshes++;
+                rows = _screen.FindAll(ElementKeys.AUCTION_ITEMS);
+            }
+        }
+    }
+
+    private bool TryWatchRow(IWebElement row, Dictionary<string, uint> estimates)
+    {
+        var processed = true;
+
+        try
+        {
+            if (ShouldConsiderRow(row) && _screen.Click(row, ShortWait))
+            {
+                _rowsConsidered++;
+                Thread.Sleep(500);
+                TryWatchSelectedItem(row, estimates);
+            }
+        }
+        catch (StaleElementReferenceException)
+        {
+            processed = false;
+        }
+
+        return processed;
+    }
+
+    private void TryWatchSelectedItem(IWebElement row, Dictionary<string, uint> estimates)
+    {
+        var info = GetItemInfo(row);
+        var bidInput = _screen.WaitVisible(ElementKeys.FIND_ALL_PRICE_INPUTS, ShortWait);
+
+        if (bidInput != null && !estimates.ContainsKey(info))
+        {
+            var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
+            var estimate = GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, MARGIN_COINS));
+
+            if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, MARGIN_COINS, SNIPE_MAX_BID,
+                    estimates.Count, SNIPE_BATCH_SIZE))
+                WatchSelectedItem(row, info, minimumBid, estimate.Value, estimates);
+            else
+                Database.AddSnipeEvent(info, "skip", null, minimumBid, estimate, ReadTimeText(row), "margin");
+        }
+    }
+
+    private void WatchSelectedItem(IWebElement row, string info, uint minimumBid, uint estimate,
+        Dictionary<string, uint> estimates)
+    {
+        var timeText = ReadTimeText(row);
+
+        if (_screen.Click(ElementKeys.WATCH, ShortWait))
+        {
+            estimates[info] = estimate;
+            _total += 1;
+            Database.AddSnipeEvent(info, "watch", null, minimumBid, estimate, timeText, null);
+            Console.WriteLine($"Watching {info} (resale estimate {estimate}, minimum {minimumBid}, {timeText}).");
+        }
+        else
+        {
+            Console.WriteLine($"Could not watch {info}.");
+        }
+    }
+
+    private void SnipeWatchedTargets(Dictionary<string, uint> estimates)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(SNIPE_MAX_MINUTES);
+        Dictionary<string, uint> standing = new();
+        var liveCount = -1;
+        var finished = false;
+
+        GoToTransfers();
+        GoToTransferTargets();
+
+        while (!finished && DateTime.UtcNow < deadline && CanPlaceMoreBids())
+        {
+            finished = SnipePoll(estimates, standing, ref liveCount);
+            if (!finished) Thread.Sleep(SNIPE_POLL_MS);
+        }
+
+        Console.WriteLine(finished
+            ? "Snipe batch finished: no watched item is still live."
+            : "Snipe loop stopped at the time or bid limit.");
+    }
+
+    private bool SnipePoll(Dictionary<string, uint> estimates, Dictionary<string, uint> standing, ref int liveCount)
+    {
+        var finished = false;
+
+        try
+        {
+            var live = ReadLiveWatchedRows(estimates);
+            finished = live.Count == 0;
+
+            if (live.Count != liveCount)
+                Console.WriteLine($"Snipe poll: {live.Count} watched item(s) live, {standing.Count} with our bid.");
+
+            liveCount = live.Count;
+
+            foreach (var (row, info, facts) in live) SnipeRowIfDue(row, info, facts, standing);
+        }
+        catch (StaleElementReferenceException)
+        {
+            Console.WriteLine("Transfer targets changed while polling.");
+        }
+
+        return finished;
+    }
+
+    private List<(IWebElement row, string info, TargetFacts facts)> ReadLiveWatchedRows(
+        Dictionary<string, uint> estimates)
+    {
+        List<(IWebElement row, string info, TargetFacts facts)> result = [];
+
+        foreach (var row in _screen.FindAll(ElementKeys.TARGET_ROWS))
+        {
+            var classes = row.GetAttribute("class") ?? string.Empty;
+            var info = Snipe.IsLive(classes) ? GetItemInfo(row) : string.Empty;
+
+            if (estimates.TryGetValue(info, out var estimate))
+                result.Add((row, info, new TargetFacts(classes, ReadRowMinutes(row), ReadRowNextBid(row), estimate)));
+        }
+
+        return result;
+    }
+
+    private static uint? ReadRowNextBid(IWebElement row)
+    {
+        var current = ReadRowValue(row, "Bid");
+        var result = ReadRowValue(row, "Start Price:");
+
+        if (current.HasValue) result = current.Value + Pricing.BidIncrement(current.Value);
+
+        return result;
+    }
+
+    private void SnipeRowIfDue(IWebElement row, string info, TargetFacts facts, Dictionary<string, uint> standing)
+    {
+        var ours = BidRow.IsOurs(facts.Classes);
+
+        if (ours && !standing.ContainsKey(info))
+            ConfirmUnrecordedBid(row, info, facts, standing);
+        else if (Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID))
+            SnipeRow(row, info, facts, standing);
+    }
+
+    private void ConfirmUnrecordedBid(IWebElement row, string info, TargetFacts facts, Dictionary<string, uint> standing)
+    {
+        var amount = ReadRowValue(row, "Bid") ?? 0;
+
+        Console.WriteLine($"Found our bid of {amount} on {info} that was not recorded; recording it.");
+        RecordSnipeBid(info, amount, facts.Estimate, standing, ReadTimeText(row), "confirmed",
+            ReadBidContext(row, amount));
+    }
+
+    private void SnipeRow(IWebElement row, string info, TargetFacts facts, Dictionary<string, uint> standing)
+    {
+        var timeText = ReadTimeText(row);
+
+        if (standing.ContainsKey(info))
+            Database.AddSnipeEvent(info, "outbid", ReadRowValue(row, "Bid"), facts.MinimumBid, facts.Estimate,
+                timeText, null);
+
+        if (_screen.Click(row, ShortWait))
+        {
+            Thread.Sleep(300);
+            var bidInput = _screen.WaitVisible(ElementKeys.FIND_ALL_PRICE_INPUTS, ShortWait);
+
+            if (bidInput != null) SnipeSelectedItem(row, info, bidInput, facts, standing, timeText);
+        }
+    }
+
+    private void SnipeSelectedItem(IWebElement row, string info, IWebElement bidInput, TargetFacts facts,
+        Dictionary<string, uint> standing, string timeText)
+    {
+        var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
+        var previous = standing.GetValueOrDefault(info);
+        var delta = minimumBid > previous ? minimumBid - previous : 0;
+        var confirmed = facts with { MinimumBid = minimumBid };
+
+        if (!Snipe.ShouldBid(confirmed, MARGIN_COINS, SNIPE_MAX_BID))
+            RecordSnipeSkip(info, minimumBid, facts.Estimate, timeText, "margin");
+        else if (!Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, delta, MAX_EXPOSURE_SHARE))
+            RecordSnipeSkip(info, minimumBid, facts.Estimate, timeText, "budget");
+        else
+            PlaceSnipeBid(info, bidInput, minimumBid, facts.Estimate, standing, timeText, ReadBidContext(row, minimumBid));
+    }
+
+    private void RecordSnipeSkip(string info, uint minimumBid, uint estimate, string timeText, string reason)
+    {
+        Database.AddSnipeEvent(info, "skip", null, minimumBid, estimate, timeText, reason);
+        Console.WriteLine($"Skipping {info} at minimum {minimumBid} (resale estimate {estimate}, {timeText}): {reason}.");
+    }
+
+    private void PlaceSnipeBid(string info, IWebElement bidInput, uint amount, uint estimate,
+        Dictionary<string, uint> standing, string timeText, BidContext context)
+    {
+        var typed = _screen.SetInputValue(bidInput, amount) == amount;
+        var clicked = typed && _screen.Click(ElementKeys.MAKE_BID, ShortWait);
+
+        if (clicked && WaitForSnipeRegistered())
+            RecordSnipeBid(info, amount, estimate, standing, timeText, standing.ContainsKey(info) ? "rebid" : "bid", context);
+        else
+            RecoverFromUnregisteredBid(info, amount, estimate, timeText);
+
+        _screen.DismissDialog();
+    }
+
+    private bool WaitForSnipeRegistered()
+    {
+        var deadline = DateTime.UtcNow + ShortWait;
+        var registered = SelectedRowIsOurs();
+
+        while (!registered && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(300);
+            registered = SelectedRowIsOurs();
+        }
+
+        return registered;
+    }
+
+    private bool SelectedRowIsOurs()
+    {
+        var row = _screen.WaitVisible(ElementKeys.SELECTED_ITEM, TimeSpan.Zero);
+
+        return row != null && BidRow.IsOurs(row.GetAttribute("class") ?? string.Empty);
+    }
+
+    private void RecordSnipeBid(string info, uint amount, uint estimate, Dictionary<string, uint> standing,
+        string timeText, string eventName, BidContext context)
+    {
+        var previous = standing.GetValueOrDefault(info);
+        var first = !standing.ContainsKey(info);
+
+        if (first) Database.AddBid(info, amount, estimate, context, _segment);
+        else Database.RaiseOpenBid(info, amount);
+
+        Database.AddSnipeEvent(info, eventName, amount, context.MinimumBid, estimate, timeText, null);
+        standing[info] = amount;
+        _bidNamesThisRun.Add(info);
+        _coinsCommitted += amount > previous ? amount - previous : 0;
+        _bidsPlaced += first ? 1u : 0u;
+        _segmentBidsPlaced += first ? 1u : 0u;
+        Console.WriteLine($"Snipe {eventName} {amount} on {info} in {_segment} (resale estimate {estimate}, {timeText}).");
+    }
+
+    private void RecoverFromUnregisteredBid(string info, uint amount, uint estimate, string timeText)
+    {
+        Console.WriteLine($"Bid on {info} at {amount} was not registered; refreshing the web app.");
+        Database.AddSnipeEvent(info, "unregistered", amount, amount, estimate, timeText, _screen.ReadTitle());
+        _screen.DismissDialog();
+        _driver.Navigate().Refresh();
+        Thread.Sleep(3000);
+        EnsureLoggedIn();
+        GoToTransfers();
+        GoToTransferTargets();
+        Database.AddSnipeEvent(info, "refresh", null, null, null, null, _screen.ReadTitle());
+    }
+
+    private static string ReadTimeText(IWebElement row)
+    {
+        var timeElements = row.FindElements(By.CssSelector(Elements[ElementKeys.ITEM_TIME_REMAINING].Item1));
+
+        return timeElements.Count > 0 ? timeElements[0].Text.Trim() : string.Empty;
     }
 
     #endregion
