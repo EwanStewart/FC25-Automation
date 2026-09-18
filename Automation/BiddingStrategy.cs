@@ -2,7 +2,7 @@
 
 public static class BiddingStrategy
 {
-    public const uint MARGIN_COINS = 50;
+    public const uint MARGIN_COINS = 1000;
     public const uint MIN_AUCTION_MINUTES = 2;
     public const uint MAX_AUCTION_MINUTES = 20;
     public const double MAX_EXPOSURE_SHARE = 0.5;
