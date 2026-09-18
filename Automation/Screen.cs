@@ -24,10 +24,17 @@ public class Screen
                         tradeId: String(auction.tradeId), secondsLeft: auction.getSecondsRemaining(),
                         bidState: auction.bidState, tradeState: auction.tradeState,
                         currentBid: auction.currentBid, startingBid: auction.startingBid,
-                        name: item._staticData ? item._staticData.name : null } : null;
-                });
+                        name: item._staticData ? item._staticData.name : null, rating: item.rating, used: false } : null;
+                }).filter(model => model !== null);
             }
         } catch (error) { models = []; }
+        const coins = text => { const parsed = parseInt(String(text).replace(/,/g, ''), 10); return isNaN(parsed) ? null : parsed; };
+        const matchModel = (name, rating, start) => {
+            const match = models.find(model => !model.used && model.name === name && String(model.rating) === rating && model.startingBid === start);
+            if (match) match.used = true;
+            return match ? { tradeId: match.tradeId, secondsLeft: match.secondsLeft, bidState: match.bidState, tradeState: match.tradeState,
+                currentBid: match.currentBid, startingBid: match.startingBid, name: match.name } : null;
+        };
         const text = (li, selector) => { const element = li.querySelector(selector); return element ? element.innerText.trim() : ''; };
         const value = (li, label) => {
             const match = Array.from(li.querySelectorAll('span.label')).find(element => element.innerText.trim() === label);
@@ -39,7 +46,7 @@ public class Screen
                 rating: text(li, 'div.rating'), position: text(li, 'div.position'), description: text(li, 'div.itemDesc'),
                 itemClasses: item ? item.className : '', time: text(li, 'div.auction-state span.time'),
                 bid: value(li, 'Bid'), start: value(li, 'Start Price:'), buyNow: value(li, 'Buy Now:'),
-                model: models.length === rows.length ? models[index] : null };
+                model: matchModel(text(li, 'div.entityContainer > div.name'), text(li, 'div.rating'), coins(value(li, 'Start Price:'))) };
         }));
         """;
 
