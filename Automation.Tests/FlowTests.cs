@@ -84,4 +84,11 @@ public class FlowTests
     {
         Assert.Equal(expected, BidRow.IsLost(classes));
     }
+
+    [Fact]
+    public void SelectedRowIsRecognisedByItsClass()
+    {
+        Assert.True(BidRow.IsSelected("listFUTItem has-auction-data selected"));
+        Assert.False(BidRow.IsSelected("listFUTItem has-auction-data"));
+    }
 }

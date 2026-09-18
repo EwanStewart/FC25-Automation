@@ -411,41 +411,42 @@ public class Fc25 : IDisposable
 
     private void HideUnwantedRows()
     {
-        try
-        {
-            var rows = _screen.FindAll(ElementKeys.RESULT_ROWS);
-            var unwanted = rows.Where(row => !RowTriage.IsCandidate(ReadRowFacts(row), MIN_AUCTION_MINUTES,
-                MAX_AUCTION_MINUTES, MARGIN_COINS)).ToList();
+        var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, false);
+        var unwanted = snapshot
+            .Where(row => !RowTriage.IsCandidate(ReadRowFacts(row), MIN_AUCTION_MINUTES, MAX_AUCTION_MINUTES, MARGIN_COINS))
+            .Select(row => row.Index)
+            .ToHashSet();
+        var rows = _screen.FindAll(ElementKeys.RESULT_ROWS);
 
-            _screen.Hide(unwanted);
-            Console.WriteLine($"Results page: {rows.Count} rows, {unwanted.Count} hidden.");
+        if (rows.Count == snapshot.Count)
+        {
+            _screen.Hide(rows.Where((_, index) => unwanted.Contains(index)).ToList());
+            Console.WriteLine($"Results page: {snapshot.Count} rows, {unwanted.Count} hidden.");
         }
-        catch (StaleElementReferenceException)
+        else
         {
             Console.WriteLine("Results page changed while hiding rows.");
         }
     }
 
-    private RowFacts ReadRowFacts(IWebElement row)
+    private RowFacts ReadRowFacts(RowSnapshot row)
     {
-        var classes = row.GetAttribute("class") ?? string.Empty;
-        var minutes = ReadRowMinutes(row);
-        RowFacts result = new(classes, minutes, false, null, null, false);
+        RowFacts result = new(row.Classes, row.MinutesLeft, false, null, null, false);
 
         if (RowTriage.IsCandidate(result, MIN_AUCTION_MINUTES, MAX_AUCTION_MINUTES, MARGIN_COINS))
-            result = ReadCachedRowFacts(row, classes, minutes);
+            result = ReadCachedRowFacts(row);
 
         return result;
     }
 
-    private RowFacts ReadCachedRowFacts(IWebElement row, string classes, uint? minutes)
+    private RowFacts ReadCachedRowFacts(RowSnapshot row)
     {
-        var info = GetItemInfo(row);
+        var info = row.Key;
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
         uint? cached = sightings.Count > 0 ? SalesFeedback.Calibrate(sightings[0].price, _calibrationRatio) : null;
         var hasSales = Database.GetRecentSales(info, RESALE_WINDOW_DAYS).Count > 0;
 
-        return new RowFacts(classes, minutes, _bidNamesThisRun.Contains(info), ReadRowValue(row, "Bid"), cached,
+        return new RowFacts(row.Classes, row.MinutesLeft, _bidNamesThisRun.Contains(info), row.BidValue, cached,
             hasSales);
     }
 
@@ -962,15 +963,18 @@ public class Fc25 : IDisposable
 
         try
         {
+            var started = DateTime.UtcNow;
             var live = ReadLiveWatchedRows(estimates);
+            var readMs = (int)(DateTime.UtcNow - started).TotalMilliseconds;
             finished = live.Count == 0;
 
             if (live.Count != liveCount)
-                Console.WriteLine($"Snipe poll: {live.Count} watched item(s) live, {standing.Count} with our bid.");
+                Console.WriteLine(
+                    $"Snipe poll: {live.Count} watched item(s) live, {standing.Count} with our bid, read in {readMs} ms, seconds left [{string.Join(", ", live.Select(entry => entry.facts.SecondsLeft?.ToString() ?? entry.row.Time))}].");
 
             liveCount = live.Count;
 
-            foreach (var (row, info, facts) in live.Where(_ => CanPlaceMoreBids())) SnipeRowIfDue(row, info, facts, standing);
+            foreach (var (row, facts) in live.Where(_ => CanPlaceMoreBids())) SnipeRowIfDue(row, facts, standing);
         }
         catch (StaleElementReferenceException)
         {
@@ -980,84 +984,85 @@ public class Fc25 : IDisposable
         return finished;
     }
 
-    private List<(IWebElement row, string info, TargetFacts facts)> ReadLiveWatchedRows(
-        Dictionary<string, uint> estimates)
+    private List<(RowSnapshot row, TargetFacts facts)> ReadLiveWatchedRows(Dictionary<string, uint> estimates)
     {
-        List<(IWebElement row, string info, TargetFacts facts)> result = [];
+        List<(RowSnapshot row, TargetFacts facts)> result = [];
 
-        foreach (var row in _screen.FindAll(ElementKeys.TARGET_ROWS))
+        foreach (var row in _screen.Snapshot(ElementKeys.TARGET_ROWS, true))
         {
-            var classes = row.GetAttribute("class") ?? string.Empty;
-            var info = Snipe.IsLive(classes) ? GetItemInfo(row) : string.Empty;
+            var model = row.TrustedModel;
 
-            if (estimates.TryGetValue(info, out var estimate))
-                result.Add((row, info, new TargetFacts(classes, ReadRowMinutes(row), ReadRowNextBid(row), estimate)));
+            if (Snipe.IsLive(row.Classes, model?.TradeState) && estimates.TryGetValue(row.Key, out var estimate))
+                result.Add((row,
+                    new TargetFacts(row.Classes, row.MinutesLeft, row.NextBid, estimate, model?.SecondsLeft,
+                        model?.BidState)));
         }
 
         return result;
     }
 
-    private static uint? ReadRowNextBid(IWebElement row)
+    private void SnipeRowIfDue(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
     {
-        var current = ReadRowValue(row, "Bid");
-        var result = ReadRowValue(row, "Start Price:");
+        var shown = row.BidValue ?? 0;
 
-        if (current.HasValue) result = current.Value + Pricing.BidIncrement(current.Value);
-
-        return result;
-    }
-
-    private void SnipeRowIfDue(IWebElement row, string info, TargetFacts facts, Dictionary<string, uint> standing)
-    {
-        var ours = BidRow.IsOurs(facts.Classes);
-        var shown = ReadRowValue(row, "Bid") ?? 0;
-
-        if (ours && shown > standing.GetValueOrDefault(info))
-            ConfirmUnrecordedBid(row, info, facts, standing);
+        if (Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key))
+            ConfirmUnrecordedBid(row, facts, standing);
         else if (Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
-            SnipeRow(row, info, facts, standing);
+            SnipeRow(row, facts, standing);
     }
 
-    private void ConfirmUnrecordedBid(IWebElement row, string info, TargetFacts facts, Dictionary<string, uint> standing)
+    private void ConfirmUnrecordedBid(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
     {
-        var amount = ReadRowValue(row, "Bid") ?? 0;
+        var amount = row.BidValue ?? 0;
 
-        Console.WriteLine($"Found our bid of {amount} on {info} that was not recorded; recording it.");
-        RecordSnipeBid(info, amount, facts.Estimate, standing, ReadTimeText(row), "confirmed",
-            ReadBidContext(row, amount));
+        Console.WriteLine($"Found our bid of {amount} on {row.Key} that was not recorded; recording it.");
+        RecordSnipeBid(row.Key, amount, facts.Estimate, standing, row.Time, "confirmed", SnapshotBidContext(row, amount));
     }
 
-    private void SnipeRow(IWebElement row, string info, TargetFacts facts, Dictionary<string, uint> standing)
+    private BidContext SnapshotBidContext(RowSnapshot row, uint minimumBid)
     {
-        var timeText = ReadTimeText(row);
+        return new BidContext(minimumBid, row.BidValue, row.BuyNowValue, row.MinutesLeft, _lastAskCount);
+    }
 
-        if (standing.ContainsKey(info))
-            Database.AddSnipeEvent(info, "outbid", ReadRowValue(row, "Bid"), facts.MinimumBid, facts.Estimate,
-                timeText, null);
+    private void SnipeRow(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
+    {
+        var element = FindTargetRow(row.Index);
 
-        if (_screen.Click(row, ShortWait))
+        if (standing.ContainsKey(row.Key))
+            Database.AddSnipeEvent(row.Key, "outbid", row.BidValue, facts.MinimumBid, facts.Estimate, row.Time,
+                facts.SecondsLeft?.ToString());
+
+        if (element != null && _screen.Click(element, ShortWait))
         {
             Thread.Sleep(300);
             var bidInput = _screen.WaitVisible(ElementKeys.FIND_ALL_PRICE_INPUTS, ShortWait);
 
-            if (bidInput != null) SnipeSelectedItem(row, info, bidInput, facts, standing, timeText);
+            if (bidInput != null) SnipeSelectedItem(row, bidInput, facts, standing);
         }
     }
 
-    private void SnipeSelectedItem(IWebElement row, string info, IWebElement bidInput, TargetFacts facts,
-        Dictionary<string, uint> standing, string timeText)
+    private IWebElement? FindTargetRow(int index)
+    {
+        var rows = _screen.FindAll(ElementKeys.TARGET_ROWS);
+
+        return index < rows.Count ? rows[index] : null;
+    }
+
+    private void SnipeSelectedItem(RowSnapshot row, IWebElement bidInput, TargetFacts facts,
+        Dictionary<string, uint> standing)
     {
         var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
-        var previous = standing.GetValueOrDefault(info);
+        var previous = standing.GetValueOrDefault(row.Key);
         var delta = minimumBid > previous ? minimumBid - previous : 0;
         var confirmed = facts with { MinimumBid = minimumBid };
 
         if (!Snipe.ShouldBid(confirmed, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
-            RecordSnipeSkip(info, minimumBid, facts.Estimate, timeText, "margin");
+            RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "margin");
         else if (!Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, delta, MAX_EXPOSURE_SHARE))
-            RecordSnipeSkip(info, minimumBid, facts.Estimate, timeText, "budget");
+            RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "budget");
         else
-            PlaceSnipeBid(info, bidInput, minimumBid, facts.Estimate, standing, timeText, ReadBidContext(row, minimumBid));
+            PlaceSnipeBid(row.Key, bidInput, minimumBid, facts.Estimate, standing, row.Time,
+                SnapshotBidContext(row, minimumBid));
     }
 
     private void RecordSnipeSkip(string info, uint minimumBid, uint estimate, string timeText, string reason)
@@ -1099,11 +1104,12 @@ public class Fc25 : IDisposable
 
     private BidOutcome ReadSelectedRowOutcome(uint amount)
     {
-        var row = _screen.WaitVisible(ElementKeys.SELECTED_ITEM, TimeSpan.Zero);
+        var selected = _screen.Snapshot(ElementKeys.TARGET_ROWS, true)
+            .FirstOrDefault(row => BidRow.IsSelected(row.Classes));
 
-        return row == null
+        return selected == null
             ? BidOutcome.Failed
-            : Snipe.Outcome(row.GetAttribute("class") ?? string.Empty, amount, ReadRowValue(row, "Bid"));
+            : Snipe.Outcome(selected.Classes, amount, selected.BidValue, selected.TrustedModel?.BidState);
     }
 
     private void RecordOvertakenBid(string info, uint amount, uint estimate, string timeText)

@@ -44,6 +44,7 @@ public static class BidRow
     private const string OUTBID_CLASS = "outbid";
     private const string EXPIRED_CLASS = "expired";
     private const string WON_CLASS = "won";
+    private const string SELECTED_CLASS = "selected";
 
     public static bool IsRegistered(string classes)
     {
@@ -55,6 +56,11 @@ public static class BidRow
     public static bool IsOurs(string classes)
     {
         return Tokens(classes).Contains(HIGHEST_BID_CLASS);
+    }
+
+    public static bool IsSelected(string classes)
+    {
+        return Tokens(classes).Contains(SELECTED_CLASS);
     }
 
     public static bool IsLost(string classes)

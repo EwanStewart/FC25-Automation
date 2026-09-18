@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using Automation.Trading;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using static Automation.Definitions.Fc25Definitions;
 
@@ -7,6 +8,40 @@ namespace Automation.Setup;
 public class Screen
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(300);
+
+    private const string SnapshotScript = """
+        const xpath = arguments[0];
+        const withModel = arguments[1];
+        const found = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        const rows = [];
+        for (let i = 0; i < found.snapshotLength; i++) rows.push(found.snapshotItem(i));
+        let models = [];
+        try {
+            if (withModel && window.repositories && repositories.Item && repositories.Item.getWatchedItems) {
+                models = repositories.Item.getWatchedItems().map(item => {
+                    const auction = item._auction;
+                    return auction ? {
+                        tradeId: String(auction.tradeId), secondsLeft: auction.getSecondsRemaining(),
+                        bidState: auction.bidState, tradeState: auction.tradeState,
+                        currentBid: auction.currentBid, startingBid: auction.startingBid,
+                        name: item._staticData ? item._staticData.name : null } : null;
+                });
+            }
+        } catch (error) { models = []; }
+        const text = (li, selector) => { const element = li.querySelector(selector); return element ? element.innerText.trim() : ''; };
+        const value = (li, label) => {
+            const match = Array.from(li.querySelectorAll('span.label')).find(element => element.innerText.trim() === label);
+            return match && match.nextElementSibling ? match.nextElementSibling.innerText.trim() : '';
+        };
+        return JSON.stringify(rows.map((li, index) => {
+            const item = li.querySelector('div.entityContainer > div.item');
+            return { index: index, classes: li.className, name: text(li, 'div.entityContainer > div.name'),
+                rating: text(li, 'div.rating'), position: text(li, 'div.position'), description: text(li, 'div.itemDesc'),
+                itemClasses: item ? item.className : '', time: text(li, 'div.auction-state span.time'),
+                bid: value(li, 'Bid'), start: value(li, 'Start Price:'), buyNow: value(li, 'Buy Now:'),
+                model: models.length === rows.length ? models[index] : null };
+        }));
+        """;
 
     private static readonly string[] DismissLabels = { "Cancel", "Close", "Ok", "Continue" };
 
@@ -33,6 +68,13 @@ public class Screen
             _driver.ExecuteScript(
                 "for (const element of arguments[0]) { element.classList.add('bot-skip'); element.style.display = 'none'; }",
                 elements);
+    }
+
+    public IReadOnlyList<RowSnapshot> Snapshot(ElementKeys key, bool withModel)
+    {
+        var json = _driver.ExecuteScript(SnapshotScript, Elements[key].Item1, withModel) as string ?? string.Empty;
+
+        return RowSnapshotParser.Parse(json);
     }
 
     public bool IsVisible(ElementKeys key)
