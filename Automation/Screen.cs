@@ -115,6 +115,20 @@ public class Screen
         return result;
     }
 
+    public IWebElement? WaitEnabled(ElementKeys key, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        IWebElement? result = FirstEnabled(key);
+
+        while (result == null && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(PollInterval);
+            result = FirstEnabled(key);
+        }
+
+        return result;
+    }
+
     public bool WaitHidden(ElementKeys key, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -127,6 +141,21 @@ public class Screen
         }
 
         return hidden;
+    }
+
+    private IWebElement? FirstEnabled(ElementKeys key)
+    {
+        IWebElement? result = null;
+
+        try
+        {
+            result = FindAll(key).FirstOrDefault(element => element.Displayed && element.Enabled);
+        }
+        catch (StaleElementReferenceException)
+        {
+        }
+
+        return result;
     }
 
     private IWebElement? FirstVisible(By locator)
@@ -186,7 +215,7 @@ public class Screen
 
         if (button != null)
         {
-            Console.WriteLine($"Dismissing dialog: {ReadDialogText()}");
+            Console.WriteLine($"Dismissing dialog with '{button.Text.Trim()}': {ReadDialogText()}");
             button.Click();
             dismissed = true;
         }

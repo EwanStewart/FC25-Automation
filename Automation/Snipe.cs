@@ -55,6 +55,11 @@ public static class Snipe
         return watched < batchSize && minimumBid <= Ceiling(estimate, marginCoins, maxBid);
     }
 
+    public static bool WatchConfirmed(bool unwatchEnabled, int? responseStatus)
+    {
+        return unwatchEnabled && (responseStatus == null || responseStatus == 200);
+    }
+
     public static bool BatchFinished(IEnumerable<string> rowClasses)
     {
         return !rowClasses.Any(IsLive);

@@ -86,6 +86,15 @@ public class SnipeTests
     }
 
     [Fact]
+    public void WatchIsConfirmedByAnEnabledUnwatchButtonAndNoRefusalFromTheServer()
+    {
+        Assert.True(Snipe.WatchConfirmed(true, 200));
+        Assert.True(Snipe.WatchConfirmed(true, null));
+        Assert.False(Snipe.WatchConfirmed(true, 461));
+        Assert.False(Snipe.WatchConfirmed(false, 200));
+    }
+
+    [Fact]
     public void BatchFinishesWhenNoWatchedRowIsStillLive()
     {
         Assert.False(Snipe.BatchFinished(new[] { $"{PLAIN} expired", $"{PLAIN} outbid" }));

@@ -1088,12 +1088,13 @@ public class Fc25 : IDisposable
     {
         var timeText = ReadTimeText(row);
 
-        if (TryWatch())
+        if (TryWatch(info))
         {
             estimates[info] = estimate;
             _total += 1;
             Database.AddSnipeEvent(info, "watch", null, minimumBid, estimate, timeText, null);
             Console.WriteLine($"Watching {info} (resale estimate {estimate}, minimum {minimumBid}, {timeText}).");
+            Thread.Sleep(WATCH_SETTLE_MS);
         }
         else
         {
@@ -1101,7 +1102,7 @@ public class Fc25 : IDisposable
         }
     }
 
-    private bool TryWatch()
+    private bool TryWatch(string info)
     {
         var attempts = 0;
         var watched = false;
@@ -1109,11 +1110,30 @@ public class Fc25 : IDisposable
         while (!watched && attempts < 2)
         {
             attempts++;
-            watched = _screen.Click(ElementKeys.WATCH, ShortWait) &&
-                      _screen.WaitVisible(ElementKeys.UNWATCH, ShortWait) != null;
+            var sent = DateTime.UtcNow;
+            watched = _screen.Click(ElementKeys.WATCH, ShortWait) && WatchAccepted(info, sent);
+            if (!watched) Thread.Sleep(WATCH_RETRY_MS);
         }
 
         return watched;
+    }
+
+    private bool WatchAccepted(string info, DateTime sent)
+    {
+        var button = _screen.WaitEnabled(ElementKeys.UNWATCH, ShortWait);
+        var response = _network.Since(sent, CaptureKind.Watch).FirstOrDefault();
+
+        if (response != null && response.Status != 200) RecordRefusedWatch(info, response);
+
+        return Snipe.WatchConfirmed(button != null, response?.Status);
+    }
+
+    private static void RecordRefusedWatch(string info, Capture response)
+    {
+        var body = response.Body.Length > 200 ? response.Body[..200] : response.Body;
+
+        Database.AddSnipeEvent(info, "watch-refused", (uint)response.Status, null, null, null, body);
+        Console.WriteLine($"Watch on {info} refused with {response.Status}: {body}");
     }
 
     private void SnipeWatchedTargets(Dictionary<string, uint> estimates)

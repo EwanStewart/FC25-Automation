@@ -7,6 +7,7 @@ public enum CaptureKind
     Search,
     TradeStatus,
     Bid,
+    Watch,
     Watchlist,
     Other
 }
@@ -67,6 +68,7 @@ public static class UtasPayloads
         else if (get && url.Contains("/trade/status", StringComparison.Ordinal)) result = CaptureKind.TradeStatus;
         else if (put && (url.Contains("/bid", StringComparison.Ordinal) || url.Contains("/auctionhouse", StringComparison.Ordinal)))
             result = CaptureKind.Bid;
+        else if (put && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watch;
         else if (get && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watchlist;
 
         return result;

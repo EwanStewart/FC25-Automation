@@ -46,4 +46,6 @@ public static class BiddingStrategy
     public const int SEARCHES_PER_MINUTE = 20;
     public const int SEARCHES_PER_HOUR = 300;
     public const int BACKOFF_PAUSE_SECONDS = 60;
+    public const int WATCH_RETRY_MS = 1000;
+    public const int WATCH_SETTLE_MS = 1500;
 }
