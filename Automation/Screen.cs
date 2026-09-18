@@ -1,4 +1,4 @@
-using OpenQA.Selenium;
+﻿using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using static Automation.Definitions.Fc25Definitions;
 
@@ -261,20 +261,42 @@ public class Screen
 
     public uint? SetInputValue(IWebElement input, uint value)
     {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        uint? result = TrySetInputValue(input, value);
+
+        while (result == null && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(PollInterval);
+            DismissDialog();
+            result = TrySetInputValue(input, value);
+        }
+
+        if (result == null) Console.WriteLine($"Could not set input to {value}.");
+
+        return result;
+    }
+
+    private uint? TrySetInputValue(IWebElement input, uint value)
+    {
         uint? result = null;
 
         try
         {
-            input.Click();
-            input.SendKeys(Keys.Control + "a");
-            input.SendKeys(Keys.Backspace);
-            input.SendKeys(value.ToString());
-            Thread.Sleep(300);
-            result = Utility.Utility.CommaSeperatedNumberToUInt(input.GetAttribute("value") ?? "0");
+            if (!IsShieldShowing())
+            {
+                input.Click();
+                input.SendKeys(Keys.Control + "a");
+                input.SendKeys(Keys.Backspace);
+                input.SendKeys(value.ToString());
+                Thread.Sleep(300);
+                result = Utility.Utility.CommaSeperatedNumberToUInt(input.GetAttribute("value") ?? "0");
+            }
         }
-        catch (WebDriverException exception)
+        catch (ElementClickInterceptedException)
         {
-            Console.WriteLine($"Could not set input to {value}: {exception.Message}");
+        }
+        catch (ElementNotInteractableException)
+        {
         }
         catch (FormatException)
         {

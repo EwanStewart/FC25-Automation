@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
+using OpenQA.Selenium;
 
 namespace Automation.Utility;
 
@@ -147,7 +148,7 @@ public static class Utility
                 action.Invoke();
                 success = true;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (!IsSessionLost(exception))
             {
                 Console.WriteLine(exception.Message);
                 retryCount++;
@@ -156,5 +157,10 @@ public static class Utility
                 else
                     return;
             }
+    }
+
+    private static bool IsSessionLost(Exception exception)
+    {
+        return exception is WebDriverException && exception.Message.Contains("invalid session id");
     }
 }

@@ -1,4 +1,4 @@
-using Automation.Flow;
+﻿using Automation.Flow;
 using Automation.Setup;
 using Automation.Trading;
 using OpenQA.Selenium;
@@ -243,11 +243,11 @@ public class Fc25
         SelectDropdownOption(ElementKeys.QUALITY_DROPDOWN, ElementKeys.QUALITY_DROPDOWN_SILVER);
         SelectDropdownOption(ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN,
             badges ? ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN_BADGES : ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN_KITS);
-        SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, 500);
-        SetSearchPrice(ElementKeys.MAX_BUY_NOW_PRICE_INPUT, 1000);
+        SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, CLUB_ITEM_MAX_BID);
+        SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, CLUB_ITEM_MIN_BUY_NOW);
         Search();
         GoToResultsPage(pageToStart);
-        BidOnAuctionItems(500);
+        BidOnAuctionItems(CLUB_ITEM_MAX_BID);
     }
 
     private void SelectDropdownOption(ElementKeys dropdown, ElementKeys option)
