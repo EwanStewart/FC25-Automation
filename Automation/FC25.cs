@@ -778,8 +778,8 @@ public class Fc25 : IDisposable
         while (morePages && page < maxPages)
         {
             page++;
-            var asks = CapturedAsks(clicked);
             var list = _screen.WaitVisible(ElementKeys.COMPARE_PRICE_LIST, ShortWait);
+            var asks = list == null ? null : ConfirmedCapturedAsks(clicked, list);
 
             if (asks != null) captured++;
             if (asks != null) prices.AddRange(asks);
@@ -799,9 +799,38 @@ public class Fc25 : IDisposable
 
     private List<uint> ScrapeComparePage(IWebElement list)
     {
-        _screen.WaitVisible(By.XPath($"{Elements[ElementKeys.COMPARE_PRICE_LIST].Item1}//span[text()='Buy Now:']"), ShortWait);
+        WaitForFirstBuyNow();
 
         return ReadBuyNowPrices(list);
+    }
+
+    private IWebElement? WaitForFirstBuyNow()
+    {
+        return _screen.WaitVisible(
+            By.XPath($"{Elements[ElementKeys.COMPARE_PRICE_LIST].Item1}//span[text()='Buy Now:']/following-sibling::span"),
+            ShortWait);
+    }
+
+    private IReadOnlyList<uint>? ConfirmedCapturedAsks(DateTime since, IWebElement list)
+    {
+        var asks = CapturedAsks(since);
+        var first = asks == null ? null : WaitForFirstBuyNow();
+        var shown = first == null ? null : ParseShownCoins(first.Text);
+        var confirmed = asks != null && shown.HasValue && asks[0] == shown.Value;
+
+        if (asks != null && !confirmed)
+            Console.WriteLine($"Captured compare page did not match the list (first ask {asks[0]}, shown {shown?.ToString() ?? "none"}); scraping instead.");
+
+        return confirmed ? asks : null;
+    }
+
+    private static uint? ParseShownCoins(string text)
+    {
+        uint? result = null;
+
+        if (uint.TryParse(text.Replace(",", ""), out var parsed)) result = parsed;
+
+        return result;
     }
 
     private IReadOnlyList<uint>? CapturedAsks(DateTime since)
