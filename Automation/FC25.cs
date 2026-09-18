@@ -138,13 +138,10 @@ public class Fc25
 
     private void SmokeTestRoutine()
     {
-        const byte pagesToTry = 3;
-
         MaintainTransfers();
+        RunClubItemBidPass(false);
 
-        for (byte page = 0; page < pagesToTry && _bidsPlaced == 0; page++) RunClubItemBidPass(false, page);
-
-        for (byte page = 0; page < pagesToTry && _bidsPlaced == 0; page++) RunClubItemBidPass(true, page);
+        if (_bidsPlaced == 0) RunClubItemBidPass(true);
     }
 
     private void MaintainTransfers()
@@ -158,21 +155,16 @@ public class Fc25
     {
         MaintainTransfers();
 
-        const byte timesToRepeat = 3;
+        RunClubItemBidPass(false);
 
-        for (byte i = 1; i < timesToRepeat && CanPlaceMoreBids(); i++)
-        {
-            RunClubItemBidPass(false, i);
+        if (CanPlaceMoreBids()) RunClubItemBidPass(true);
 
-            if (CanPlaceMoreBids()) RunClubItemBidPass(true, i);
-        }
-
-        Utility.Utility.RetryAction(() => BidOnPlayerItems(1));
+        Utility.Utility.RetryAction(() => BidOnPlayerItems());
     }
 
-    private void RunClubItemBidPass(bool badges, byte pageToStart)
+    private void RunClubItemBidPass(bool badges)
     {
-        Utility.Utility.RetryAction(() => BidOnSilverClubItems(badges, pageToStart), 2, 3000);
+        Utility.Utility.RetryAction(() => BidOnSilverClubItems(badges), 2, 3000);
     }
 
     #endregion
@@ -198,19 +190,19 @@ public class Fc25
 
     #region Market Search
 
-    private void BidOnItems(byte pageToStart, string itemType, ElementKeys itemMarketElement)
+    private void BidOnItems(string itemType, ElementKeys itemMarketElement)
     {
         var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
         var directoryPath = $@"{baseDirectory}/Configuration/Filters/Active{itemType}{_user}";
 
         if (Directory.Exists(directoryPath))
             foreach (var filterFile in Directory.GetFiles(directoryPath, "*.json"))
-                BidWithFilter(filterFile, pageToStart, itemMarketElement);
+                BidWithFilter(filterFile, itemMarketElement);
         else
             Console.WriteLine($"Directory {directoryPath} does not exist.");
     }
 
-    private void BidWithFilter(string filterFile, byte pageToStart, ElementKeys itemMarketElement)
+    private void BidWithFilter(string filterFile, ElementKeys itemMarketElement)
     {
         var filterData = JsonSerializer.Deserialize<Filter>(Utility.Utility.ReadJson(filterFile));
 
@@ -227,21 +219,20 @@ public class Fc25
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, filterData.MaxBidPrice);
         SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, filterData.MinBuyPrice);
         Search();
-        GoToResultsPage(pageToStart);
-        BidOnAuctionItems(filterData.MaxBidPrice);
+        BidAcrossResultPages(filterData.MaxBidPrice);
     }
 
-    private void BidOnPlayerItems(byte pageToStart)
+    private void BidOnPlayerItems()
     {
-        BidOnItems(pageToStart, "Player", ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
+        BidOnItems("Player", ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
     }
 
-    private void BidOnManagerItems(byte pageToStart)
+    private void BidOnManagerItems()
     {
-        BidOnItems(pageToStart, "Manager", ElementKeys.MANAGER_ITEMS_TRANSFER_MARKET);
+        BidOnItems("Manager", ElementKeys.MANAGER_ITEMS_TRANSFER_MARKET);
     }
 
-    private void BidOnSilverClubItems(bool badges, byte pageToStart)
+    private void BidOnSilverClubItems(bool badges)
     {
         GoToTransfers();
         GoToTransferMarket();
@@ -253,8 +244,29 @@ public class Fc25
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, CLUB_ITEM_MAX_BID);
         SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, CLUB_ITEM_MIN_BUY_NOW);
         Search();
-        GoToResultsPage(pageToStart);
-        BidOnAuctionItems(CLUB_ITEM_MAX_BID);
+        BidAcrossResultPages(CLUB_ITEM_MAX_BID);
+    }
+
+    private void BidAcrossResultPages(uint maxBidCap)
+    {
+        var page = 0;
+        var morePages = true;
+
+        while (morePages && page < RESULT_PAGES_TO_SCAN && CanPlaceMoreBids())
+        {
+            page++;
+            BidOnAuctionItems(maxBidCap);
+            morePages = CanPlaceMoreBids() && page < RESULT_PAGES_TO_SCAN && GoToNextResultsPage();
+        }
+    }
+
+    private bool GoToNextResultsPage()
+    {
+        var moved = _screen.IsVisible(ElementKeys.RESULTS_NEXT) && _screen.Click(ElementKeys.RESULTS_NEXT, ShortWait);
+
+        if (moved) Thread.Sleep(1500);
+
+        return moved;
     }
 
     private void SelectDropdownOption(ElementKeys dropdown, ElementKeys option)
@@ -289,15 +301,6 @@ public class Fc25
         RequireClick(ElementKeys.SEARCH);
         RequireTitle("Search Results");
         Thread.Sleep(1000);
-    }
-
-    private void GoToResultsPage(byte pageToStart)
-    {
-        for (byte page = 0; page < pageToStart; page++)
-        {
-            RequireClick(ElementKeys.NEXT);
-            Thread.Sleep(1000);
-        }
     }
 
     #endregion

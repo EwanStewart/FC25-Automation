@@ -71,7 +71,8 @@ public static class Fc25Definitions
         DIALOG,
         DIALOG_BUTTONS,
         UNSUPPORTED_BROWSER,
-        COMPARE_PRICE_NEXT
+        COMPARE_PRICE_NEXT,
+        RESULTS_NEXT
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
@@ -230,6 +231,11 @@ public static class Fc25Definitions
             ElementKeys.COMPARE_PRICE_NEXT,
             ("//section[contains(@class, 'ui-layout-right')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled'))]",
                 "Compare Price Next Page")
+        },
+        {
+            ElementKeys.RESULTS_NEXT,
+            ("//section[contains(@class, 'ui-layout-left')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled'))]",
+                "Results Next Page")
         }
     };
 }
