@@ -112,7 +112,8 @@ public static class Fc25Definitions
         },
         {
             ElementKeys.TARGET_ROWS,
-            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data')]", "Transfer Target Rows")
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and not(ancestor::div[contains(@class, 'ut-navigation-container-view') and contains(@class, 'ui-layout-right')])]",
+                "Transfer Target Rows")
         },
         {
             ElementKeys.SEND_TO_TRANSFER_LIST,
