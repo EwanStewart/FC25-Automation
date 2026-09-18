@@ -38,16 +38,18 @@ Realised sales feed back into the estimate in two ways. Both live in Automation/
 
 ### Segment demotion
 
-A segment is badges, kits, or the players of one nation. Before each pass the bot counts won and lost bids in the segment over the last seven days. Ten or more resolved bids with a win rate under 10 percent demote the segment. A demoted segment is skipped for six hours after its last bid. It is then probed with at most three bids so it can earn its way back. At maintenance time the bot marks expired and outbid rows on the Transfer Targets screen as lost. Open bids older than two hours are marked lost as a fallback.
+A segment is badges, kits, or players:snipe. Before each pass the bot counts won and lost bids in the segment over the last seven days. Ten or more resolved bids with a win rate under 10 percent demote the segment. A demoted segment is skipped for six hours after its last bid. It is then probed with at most three bids so it can earn its way back. At maintenance time the bot marks expired and outbid rows on the Transfer Targets screen as lost. Open bids older than two hours are marked lost as a fallback.
 
-### Nation rotation
+### Silver player sniping
 
-The silver player pass rotates through ten nations:
+The silver player pass no longer bids from the search results. It watches candidates and bids in the last minute of each auction from the Transfer Targets screen, where the web app updates every row in place.
 
-- England, Germany, France, Spain, Italy
-- Brazil, Argentina, Netherlands, Portugal, Belgium
+1. Search Silver players of one nation with max bid 500 and min buy now 1000. The nation advances round-robin each pass through England, Germany, France, Spain, Italy, Brazil, Argentina, Netherlands, Portugal and Belgium.
+2. Page through the results while rows fall inside the 3 to 20 minute window. Price each candidate as usual and click Watch on every item whose minimum bid sits at or below the bid ceiling, until 15 items are watched.
+3. Open Transfer Targets and poll it every two seconds. A watched item with under a minute left is bid at the minimum the auction allows. An item that flips to outbid is bid again at the new minimum, as long as that minimum still clears the margin. The ceiling is the estimate after tax minus the 1000 coin margin, capped at 1500 coins. The loop ends when no watched item is live, after 25 minutes, or at the bid limit.
+4. A bid counts only once the row shows our highest bid. A bid that does not register is logged, the web app is reloaded, the login is repeated and the loop returns to Transfer Targets. A bid found on a watched row without a record is recorded as ours.
 
-Each cycle runs up to two nations. The first is the best performer by realised profit, with win rate breaking ties, among nations with at least one win. The second is the next nation in round-robin order as an exploratory pass. Cooling nations are skipped in both roles. The filter is built in code: Silver quality, the nation, max bid 500 and min buy now 1000.
+Every step lands in the SnipeEvents table: search, watch, skip with its reason, bid, rebid, outbid, unregistered, refresh and confirmed. The Bids row for an item keeps the latest amount and counts rebids. The pass is recorded under the players:snipe segment with the snipe role.
 
 Listings undercut the market by one increment, with the start price one increment under that. If the start price would not cover what the item cost after tax, the listing goes up at break-even instead. The cost comes from the panel's "Bought For" figure or the recorded bid. The knobs, including the feedback, demotion and rotation thresholds, live in Automation/BiddingStrategy.cs.
 
