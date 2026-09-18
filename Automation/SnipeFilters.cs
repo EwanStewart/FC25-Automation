@@ -11,6 +11,7 @@ public static class SnipeFilters
     {
         new SnipeFilter("OM silvers", "Silver", League: LIGUE_1, Club: "OM"),
         new SnipeFilter("Scotland silvers", "Silver", Nationality: "Scotland"),
+        new SnipeFilter("Scotland bronzes", "Bronze", Nationality: "Scotland"),
         new SnipeFilter("PSG silvers", "Silver", League: LIGUE_1, Club: "PSG")
     };
 
