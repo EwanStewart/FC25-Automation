@@ -29,6 +29,7 @@ public class Fc25 : IDisposable
     private readonly string _smokeTarget;
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly HashSet<string> _bidNamesThisRun = new();
+    private string _segment = string.Empty;
     private int _lastAskCount;
     private int _rowsConsidered;
     private int _compareReads;
@@ -164,7 +165,7 @@ public class Fc25 : IDisposable
 
         if (clubItems) RunClubItemBidPass(true);
         if (clubItems && _bidsPlaced == 0) RunClubItemBidPass(false);
-        if (players && _bidsPlaced == 0) RunTimedPass("players", BidOnPlayerItems);
+        if (players && _bidsPlaced == 0) RunTimedPass(Segments.Players("England"), BidOnPlayerItems);
     }
 
     public void RunCycleSafely()
@@ -189,7 +190,7 @@ public class Fc25 : IDisposable
 
         if (CanPlaceMoreBids()) RunClubItemBidPass(false);
 
-        RunTimedPass("players", BidOnPlayerItems);
+        RunTimedPass(Segments.Players("England"), BidOnPlayerItems);
     }
 
     private void MaintainTransfers()
@@ -210,20 +211,21 @@ public class Fc25 : IDisposable
 
     private void RunClubItemBidPass(bool badges)
     {
-        RunTimedPass(badges ? "badges" : "kits", () => BidOnSilverClubItems(badges));
+        RunTimedPass(badges ? Segments.BADGES : Segments.KITS, () => BidOnSilverClubItems(badges));
     }
 
-    private void RunTimedPass(string label, Action pass)
+    private void RunTimedPass(string segment, Action pass)
     {
         var started = DateTime.UtcNow;
         var bidsBefore = _bidsPlaced;
         var readsBefore = _compareReads;
         _rowsConsidered = 0;
+        _segment = segment;
 
         Utility.Utility.RetryAction(pass, 2, 3000);
 
         Console.WriteLine(
-            $"Pass {label}: {_rowsConsidered} rows considered, {_compareReads - readsBefore} compare reads, {_bidsPlaced - bidsBefore} bids, {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
+            $"Pass {segment}: {_rowsConsidered} rows considered, {_compareReads - readsBefore} compare reads, {_bidsPlaced - bidsBefore} bids, {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
     }
 
     #endregion
@@ -580,12 +582,12 @@ public class Fc25 : IDisposable
 
     private void RecordBid(string info, uint amount, uint resaleEstimate, BidContext context)
     {
-        Database.AddBid(info, amount, resaleEstimate, context);
+        Database.AddBid(info, amount, resaleEstimate, context, _segment);
         _bidNamesThisRun.Add(info);
         _coinsCommitted += amount;
         _total += 1;
         _bidsPlaced += 1;
-        Console.WriteLine($"Bid {amount} on {info} (resale estimate {resaleEstimate}, {context.MinutesLeft} min left).");
+        Console.WriteLine($"Bid {amount} on {info} in {_segment} (resale estimate {resaleEstimate}, {context.MinutesLeft} min left).");
     }
 
     private static string GetItemInfo(IWebElement row)

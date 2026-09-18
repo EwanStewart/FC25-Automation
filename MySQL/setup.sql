@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS Bids (
     minutes_left INT NULL,
     ask_count INT NULL,
     listed_price INT NULL,
+    segment VARCHAR(32) NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP NULL
 );

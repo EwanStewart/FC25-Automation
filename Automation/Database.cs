@@ -124,13 +124,13 @@ public static class Database
         return result;
     }
 
-    public static void AddBid(string name, uint bid, uint resaleEstimate, BidContext context)
+    public static void AddBid(string name, uint bid, uint resaleEstimate, BidContext context, string segment)
     {
         using MySqlConnection connection = new(ConnectionString);
         try
         {
             const string query =
-                "INSERT INTO Bids (name, bid, resale_estimate, minimum_bid, current_bid, buy_now, minutes_left, ask_count) VALUES (@name, @bid, @resale, @minimum, @current, @buyNow, @minutes, @asks)";
+                "INSERT INTO Bids (name, bid, resale_estimate, minimum_bid, current_bid, buy_now, minutes_left, ask_count, segment) VALUES (@name, @bid, @resale, @minimum, @current, @buyNow, @minutes, @asks, @segment)";
 
             using MySqlCommand cmd = new(query, connection);
             cmd.Parameters.AddWithValue("@name", name);
@@ -141,6 +141,7 @@ public static class Database
             cmd.Parameters.AddWithValue("@buyNow", context.BuyNow);
             cmd.Parameters.AddWithValue("@minutes", context.MinutesLeft);
             cmd.Parameters.AddWithValue("@asks", context.AskCount);
+            cmd.Parameters.AddWithValue("@segment", segment);
 
             connection.Open();
             cmd.ExecuteNonQuery();
