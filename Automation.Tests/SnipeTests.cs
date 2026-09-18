@@ -126,11 +126,11 @@ public class SnipeTests
     [Fact]
     public void SacrificialRowIsLiveNotOursAndAlreadyOverItsCeiling()
     {
-        Assert.True(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, 1000, 2000), MARGIN, MAX_BID));
-        Assert.False(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, 900, 2000), MARGIN, MAX_BID));
-        Assert.False(Snipe.IsSacrificial(new TargetFacts($"{PLAIN} highest-bid", 3, 1000, 2000), MARGIN, MAX_BID));
-        Assert.False(Snipe.IsSacrificial(new TargetFacts($"{PLAIN} expired", 3, 1000, 2000), MARGIN, MAX_BID));
-        Assert.False(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, null, 2000), MARGIN, MAX_BID));
+        Assert.True(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, 1000, 2000), MARGIN, MAX_BID, AIM_SECONDS));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, 900, 2000), MARGIN, MAX_BID, AIM_SECONDS));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts($"{PLAIN} highest-bid", 3, 1000, 2000), MARGIN, MAX_BID, AIM_SECONDS));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts($"{PLAIN} expired", 3, 1000, 2000), MARGIN, MAX_BID, AIM_SECONDS));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, null, 2000), MARGIN, MAX_BID, AIM_SECONDS));
     }
 
     [Fact]
@@ -141,6 +141,25 @@ public class SnipeTests
         Assert.False(Snipe.WatchConfirmed(true, null, true));
         Assert.False(Snipe.WatchConfirmed(true, 461, true));
         Assert.False(Snipe.WatchConfirmed(false, 200, true));
+    }
+
+    [Fact]
+    public void BiddingOutranksTheRefreshWhenAnyRowIsDue()
+    {
+        Assert.False(Snipe.ShouldRefresh(true, true, true));
+        Assert.True(Snipe.ShouldRefresh(false, true, false));
+        Assert.True(Snipe.ShouldRefresh(false, false, true));
+        Assert.False(Snipe.ShouldRefresh(false, false, false));
+    }
+
+    [Fact]
+    public void ARowInsideTheBidWindowIsNeverSacrificed()
+    {
+        var facts = new TargetFacts(PLAIN, 0, 2000, 2000, 8, "none");
+
+        Assert.False(Snipe.IsSacrificial(facts, MARGIN, MAX_BID, AIM_SECONDS));
+        Assert.True(Snipe.IsSacrificial(facts with { SecondsLeft = 60 }, MARGIN, MAX_BID, AIM_SECONDS));
+        Assert.False(Snipe.IsSacrificial(facts with { SecondsLeft = 60, MinimumBid = 300 }, MARGIN, MAX_BID, AIM_SECONDS));
     }
 
     [Fact]

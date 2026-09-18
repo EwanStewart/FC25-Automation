@@ -84,10 +84,17 @@ public static class Snipe
         return status != 200 && status != 401;
     }
 
-    public static bool IsSacrificial(TargetFacts facts, uint marginCoins, uint maxBid)
+    public static bool IsSacrificial(TargetFacts facts, uint marginCoins, uint maxBid, int aimSeconds)
     {
-        return IsLive(facts.Classes) && !IsOurs(facts) && facts.MinimumBid.HasValue &&
+        var clearOfTheBidWindow = facts.SecondsLeft is null || facts.SecondsLeft.Value > aimSeconds;
+
+        return IsLive(facts.Classes) && !IsOurs(facts) && clearOfTheBidWindow && facts.MinimumBid.HasValue &&
                facts.MinimumBid.Value > Ceiling(facts.Estimate, marginCoins, maxBid);
+    }
+
+    public static bool ShouldRefresh(bool anyRowDue, bool anyRowFrozen, bool failedStatus)
+    {
+        return !anyRowDue && (anyRowFrozen || failedStatus);
     }
 
     public static bool WatchConfirmed(bool unwatchEnabled, int? responseStatus, bool responseRequired)

@@ -1191,11 +1191,12 @@ public class Fc25 : IDisposable
 
             var frozen = live.Where(entry => entry.facts.Frozen).Select(entry => entry.row.Key).ToList();
             var failedStatus = _network.Since(_lastRefresh, CaptureKind.TradeStatus).Any(capture => Snipe.StatusFreezesRows(capture.Status));
+            var due = live.Where(entry => RowNeedsAction(entry.row, entry.facts, standing)).ToList();
 
-            if ((frozen.Count > 0 || failedStatus) && RefreshDue())
+            if (Snipe.ShouldRefresh(due.Count > 0, frozen.Count > 0, failedStatus) && RefreshDue())
                 RefreshTransferTargets(frozen.Count > 0 ? $"frozen [{string.Join("; ", frozen)}]" : "failed status refresh");
             else
-                foreach (var (row, facts) in live.Where(_ => CanPlaceMoreBids())) SnipeRowIfDue(row, facts, standing);
+                foreach (var (row, facts) in due.Where(_ => CanPlaceMoreBids())) SnipeRowIfDue(row, facts, standing);
         }
         catch (StaleElementReferenceException)
         {
@@ -1236,6 +1237,14 @@ public class Fc25 : IDisposable
         }
 
         return result;
+    }
+
+    private bool RowNeedsAction(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
+    {
+        var shown = row.BidValue ?? 0;
+        var ourBidIsUnrecorded = Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key);
+
+        return ourBidIsUnrecorded || Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS);
     }
 
     private void SnipeRowIfDue(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
@@ -1452,7 +1461,7 @@ public class Fc25 : IDisposable
     private bool UnwatchSacrificialRow()
     {
         var live = LiveWatchedRows(_screen.Snapshot(ElementKeys.TARGET_ROWS, true), _snipeEstimates);
-        var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, MARGIN_COINS, SNIPE_MAX_BID));
+        var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS));
         var unwatched = victim.row != null && UnwatchRow(victim.row);
 
         if (unwatched)
