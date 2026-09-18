@@ -140,16 +140,23 @@ public class Fc25
     {
         const byte pagesToTry = 3;
 
+        MaintainTransfers();
+
         for (byte page = 0; page < pagesToTry && _bidsPlaced == 0; page++) RunClubItemBidPass(false, page);
 
         for (byte page = 0; page < pagesToTry && _bidsPlaced == 0; page++) RunClubItemBidPass(true, page);
     }
 
-    private void ListAndBidRoutine()
+    private void MaintainTransfers()
     {
         Utility.Utility.RetryAction(ClearItemsFromTransferTargets);
         Utility.Utility.RetryAction(ClearSoldItemsFromTransferList);
         Utility.Utility.RetryAction(ListItemsFromTransferList);
+    }
+
+    private void ListAndBidRoutine()
+    {
+        MaintainTransfers();
 
         const byte timesToRepeat = 3;
 
