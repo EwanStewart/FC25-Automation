@@ -24,6 +24,7 @@ public class Fc25 : IDisposable
 
     private readonly ChromeDriver _driver;
     private readonly Screen _screen;
+    private readonly NetworkObserver _network = new();
     private readonly string _user;
     private readonly uint _maxBids;
     private readonly string _smokeTarget;
@@ -51,6 +52,8 @@ public class Fc25 : IDisposable
         Browser browser = new(configuration);
         _driver = browser.Chrome;
         _screen = new Screen(_driver);
+
+        if (NETWORK_OBSERVER) _network.Start(_driver);
 
         try
         {
@@ -640,13 +643,14 @@ public class Fc25 : IDisposable
     private bool TryRecordLowestPrice(string info, int maxPages = MAX_COMPARE_PAGES)
     {
         var recorded = false;
+        var clicked = DateTime.UtcNow;
         var comparePriceList = _screen.Click(ElementKeys.COMPARE_PRICE, StandardWait)
             ? _screen.WaitVisible(ElementKeys.COMPARE_PRICE_LIST, StandardWait)
             : null;
 
         if (comparePriceList != null)
         {
-            var (asks, pages) = CollectComparePrices(maxPages);
+            var (asks, pages) = CollectComparePrices(maxPages, clicked);
             _compareReads++;
             var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS);
             recorded = resale > 0;
@@ -761,32 +765,61 @@ public class Fc25 : IDisposable
         return elements.Count > 0 ? elements[0].Text : string.Empty;
     }
 
-    private (List<uint> asks, int pages) CollectComparePrices(int maxPages)
+    private (List<uint> asks, int pages) CollectComparePrices(int maxPages, DateTime clicked)
     {
         List<uint> prices = [];
         var page = 0;
         var morePages = true;
+        var captured = 0;
 
         while (morePages && page < maxPages)
         {
             page++;
+            var asks = CapturedAsks(clicked);
             var list = _screen.WaitVisible(ElementKeys.COMPARE_PRICE_LIST, ShortWait);
 
-            if (list != null)
-            {
-                _screen.WaitVisible(By.XPath($"{Elements[ElementKeys.COMPARE_PRICE_LIST].Item1}//span[text()='Buy Now:']"), ShortWait);
-                prices.AddRange(ReadBuyNowPrices(list));
-            }
+            if (asks != null) captured++;
+            if (asks != null) prices.AddRange(asks);
+            else if (list != null) prices.AddRange(ScrapeComparePage(list));
 
+            clicked = DateTime.UtcNow;
             morePages = list != null && _screen.IsVisible(ElementKeys.COMPARE_PRICE_NEXT) &&
                         _screen.TryClick(ElementKeys.COMPARE_PRICE_NEXT, ShortWait);
 
-            if (morePages) Thread.Sleep(1000);
+            if (morePages && asks == null) Thread.Sleep(1000);
         }
 
-        Console.WriteLine($"Compare price read {prices.Count} listings over {page} page(s).");
+        Console.WriteLine($"Compare price read {prices.Count} listings over {page} page(s), {captured} from responses.");
 
         return (prices, page);
+    }
+
+    private List<uint> ScrapeComparePage(IWebElement list)
+    {
+        _screen.WaitVisible(By.XPath($"{Elements[ElementKeys.COMPARE_PRICE_LIST].Item1}//span[text()='Buy Now:']"), ShortWait);
+
+        return ReadBuyNowPrices(list);
+    }
+
+    private IReadOnlyList<uint>? CapturedAsks(DateTime since)
+    {
+        var deadline = DateTime.UtcNow + ShortWait;
+        var capture = LatestSearchCapture(since);
+
+        while (capture == null && _network.Enabled && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(100);
+            capture = LatestSearchCapture(since);
+        }
+
+        return capture == null ? null : UtasPayloads.Asks(capture.Body);
+    }
+
+    private Capture? LatestSearchCapture(DateTime since)
+    {
+        return _network.Since(since, CaptureKind.Search)
+            .Where(capture => capture.Url.Contains("definitionId=", StringComparison.Ordinal))
+            .MaxBy(capture => capture.Time);
     }
 
     private static List<uint> ReadBuyNowPrices(IWebElement list)
@@ -1057,7 +1090,7 @@ public class Fc25 : IDisposable
             RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "budget");
         else
             PlaceSnipeBid(row.Key, bidInput, minimumBid, facts.Estimate, standing, row.Time,
-                SnapshotBidContext(row, minimumBid), clicked);
+                SnapshotBidContext(row, minimumBid), clicked, row.TrustedModel?.TradeId);
     }
 
     private void RecordSnipeSkip(string info, uint minimumBid, uint estimate, string timeText, string reason)
@@ -1067,35 +1100,51 @@ public class Fc25 : IDisposable
     }
 
     private void PlaceSnipeBid(string info, IWebElement bidInput, uint amount, uint estimate,
-        Dictionary<string, uint> standing, string timeText, BidContext context, DateTime rowClicked)
+        Dictionary<string, uint> standing, string timeText, BidContext context, DateTime rowClicked, string? tradeId)
     {
         var typed = _screen.SetInputValue(bidInput, amount) == amount;
+        var sent = DateTime.UtcNow;
         var clicked = typed && _screen.Click(ElementKeys.MAKE_BID, ShortWait);
         var chain = $"chain {(int)(DateTime.UtcNow - rowClicked).TotalMilliseconds} ms";
-        var outcome = clicked ? WaitForSnipeOutcome(amount) : BidOutcome.Failed;
+        var (outcome, reason) = clicked ? WaitForSnipeOutcome(amount, tradeId, sent) : (BidOutcome.Failed, "click failed");
+        var detail = $"{chain}, {reason}";
 
         if (outcome == BidOutcome.Registered)
-            RecordSnipeBid(info, amount, estimate, standing, timeText, standing.ContainsKey(info) ? "rebid" : "bid", context, chain);
+            RecordSnipeBid(info, amount, estimate, standing, timeText, standing.ContainsKey(info) ? "rebid" : "bid", context, detail);
         else if (outcome == BidOutcome.Overtaken)
-            RecordOvertakenBid(info, amount, estimate, timeText, chain);
+            RecordOvertakenBid(info, amount, estimate, timeText, detail);
         else
-            RecoverFromUnregisteredBid(info, amount, estimate, timeText, $"{chain}, {DescribeSelectedRow(typed, clicked)}");
+            RecoverFromUnregisteredBid(info, amount, estimate, timeText, $"{detail}, {DescribeSelectedRow(typed, clicked)}");
 
         _screen.DismissDialog();
     }
 
-    private BidOutcome WaitForSnipeOutcome(uint amount)
+    private (BidOutcome outcome, string reason) WaitForSnipeOutcome(uint amount, string? tradeId, DateTime sent)
     {
         var deadline = DateTime.UtcNow + ShortWait;
-        var outcome = ReadSelectedRowOutcome(amount);
+        var result = ReadBidOutcome(amount, tradeId, sent);
 
-        while (outcome == BidOutcome.Failed && DateTime.UtcNow < deadline)
+        while (result.outcome == BidOutcome.Failed && !result.settled && DateTime.UtcNow < deadline)
         {
-            Thread.Sleep(300);
-            outcome = ReadSelectedRowOutcome(amount);
+            Thread.Sleep(200);
+            result = ReadBidOutcome(amount, tradeId, sent);
         }
 
-        return outcome;
+        return (result.outcome, result.reason);
+    }
+
+    private (BidOutcome outcome, string reason, bool settled) ReadBidOutcome(uint amount, string? tradeId, DateTime sent)
+    {
+        var response = tradeId == null
+            ? null
+            : _network.Since(sent, CaptureKind.Bid)
+                .Select(capture => UtasPayloads.BidResult(capture.Status, capture.Body, tradeId))
+                .FirstOrDefault(result => result != null);
+        var fromRow = ReadSelectedRowOutcome(amount);
+
+        return response != null
+            ? (response.Outcome, $"server {response.Reason}", true)
+            : (fromRow, fromRow == BidOutcome.Failed ? "no response seen" : "row state", false);
     }
 
     private BidOutcome ReadSelectedRowOutcome(uint amount)
