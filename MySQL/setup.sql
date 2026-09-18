@@ -49,3 +49,14 @@ CREATE TABLE IF NOT EXISTS CompareReads (
     page_count INT NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS Passes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    segment VARCHAR(32) NOT NULL,
+    role VARCHAR(16) NOT NULL,
+    rows_considered INT NOT NULL,
+    compare_reads INT NOT NULL,
+    bids INT NOT NULL,
+    seconds INT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

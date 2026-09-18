@@ -321,6 +321,40 @@ public static class Database
         return rows.ToDictionary(record => record.Segment);
     }
 
+    public static void AddPass(string segment, string role, int rowsConsidered, int compareReads, uint bids,
+        int seconds)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "INSERT INTO Passes (segment, role, rows_considered, compare_reads, bids, seconds) VALUES (@segment, @role, @rows, @reads, @bids, @seconds)";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@segment", segment);
+            cmd.Parameters.AddWithValue("@role", role);
+            cmd.Parameters.AddWithValue("@rows", rowsConsidered);
+            cmd.Parameters.AddWithValue("@reads", compareReads);
+            cmd.Parameters.AddWithValue("@bids", bids);
+            cmd.Parameters.AddWithValue("@seconds", seconds);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static string? GetLastExploratoryNation()
+    {
+        const string query = "SELECT segment FROM Passes WHERE role = @role ORDER BY id DESC LIMIT 1";
+        var segments = ReadRows(query, new() { ["@role"] = Segments.ROLE_EXPLORE }, reader => reader.GetString(0));
+
+        return segments.Count > 0 ? Segments.Nation(segments[0]) : null;
+    }
+
     private static List<T> ReadRows<T>(string query, Dictionary<string, object> parameters,
         Func<MySqlDataReader, T> map)
     {

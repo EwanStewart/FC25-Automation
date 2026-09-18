@@ -168,7 +168,7 @@ public class Fc25 : IDisposable
 
         if (clubItems) RunClubItemBidPass(true);
         if (clubItems && _bidsPlaced == 0) RunClubItemBidPass(false);
-        if (players && _bidsPlaced == 0) RunTimedPass(Segments.Players("England"), BidOnPlayerItems);
+        if (players && _bidsPlaced == 0) RunPlayerPasses();
     }
 
     public void RunCycleSafely()
@@ -191,9 +191,8 @@ public class Fc25 : IDisposable
         MaintainTransfers();
         RunClubItemBidPass(true);
 
-        if (CanPlaceMoreBids()) RunClubItemBidPass(false);
-
-        RunTimedPass(Segments.Players("England"), BidOnPlayerItems);
+        if (HasBidCapacity()) RunClubItemBidPass(false);
+        if (HasBidCapacity()) RunPlayerPasses();
     }
 
     private void MaintainTransfers()
@@ -214,17 +213,46 @@ public class Fc25 : IDisposable
 
     private void RunClubItemBidPass(bool badges)
     {
-        RunTimedPass(badges ? Segments.BADGES : Segments.KITS, () => BidOnSilverClubItems(badges));
+        RunTimedPass(badges ? Segments.BADGES : Segments.KITS, Segments.ROLE_CLUB, () => BidOnSilverClubItems(badges));
     }
 
-    private void RunTimedPass(string segment, Action pass)
+    private void RunPlayerPasses()
+    {
+        var records = Database.GetSegmentRecords(SEGMENT_WINDOW_DAYS);
+        var cooling = CoolingNations(records);
+        var last = Database.GetLastExploratoryNation();
+        var exploratory = NationRotation.NextExploratory(NationRotation.NATIONS, last, cooling);
+        var best = NationRotation.BestPerformer(records.Values, cooling);
+
+        Console.WriteLine(
+            $"Nation rotation: best {best ?? "none"}, exploratory {exploratory ?? "none"}, last exploratory {last ?? "none"}, cooling [{string.Join(", ", cooling)}].");
+
+        if (best != null && best != exploratory) RunPlayerPass(best, Segments.ROLE_BEST);
+        if (exploratory != null && HasBidCapacity()) RunPlayerPass(exploratory, Segments.ROLE_EXPLORE);
+    }
+
+    private void RunPlayerPass(string nation, string role)
+    {
+        RunTimedPass(Segments.Players(nation), role, () => BidOnSilverPlayers(nation));
+    }
+
+    private static HashSet<string> CoolingNations(Dictionary<string, SegmentRecord> records)
+    {
+        return NationRotation.NATIONS
+            .Where(nation => records.TryGetValue(Segments.Players(nation), out var record) &&
+                             SegmentHealth.Judge(record, DateTime.UtcNow, SEGMENT_MIN_RESOLVED_BIDS,
+                                 SEGMENT_MIN_WIN_RATE, SEGMENT_COOLDOWN_HOURS) == SegmentVerdict.Cooling)
+            .ToHashSet();
+    }
+
+    private void RunTimedPass(string segment, string role, Action pass)
     {
         var verdict = PrepareSegment(segment);
 
         if (verdict == SegmentVerdict.Cooling)
             Console.WriteLine($"Pass {segment}: skipped while cooling.");
         else
-            RunPass(segment, pass);
+            RunPass(segment, role, pass);
     }
 
     private SegmentVerdict PrepareSegment(string segment)
@@ -244,7 +272,7 @@ public class Fc25 : IDisposable
         return verdict;
     }
 
-    private void RunPass(string segment, Action pass)
+    private void RunPass(string segment, string role, Action pass)
     {
         var started = DateTime.UtcNow;
         var bidsBefore = _bidsPlaced;
@@ -253,8 +281,10 @@ public class Fc25 : IDisposable
 
         Utility.Utility.RetryAction(pass, 2, 3000);
 
+        var seconds = (int)(DateTime.UtcNow - started).TotalSeconds;
+        Database.AddPass(segment, role, _rowsConsidered, _compareReads - readsBefore, _bidsPlaced - bidsBefore, seconds);
         Console.WriteLine(
-            $"Pass {segment}: {_rowsConsidered} rows considered, {_compareReads - readsBefore} compare reads, {_bidsPlaced - bidsBefore} bids, {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
+            $"Pass {segment} ({role}): {_rowsConsidered} rows considered, {_compareReads - readsBefore} compare reads, {_bidsPlaced - bidsBefore} bids, {seconds} s.");
     }
 
     private static double ReadCalibrationRatio(string segment)
@@ -305,8 +335,11 @@ public class Fc25 : IDisposable
 
     private void BidWithFilter(string filterFile, ElementKeys itemMarketElement)
     {
-        var filterData = JsonSerializer.Deserialize<Filter>(Utility.Utility.ReadJson(filterFile));
+        BidWithFilter(JsonSerializer.Deserialize<Filter>(Utility.Utility.ReadJson(filterFile)), itemMarketElement);
+    }
 
+    private void BidWithFilter(Filter filterData, ElementKeys itemMarketElement)
+    {
         GoToTransfers();
         GoToTransferMarket();
         RequireClick(itemMarketElement);
@@ -323,9 +356,17 @@ public class Fc25 : IDisposable
         BidAcrossResultPages(filterData.MaxBidPrice, DEEP_RESULT_PAGES_TO_SCAN);
     }
 
-    private void BidOnPlayerItems()
+    private void BidOnSilverPlayers(string nation)
     {
-        BidOnItems("Player", ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
+        Filter filter = new()
+        {
+            Quality = PLAYER_QUALITY,
+            Nationality = nation,
+            MaxBidPrice = PLAYER_MAX_BID,
+            MinBuyPrice = PLAYER_MIN_BUY_NOW
+        };
+
+        BidWithFilter(filter, ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
     }
 
     private void BidOnManagerItems()
@@ -451,7 +492,12 @@ public class Fc25 : IDisposable
 
     private bool CanPlaceMoreBids()
     {
-        return _total < MAX_TRANSFER_TARGETS && _bidsPlaced < _maxBids && _segmentBidsPlaced < _segmentBidAllowance;
+        return HasBidCapacity() && _segmentBidsPlaced < _segmentBidAllowance;
+    }
+
+    private bool HasBidCapacity()
+    {
+        return _total < MAX_TRANSFER_TARGETS && _bidsPlaced < _maxBids;
     }
 
     private bool TryProcessRow(IWebElement row, uint maxBidCap)
