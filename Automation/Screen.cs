@@ -169,11 +169,16 @@ public class Screen
 
     public bool Click(ElementKeys key, TimeSpan timeout)
     {
-        var clicked = Click(Locator(Elements[key].Item1), timeout);
+        var clicked = TryClick(key, timeout);
 
         if (!clicked) Console.WriteLine($"Element '{Elements[key].Item2}' was not clicked.");
 
         return clicked;
+    }
+
+    public bool TryClick(ElementKeys key, TimeSpan timeout)
+    {
+        return Click(Locator(Elements[key].Item1), timeout);
     }
 
     public bool Click(By locator, TimeSpan timeout)

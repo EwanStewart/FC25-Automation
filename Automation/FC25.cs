@@ -94,7 +94,7 @@ public class Fc25
         switch (step)
         {
             case LoginStep.ClickLogin:
-                _screen.Click(ElementKeys.INITIAL_LOGIN, ShortWait);
+                _screen.TryClick(ElementKeys.INITIAL_LOGIN, ShortWait);
                 break;
             case LoginStep.EnterEmail:
                 SubmitCredential(ElementKeys.EMAIL_INPUT, "FC_EMAIL");
@@ -103,7 +103,7 @@ public class Fc25
                 SubmitCredential(ElementKeys.PASSWORD_INPUT, "FC_PASSWORD");
                 break;
             case LoginStep.Continue:
-                _screen.Click(ElementKeys.CONTINUE, ShortWait);
+                _screen.TryClick(ElementKeys.CONTINUE, ShortWait);
                 break;
             case LoginStep.Unsupported:
                 throw new InvalidOperationException("The web app reports an unsupported browser.");
@@ -262,7 +262,7 @@ public class Fc25
 
     private bool GoToNextResultsPage()
     {
-        var moved = _screen.Click(ElementKeys.RESULTS_NEXT, ShortWait);
+        var moved = _screen.TryClick(ElementKeys.RESULTS_NEXT, ShortWait);
 
         if (moved) WaitForResultsToSettle();
 
@@ -500,7 +500,7 @@ public class Fc25
 
             if (list != null) prices.AddRange(ReadBuyNowPrices(list));
 
-            morePages = list != null && _screen.Click(ElementKeys.COMPARE_PRICE_NEXT, TimeSpan.FromSeconds(1));
+            morePages = list != null && _screen.TryClick(ElementKeys.COMPARE_PRICE_NEXT, TimeSpan.FromSeconds(1));
 
             if (morePages) Thread.Sleep(1500);
         }
@@ -620,7 +620,7 @@ public class Fc25
 
     private void ClearNotWonItemsFromTransferTargets()
     {
-        _screen.Click(ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS, ShortWait);
+        _screen.TryClick(ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS, ShortWait);
         Database.MarkStaleOpenBidsLost(OPEN_BID_TIMEOUT_HOURS);
     }
 
