@@ -1,4 +1,5 @@
 ﻿using Automation.Flow;
+using Automation.Trading;
 using MySql.Data.MySqlClient;
 
 namespace Automation;
@@ -307,6 +308,17 @@ public static class Database
 
         return ReadRows(query, new() { ["@segment"] = segment, ["@days"] = days },
             reader => ((uint)reader.GetInt32(0), (uint)reader.GetInt32(1)));
+    }
+
+    public static Dictionary<string, SegmentRecord> GetSegmentRecords(uint days)
+    {
+        const string query =
+            "SELECT segment, SUM(outcome IN ('won', 'sold')), SUM(outcome = 'lost'), COALESCE(SUM(CASE WHEN outcome = 'sold' THEN FLOOR(sold_price * @keep) - bid ELSE 0 END), 0), MAX(timestamp) FROM Bids WHERE segment IS NOT NULL AND timestamp >= DATE_SUB(NOW(), INTERVAL @days DAY) GROUP BY segment";
+        var rows = ReadRows(query, new() { ["@days"] = days, ["@keep"] = 1 - Pricing.TAX_RATE },
+            reader => new SegmentRecord(reader.GetString(0), Convert.ToInt32(reader.GetValue(1)),
+                Convert.ToInt32(reader.GetValue(2)), Convert.ToInt64(reader.GetValue(3)), reader.GetDateTime(4)));
+
+        return rows.ToDictionary(record => record.Segment);
     }
 
     private static List<T> ReadRows<T>(string query, Dictionary<string, object> parameters,

@@ -24,4 +24,9 @@ public static class BiddingStrategy
     public const double CALIBRATION_MAX_RATIO = 1.2;
     public const int ITEM_SALES_MIN = 2;
     public const double SALES_MAX_UPLIFT = 1.5;
+    public const uint SEGMENT_WINDOW_DAYS = 7;
+    public const int SEGMENT_MIN_RESOLVED_BIDS = 10;
+    public const double SEGMENT_MIN_WIN_RATE = 0.10;
+    public const uint SEGMENT_COOLDOWN_HOURS = 6;
+    public const uint SEGMENT_PROBE_BIDS = 3;
 }

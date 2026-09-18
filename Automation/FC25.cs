@@ -31,6 +31,8 @@ public class Fc25 : IDisposable
     private readonly HashSet<string> _bidNamesThisRun = new();
     private string _segment = string.Empty;
     private double _calibrationRatio = 1.0;
+    private uint _segmentBidAllowance = uint.MaxValue;
+    private uint _segmentBidsPlaced;
     private int _lastAskCount;
     private int _rowsConsidered;
     private int _compareReads;
@@ -217,12 +219,37 @@ public class Fc25 : IDisposable
 
     private void RunTimedPass(string segment, Action pass)
     {
+        var verdict = PrepareSegment(segment);
+
+        if (verdict == SegmentVerdict.Cooling)
+            Console.WriteLine($"Pass {segment}: skipped while cooling.");
+        else
+            RunPass(segment, pass);
+    }
+
+    private SegmentVerdict PrepareSegment(string segment)
+    {
+        var record = Database.GetSegmentRecords(SEGMENT_WINDOW_DAYS)
+            .GetValueOrDefault(segment, new SegmentRecord(segment, 0, 0, 0, null));
+        var verdict = SegmentHealth.Judge(record, DateTime.UtcNow, SEGMENT_MIN_RESOLVED_BIDS, SEGMENT_MIN_WIN_RATE,
+            SEGMENT_COOLDOWN_HOURS);
+        _segment = segment;
+        _segmentBidsPlaced = 0;
+        _segmentBidAllowance = SegmentHealth.BidAllowance(verdict, SEGMENT_PROBE_BIDS);
+        _calibrationRatio = ReadCalibrationRatio(segment);
+
+        Console.WriteLine(
+            $"Segment {segment}: {record.Won} won, {record.Lost} lost, profit {record.Profit} over {SEGMENT_WINDOW_DAYS} days, verdict {verdict}.");
+
+        return verdict;
+    }
+
+    private void RunPass(string segment, Action pass)
+    {
         var started = DateTime.UtcNow;
         var bidsBefore = _bidsPlaced;
         var readsBefore = _compareReads;
         _rowsConsidered = 0;
-        _segment = segment;
-        _calibrationRatio = ReadCalibrationRatio(segment);
 
         Utility.Utility.RetryAction(pass, 2, 3000);
 
@@ -424,7 +451,7 @@ public class Fc25 : IDisposable
 
     private bool CanPlaceMoreBids()
     {
-        return _total < MAX_TRANSFER_TARGETS && _bidsPlaced < _maxBids;
+        return _total < MAX_TRANSFER_TARGETS && _bidsPlaced < _maxBids && _segmentBidsPlaced < _segmentBidAllowance;
     }
 
     private bool TryProcessRow(IWebElement row, uint maxBidCap)
@@ -616,6 +643,7 @@ public class Fc25 : IDisposable
         _coinsCommitted += amount;
         _total += 1;
         _bidsPlaced += 1;
+        _segmentBidsPlaced += 1;
         Console.WriteLine($"Bid {amount} on {info} in {_segment} (resale estimate {resaleEstimate}, {context.MinutesLeft} min left).");
     }
 
