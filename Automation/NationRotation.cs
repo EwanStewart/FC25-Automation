@@ -7,7 +7,7 @@ public static class NationRotation
         "England", "Germany", "France", "Spain", "Italy", "Brazil", "Argentina", "Netherlands", "Portugal", "Belgium"
     };
 
-    public static readonly string[] SNIPE_NATIONS = { "England", "Germany", "Italy" };
+    public static readonly string[] SNIPE_NATIONS = { "England" };
 
     public static string? NextExploratory(IReadOnlyList<string> ring, string? last, ISet<string> cooling)
     {
