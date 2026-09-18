@@ -38,6 +38,7 @@ public class Fc25 : IDisposable
     private int _rowsConsidered;
     private int _compareReads;
     private uint _total;
+    private uint _listed;
     private uint _bidsPlaced;
     private uint _coinBalance;
     private uint _coinsCommitted;
@@ -403,17 +404,23 @@ public class Fc25 : IDisposable
 
     private void BidAcrossResultPages(uint maxBidCap)
     {
+        var started = DateTime.UtcNow;
         var page = 0;
         var morePages = true;
 
-        while (morePages && page < MAX_RESULT_PAGES && CanPlaceMoreBids())
+        while (morePages && page < MAX_RESULT_PAGES && CanPlaceMoreBids() && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), CanPlaceMoreBids);
+            ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), () => CanPlaceMoreBids() && WithinScanBudget(started));
             morePages = CanPlaceMoreBids() && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
-        Console.WriteLine($"Scanned {page} result page(s).");
+        Console.WriteLine($"Scanned {page} result page(s) in {(int)(DateTime.UtcNow - started).TotalSeconds} s.");
+    }
+
+    private static bool WithinScanBudget(DateTime started)
+    {
+        return Capacity.WithinBudget(started, DateTime.UtcNow, SCAN_BUDGET_SECONDS);
     }
 
     private RowFacts ReadRowFacts(RowSnapshot row)
@@ -598,7 +605,7 @@ public class Fc25 : IDisposable
 
     private bool HasBidCapacity()
     {
-        return _total < MAX_TRANSFER_TARGETS && _bidsPlaced < _maxBids;
+        return Capacity.CanBid(_total, MAX_TRANSFER_TARGETS, _listed, MAX_TRANSFER_LIST, _bidsPlaced, _maxBids);
     }
 
     private void TryBidOnSelectedItem(IWebElement row, string info, uint maxBidCap)
@@ -920,19 +927,21 @@ public class Fc25 : IDisposable
         var page = 0;
         var morePages = true;
 
-        while (morePages && page < MAX_RESULT_PAGES && CanWatchMore(estimates))
+        var started = DateTime.UtcNow;
+
+        while (morePages && page < MAX_RESULT_PAGES && CanWatchMore(estimates) && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates), () => CanWatchMore(estimates));
+            ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates), () => CanWatchMore(estimates) && WithinScanBudget(started));
             morePages = CanWatchMore(estimates) && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
-        Console.WriteLine($"Scanned {page} result page(s).");
+        Console.WriteLine($"Scanned {page} result page(s) in {(int)(DateTime.UtcNow - started).TotalSeconds} s.");
     }
 
     private bool CanWatchMore(Dictionary<string, uint> estimates)
     {
-        return estimates.Count < SNIPE_BATCH_SIZE && _total < MAX_TRANSFER_TARGETS;
+        return estimates.Count < SNIPE_BATCH_SIZE && HasBidCapacity();
     }
 
     private void TryWatchSelectedItem(IWebElement row, string info, Dictionary<string, uint> estimates)
@@ -1488,8 +1497,10 @@ public class Fc25 : IDisposable
         RequireTitle("Transfers");
 
         var totalText = _screen.ReadText(ElementKeys.TRANSFER_TARGETS_TOTAL, ShortWait);
+        var listedText = _screen.ReadText(ElementKeys.TRANSFER_LIST_TOTAL, ShortWait);
 
         if (totalText.Length > 0) _total = Utility.Utility.CommaSeperatedNumberToUInt(totalText);
+        if (listedText.Length > 0) _listed = Utility.Utility.CommaSeperatedNumberToUInt(listedText);
     }
 
     private void GoToTransferList()

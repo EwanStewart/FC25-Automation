@@ -58,6 +58,7 @@ public static class Fc25Definitions
         UNWATCH,
         NEXT,
         TRANSFER_TARGETS_TOTAL,
+        TRANSFER_LIST_TOTAL,
         RARITY_DROPDOWN,
         MANAGER_ITEMS_TRANSFER_MARKET,
         CONTINUE,
@@ -200,6 +201,11 @@ public static class Fc25Definitions
             ElementKeys.TRANSFER_TARGETS_TOTAL,
             ("//div[contains(@class, 'ut-tile-transfer-targets')]//div[contains(@class, 'total-transfers-data')]/span[contains(@class, 'value')]",
                 "Transfer Target Total")
+        },
+        {
+            ElementKeys.TRANSFER_LIST_TOTAL,
+            ("//div[contains(@class, 'ut-tile-transfer-list')]//div[contains(@class, 'total-transfers-data')]/span[contains(@class, 'value')]",
+                "Transfer List Total")
         },
         {
             ElementKeys.RARITY_DROPDOWN,

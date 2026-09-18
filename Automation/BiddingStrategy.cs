@@ -15,6 +15,8 @@ public static class BiddingStrategy
     public const int MAX_COMPARE_PAGES_FOR_LISTING = 1;
     public const uint LOOP_MINUTES_DEFAULT = 10;
     public const int MAX_RESULT_PAGES = 100;
+    public const int SCAN_BUDGET_SECONDS = 120;
+    public const uint MAX_TRANSFER_LIST = 100;
     public const uint CLUB_ITEM_MAX_BID = 500;
     public const uint CLUB_ITEM_MIN_BUY_NOW = 1000;
     public const uint PLAYER_MAX_BID = 500;
