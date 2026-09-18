@@ -30,6 +30,8 @@ public class Fc25
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly HashSet<string> _bidNamesThisRun = new();
     private int _lastAskCount;
+    private int _rowsConsidered;
+    private int _compareReads;
     private uint _total;
     private uint _bidsPlaced;
     private uint _coinBalance;
@@ -150,7 +152,7 @@ public class Fc25
 
         if (clubItems) RunClubItemBidPass(true);
         if (clubItems && _bidsPlaced == 0) RunClubItemBidPass(false);
-        if (players && _bidsPlaced == 0) Utility.Utility.RetryAction(() => BidOnPlayerItems(), 2, 3000);
+        if (players && _bidsPlaced == 0) RunTimedPass("players", BidOnPlayerItems);
     }
 
     public void RunCycleSafely()
@@ -175,14 +177,18 @@ public class Fc25
 
         if (CanPlaceMoreBids()) RunClubItemBidPass(false);
 
-        Utility.Utility.RetryAction(() => BidOnPlayerItems());
+        RunTimedPass("players", BidOnPlayerItems);
     }
 
     private void MaintainTransfers()
     {
+        var started = DateTime.UtcNow;
+
         Utility.Utility.RetryAction(ClearItemsFromTransferTargets);
         Utility.Utility.RetryAction(ClearSoldItemsFromTransferList);
         Utility.Utility.RetryAction(ListItemsFromTransferList);
+
+        Console.WriteLine($"Maintenance took {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
     }
 
     private void ListAndBidRoutine()
@@ -192,7 +198,20 @@ public class Fc25
 
     private void RunClubItemBidPass(bool badges)
     {
-        Utility.Utility.RetryAction(() => BidOnSilverClubItems(badges), 2, 3000);
+        RunTimedPass(badges ? "badges" : "kits", () => BidOnSilverClubItems(badges));
+    }
+
+    private void RunTimedPass(string label, Action pass)
+    {
+        var started = DateTime.UtcNow;
+        var bidsBefore = _bidsPlaced;
+        var readsBefore = _compareReads;
+        _rowsConsidered = 0;
+
+        Utility.Utility.RetryAction(pass, 2, 3000);
+
+        Console.WriteLine(
+            $"Pass {label}: {_rowsConsidered} rows considered, {_compareReads - readsBefore} compare reads, {_bidsPlaced - bidsBefore} bids, {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
     }
 
     #endregion
@@ -375,6 +394,7 @@ public class Fc25
         {
             if (ShouldConsiderRow(row) && _screen.Click(row, ShortWait))
             {
+                _rowsConsidered++;
                 Thread.Sleep(500);
                 TryBidOnSelectedItem(row, maxBidCap);
             }
@@ -446,6 +466,7 @@ public class Fc25
         if (comparePriceList != null)
         {
             var (asks, pages) = CollectComparePrices(maxPages);
+            _compareReads++;
             var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS);
             recorded = resale > 0;
             _lastAskCount = asks.Count;
