@@ -398,14 +398,55 @@ public class Fc25 : IDisposable
         while (morePages && page < pagesToScan && CanPlaceMoreBids())
         {
             page++;
+            HideUnwantedRows();
             BidOnAuctionItems(maxBidCap);
             morePages = CanPlaceMoreBids() && page < pagesToScan && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
     }
 
+    private void HideUnwantedRows()
+    {
+        try
+        {
+            var rows = _screen.FindAll(ElementKeys.RESULT_ROWS);
+            var unwanted = rows.Where(row => !RowTriage.IsCandidate(ReadRowFacts(row), MIN_AUCTION_MINUTES,
+                MAX_AUCTION_MINUTES, MARGIN_COINS)).ToList();
+
+            _screen.Hide(unwanted);
+            Console.WriteLine($"Results page: {rows.Count} rows, {unwanted.Count} hidden.");
+        }
+        catch (StaleElementReferenceException)
+        {
+            Console.WriteLine("Results page changed while hiding rows.");
+        }
+    }
+
+    private RowFacts ReadRowFacts(IWebElement row)
+    {
+        var classes = row.GetAttribute("class") ?? string.Empty;
+        var minutes = ReadRowMinutes(row);
+        RowFacts result = new(classes, minutes, false, null, null, false);
+
+        if (RowTriage.IsCandidate(result, MIN_AUCTION_MINUTES, MAX_AUCTION_MINUTES, MARGIN_COINS))
+            result = ReadCachedRowFacts(row, classes, minutes);
+
+        return result;
+    }
+
+    private RowFacts ReadCachedRowFacts(IWebElement row, string classes, uint? minutes)
+    {
+        var info = GetItemInfo(row);
+        var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
+        uint? cached = sightings.Count > 0 ? SalesFeedback.Calibrate(sightings[0].price, _calibrationRatio) : null;
+        var hasSales = Database.GetRecentSales(info, RESALE_WINDOW_DAYS).Count > 0;
+
+        return new RowFacts(classes, minutes, _bidNamesThisRun.Contains(info), ReadRowValue(row, "Bid"), cached,
+            hasSales);
+    }
+
     private bool PageIsBeyondWindow()
     {
-        var rows = _screen.FindAll(ElementKeys.AUCTION_ITEMS);
+        var rows = _screen.FindAll(ElementKeys.RESULT_ROWS);
         var result = false;
 
         if (rows.Count > 0)

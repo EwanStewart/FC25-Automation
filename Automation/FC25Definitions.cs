@@ -50,6 +50,7 @@ public static class Fc25Definitions
         FIND_ALL_PRICE_INPUTS,
         SEARCH,
         AUCTION_ITEMS,
+        RESULT_ROWS,
         COMPARE_PRICE_BACK_BUTTON,
         RESET,
         MAKE_BID,
@@ -175,8 +176,13 @@ public static class Fc25Definitions
         { ElementKeys.SEARCH, ("//button[contains(text(), 'Search')]", "Search Button") },
         {
             ElementKeys.AUCTION_ITEMS,
-            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and (contains(@class, 'selected') or not(contains(@class, 'expired'))) and not(ancestor::div[contains(@class, 'ut-navigation-container-view') and contains(@class, 'ui-layout-right')])]",
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and (contains(@class, 'selected') or not(contains(@class, 'expired'))) and not(contains(@class, 'bot-skip')) and not(ancestor::div[contains(@class, 'ut-navigation-container-view') and contains(@class, 'ui-layout-right')])]",
                 "Auction Items")
+        },
+        {
+            ElementKeys.RESULT_ROWS,
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and not(ancestor::div[contains(@class, 'ut-navigation-container-view') and contains(@class, 'ui-layout-right')])]",
+                "Result Rows")
         },
         {
             ElementKeys.COMPARE_PRICE_BACK_BUTTON,

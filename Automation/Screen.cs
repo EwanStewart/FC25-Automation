@@ -27,6 +27,14 @@ public class Screen
         return _driver.FindElements(Locator(Elements[key].Item1));
     }
 
+    public void Hide(IReadOnlyCollection<IWebElement> elements)
+    {
+        if (elements.Count > 0)
+            _driver.ExecuteScript(
+                "for (const element of arguments[0]) { element.classList.add('bot-skip'); element.style.display = 'none'; }",
+                elements);
+    }
+
     public bool IsVisible(ElementKeys key)
     {
         return IsVisible(Locator(Elements[key].Item1));
