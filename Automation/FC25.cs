@@ -28,6 +28,7 @@ public class Fc25 : IDisposable
     private readonly string _user;
     private readonly uint _maxBids;
     private readonly string _smokeTarget;
+    private readonly bool _snipeOnly;
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly HashSet<string> _bidNamesThisRun = new();
     private readonly Random _random = new();
@@ -50,11 +51,12 @@ public class Fc25 : IDisposable
 
     #region Constructor
 
-    public Fc25(string configuration, bool smokeTest, string smokeTarget = "all")
+    public Fc25(string configuration, RunOptions options)
     {
         _user = configuration;
-        _maxBids = smokeTest ? 1u : uint.MaxValue;
-        _smokeTarget = smokeTarget;
+        _maxBids = options.SmokeTest ? 1u : uint.MaxValue;
+        _smokeTarget = options.SmokeTarget;
+        _snipeOnly = options.SnipeOnly;
         Browser browser = new(configuration);
         _driver = browser.Chrome;
         _screen = new Screen(_driver);
@@ -66,7 +68,7 @@ public class Fc25 : IDisposable
             EnsureLoggedIn();
             GetCoinTotal();
 
-            if (smokeTest)
+            if (options.SmokeTest)
                 SmokeTestRoutine();
             else
                 ListAndBidRoutine();
@@ -214,9 +216,9 @@ public class Fc25 : IDisposable
     public void RunCycle()
     {
         MaintainTransfers();
-        RunClubItemBidPass(true);
 
-        if (HasBidCapacity()) RunClubItemBidPass(false);
+        if (!_snipeOnly) RunClubItemBidPass(true);
+        if (!_snipeOnly && HasBidCapacity()) RunClubItemBidPass(false);
         if (HasBidCapacity()) RunSnipePass();
     }
 
