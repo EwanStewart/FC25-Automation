@@ -89,11 +89,11 @@ public class PricingTests
     }
 
     [Fact]
-    public void ResaleFromAsksIgnoresAsksAtThePriceCeiling()
+    public void ResaleFromAsksTreatsEveryAskAsPartOfTheFloor()
     {
-        Assert.Equal(1300u, Pricing.ResaleFromAsks(new uint[] { 5000, 1100, 5000, 1300, 1800, 4000 }, 3, 4800));
-        Assert.Equal(0u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 3, 4800));
-        Assert.Equal(5000u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 3));
+        Assert.Equal(5000u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 2));
+        Assert.Equal(10000u, Pricing.ResaleFromAsks(new uint[] { 10000, 10000, 10000, 10000 }, 2));
+        Assert.Equal(0u, Pricing.ResaleFromAsks(new uint[] { 3000 }, 2));
     }
 
     [Theory]

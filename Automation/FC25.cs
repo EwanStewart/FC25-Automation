@@ -446,7 +446,7 @@ public class Fc25
         if (comparePriceList != null)
         {
             var (asks, pages) = CollectComparePrices(maxPages);
-            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS, WALL_ASK);
+            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS);
             recorded = resale > 0;
             _lastAskCount = asks.Count;
 
