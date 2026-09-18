@@ -17,5 +17,5 @@ if [ -f "$stamp" ]; then
 fi
 
 if [ "$due" -eq 1 ]; then
-  exec /usr/bin/flock -n "$lock" bash -c "date +%s > '$stamp' && '$repoDir/run.sh'"
+  exec /usr/bin/flock -n -o "$lock" bash -c "date +%s > '$stamp' && '$repoDir/run.sh'"
 fi
