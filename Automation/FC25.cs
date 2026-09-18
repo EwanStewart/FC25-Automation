@@ -815,7 +815,13 @@ public class Fc25 : IDisposable
             capture = LatestSearchCapture(since);
         }
 
-        return capture == null ? null : UtasPayloads.Asks(capture.Body);
+        var asks = capture == null ? null : UtasPayloads.Asks(capture.Body);
+
+        if (capture != null && asks!.Count == 0)
+            Console.WriteLine(
+                $"Captured compare response gave no asks (status {capture.Status}, {capture.Body.Length} chars: {capture.Body[..Math.Min(120, capture.Body.Length)]}).");
+
+        return asks is { Count: > 0 } ? asks : null;
     }
 
     private Capture? LatestSearchCapture(DateTime since)
