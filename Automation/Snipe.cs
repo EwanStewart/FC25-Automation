@@ -9,10 +9,20 @@ public enum BidOutcome
     Failed
 }
 
-public readonly record struct TargetFacts(string Classes, uint? MinutesLeft, uint? MinimumBid, uint Estimate);
+public readonly record struct TargetFacts(
+    string Classes,
+    uint? MinutesLeft,
+    uint? MinimumBid,
+    uint Estimate,
+    int? SecondsLeft = null,
+    string? BidState = null);
 
 public static class Snipe
 {
+    private const string HIGHEST_STATE = "highest";
+    private const string OUTBID_STATE = "outbid";
+    private const string ACTIVE_STATE = "active";
+
     public static bool IsLive(string classes)
     {
         var tokens = classes.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
@@ -20,12 +30,22 @@ public static class Snipe
         return !tokens.Contains("expired") && !tokens.Contains("won");
     }
 
-    public static bool ShouldBid(TargetFacts facts, uint marginCoins, uint maxBid)
+    public static bool IsLive(string classes, string? tradeState)
     {
-        var underAMinute = facts.MinutesLeft is 0;
-        var open = IsLive(facts.Classes) && !BidRow.IsOurs(facts.Classes);
+        return IsLive(classes) && (tradeState == null || tradeState == ACTIVE_STATE);
+    }
 
-        return open && underAMinute && facts.MinimumBid.HasValue &&
+    public static bool IsOurs(TargetFacts facts)
+    {
+        return BidRow.IsOurs(facts.Classes) || facts.BidState == HIGHEST_STATE;
+    }
+
+    public static bool ShouldBid(TargetFacts facts, uint marginCoins, uint maxBid, int aimSeconds)
+    {
+        var due = facts.SecondsLeft.HasValue ? facts.SecondsLeft.Value <= aimSeconds : facts.MinutesLeft is 0;
+        var open = IsLive(facts.Classes) && !IsOurs(facts);
+
+        return open && due && facts.MinimumBid.HasValue &&
                facts.MinimumBid.Value <= Ceiling(facts.Estimate, marginCoins, maxBid);
     }
 
@@ -40,12 +60,13 @@ public static class Snipe
         return !rowClasses.Any(IsLive);
     }
 
-    public static BidOutcome Outcome(string classes, uint ourAmount, uint? rowBidAfter)
+    public static BidOutcome Outcome(string classes, uint ourAmount, uint? rowBidAfter, string? bidState = null)
     {
         var result = BidOutcome.Failed;
+        var overtaken = bidState == OUTBID_STATE || (rowBidAfter.HasValue && rowBidAfter.Value > ourAmount);
 
-        if (BidRow.IsOurs(classes)) result = BidOutcome.Registered;
-        else if (rowBidAfter.HasValue && rowBidAfter.Value > ourAmount) result = BidOutcome.Overtaken;
+        if (BidRow.IsOurs(classes) || bidState == HIGHEST_STATE) result = BidOutcome.Registered;
+        else if (overtaken) result = BidOutcome.Overtaken;
 
         return result;
     }

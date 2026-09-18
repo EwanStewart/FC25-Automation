@@ -1014,7 +1014,7 @@ public class Fc25 : IDisposable
 
         if (ours && shown > standing.GetValueOrDefault(info))
             ConfirmUnrecordedBid(row, info, facts, standing);
-        else if (Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID))
+        else if (Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
             SnipeRow(row, info, facts, standing);
     }
 
@@ -1052,7 +1052,7 @@ public class Fc25 : IDisposable
         var delta = minimumBid > previous ? minimumBid - previous : 0;
         var confirmed = facts with { MinimumBid = minimumBid };
 
-        if (!Snipe.ShouldBid(confirmed, MARGIN_COINS, SNIPE_MAX_BID))
+        if (!Snipe.ShouldBid(confirmed, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
             RecordSnipeSkip(info, minimumBid, facts.Estimate, timeText, "margin");
         else if (!Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, delta, MAX_EXPOSURE_SHARE))
             RecordSnipeSkip(info, minimumBid, facts.Estimate, timeText, "budget");

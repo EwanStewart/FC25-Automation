@@ -8,9 +8,26 @@ public class SnipeTests
     private const uint MARGIN = 1000;
     private const uint MAX_BID = 1500;
 
+    private const int AIM_SECONDS = 10;
+
     private static bool ShouldBid(string classes, uint? minutes, uint? minimumBid, uint estimate)
     {
-        return Snipe.ShouldBid(new TargetFacts(classes, minutes, minimumBid, estimate), MARGIN, MAX_BID);
+        return Snipe.ShouldBid(new TargetFacts(classes, minutes, minimumBid, estimate), MARGIN, MAX_BID, AIM_SECONDS);
+    }
+
+    private static bool ShouldBidWithModel(string classes, int secondsLeft, string bidState)
+    {
+        return Snipe.ShouldBid(new TargetFacts(classes, 0, 300, 2000, secondsLeft, bidState), MARGIN, MAX_BID,
+            AIM_SECONDS);
+    }
+
+    [Fact]
+    public void ExactSecondsTakePrecedenceOverTheMinuteText()
+    {
+        Assert.True(ShouldBidWithModel(PLAIN, 10, "none"));
+        Assert.True(ShouldBidWithModel(PLAIN, 3, "outbid"));
+        Assert.False(ShouldBidWithModel(PLAIN, 11, "none"));
+        Assert.False(ShouldBidWithModel(PLAIN, 5, "highest"));
     }
 
     [Fact]
@@ -60,6 +77,15 @@ public class SnipeTests
     }
 
     [Fact]
+    public void ModelTradeStateEndsARowTheDomStillShowsAsLive()
+    {
+        Assert.True(Snipe.IsLive(PLAIN, "active"));
+        Assert.True(Snipe.IsLive(PLAIN, null));
+        Assert.False(Snipe.IsLive(PLAIN, "expired"));
+        Assert.False(Snipe.IsLive($"{PLAIN} expired", "active"));
+    }
+
+    [Fact]
     public void BatchFinishesWhenNoWatchedRowIsStillLive()
     {
         Assert.False(Snipe.BatchFinished(new[] { $"{PLAIN} expired", $"{PLAIN} outbid" }));
@@ -83,6 +109,14 @@ public class SnipeBidOutcomeTests
     {
         Assert.Equal(BidOutcome.Overtaken, Snipe.Outcome($"{PLAIN} outbid", 900, 1000));
         Assert.Equal(BidOutcome.Overtaken, Snipe.Outcome(PLAIN, 900, 1000));
+    }
+
+    [Fact]
+    public void ModelBidStateSettlesTheOutcomeWhenPresent()
+    {
+        Assert.Equal(BidOutcome.Registered, Snipe.Outcome(PLAIN, 900, 900, "highest"));
+        Assert.Equal(BidOutcome.Overtaken, Snipe.Outcome(PLAIN, 900, 900, "outbid"));
+        Assert.Equal(BidOutcome.Failed, Snipe.Outcome(PLAIN, 900, 900, "none"));
     }
 
     [Fact]
