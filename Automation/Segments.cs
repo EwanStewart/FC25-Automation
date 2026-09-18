@@ -7,6 +7,8 @@ public static class Segments
     public const string ROLE_CLUB = "club";
     public const string ROLE_BEST = "best";
     public const string ROLE_EXPLORE = "explore";
+    public const string ROLE_SNIPE = "snipe";
+    public const string SNIPE = "players:snipe";
     private const string PLAYERS_PREFIX = "players:";
 
     public static string Players(string nation)
