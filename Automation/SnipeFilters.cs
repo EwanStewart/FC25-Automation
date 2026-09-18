@@ -5,14 +5,10 @@ public sealed record SnipeFilter(string Name, string Quality, string? Nationalit
 
 public static class SnipeFilters
 {
-    public const string LIGUE_1 = "Ligue 1 McDonald's (FRA 1)";
-
     public static readonly IReadOnlyList<SnipeFilter> RING = new[]
     {
-        new SnipeFilter("OM silvers", "Silver", League: LIGUE_1, Club: "OM"),
-        new SnipeFilter("Scotland silvers", "Silver", Nationality: "Scotland"),
         new SnipeFilter("Scotland bronzes", "Bronze", Nationality: "Scotland"),
-        new SnipeFilter("PSG silvers", "Silver", League: LIGUE_1, Club: "PSG")
+        new SnipeFilter("Scotland silvers", "Silver", Nationality: "Scotland")
     };
 
     public static SnipeFilter Next(IReadOnlyList<SnipeFilter> ring, string? lastName)
