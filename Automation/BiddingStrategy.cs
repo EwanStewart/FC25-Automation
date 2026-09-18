@@ -48,4 +48,5 @@ public static class BiddingStrategy
     public const int BACKOFF_PAUSE_SECONDS = 60;
     public const int WATCH_RETRY_MS = 1000;
     public const int WATCH_SETTLE_MS = 1500;
+    public const int REFRESH_GAP_SECONDS = 10;
 }

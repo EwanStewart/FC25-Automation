@@ -85,6 +85,53 @@ public class SnipeTests
         Assert.False(Snipe.IsLive($"{PLAIN} expired", "active"));
     }
 
+    [Theory]
+    [InlineData(10, 1000)]
+    [InlineData(29, 1000)]
+    [InlineData(30, 5000)]
+    [InlineData(59, 5000)]
+    [InlineData(60, 120000)]
+    [InlineData(599, 120000)]
+    [InlineData(600, 600000)]
+    public void RefreshIntervalFollowsTheAppsTiers(int secondsLeft, int expectedMs)
+    {
+        Assert.Equal(expectedMs, Snipe.RefreshIntervalMs(secondsLeft));
+    }
+
+    [Fact]
+    public void RowIsFrozenWhenItsAgeExceedsTwiceTheRefreshIntervalOfTheTierItWasLastUpdatedIn()
+    {
+        Assert.False(Snipe.IsFrozen(1500, 20));
+        Assert.True(Snipe.IsFrozen(2001, 20));
+        Assert.False(Snipe.IsFrozen(9000, 45));
+        Assert.True(Snipe.IsFrozen(10001, 45));
+        Assert.False(Snipe.IsFrozen(100000, 300));
+        Assert.True(Snipe.IsFrozen(240001, 300));
+        Assert.False(Snipe.IsFrozen(4000, 28));
+        Assert.False(Snipe.IsFrozen(100000, 58));
+        Assert.False(Snipe.IsFrozen(null, 20));
+        Assert.False(Snipe.IsFrozen(5000, null));
+    }
+
+    [Fact]
+    public void FailedStatusRefreshFreezesRowsExceptA401TheClientRetries()
+    {
+        Assert.False(Snipe.StatusFreezesRows(200));
+        Assert.False(Snipe.StatusFreezesRows(401));
+        Assert.True(Snipe.StatusFreezesRows(512));
+        Assert.True(Snipe.StatusFreezesRows(429));
+    }
+
+    [Fact]
+    public void SacrificialRowIsLiveNotOursAndAlreadyOverItsCeiling()
+    {
+        Assert.True(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, 1000, 2000), MARGIN, MAX_BID));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, 900, 2000), MARGIN, MAX_BID));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts($"{PLAIN} highest-bid", 3, 1000, 2000), MARGIN, MAX_BID));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts($"{PLAIN} expired", 3, 1000, 2000), MARGIN, MAX_BID));
+        Assert.False(Snipe.IsSacrificial(new TargetFacts(PLAIN, 3, null, 2000), MARGIN, MAX_BID));
+    }
+
     [Fact]
     public void WatchIsConfirmedByAnEnabledUnwatchButtonAndNoRefusalFromTheServer()
     {

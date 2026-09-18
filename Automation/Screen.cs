@@ -24,6 +24,7 @@ public class Screen
                         tradeId: String(auction.tradeId), secondsLeft: auction.getSecondsRemaining(),
                         bidState: auction.bidState, tradeState: auction.tradeState,
                         currentBid: auction.currentBid, startingBid: auction.startingBid,
+                        updating: auction.isUpdating === true, ageMs: typeof auction.getAge === 'function' ? auction.getAge() : null,
                         name: item._staticData ? item._staticData.name : null, rating: item.rating, used: false } : null;
                 }).filter(model => model !== null);
             }
@@ -33,7 +34,7 @@ public class Screen
             const match = models.find(model => !model.used && model.name === name && String(model.rating) === rating && model.startingBid === start);
             if (match) match.used = true;
             return match ? { tradeId: match.tradeId, secondsLeft: match.secondsLeft, bidState: match.bidState, tradeState: match.tradeState,
-                currentBid: match.currentBid, startingBid: match.startingBid, name: match.name } : null;
+                currentBid: match.currentBid, startingBid: match.startingBid, name: match.name, updating: match.updating, ageMs: match.ageMs } : null;
         };
         const text = (li, selector) => { const element = li.querySelector(selector); return element ? element.innerText.trim() : ''; };
         const value = (li, label) => {

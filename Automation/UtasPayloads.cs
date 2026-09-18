@@ -8,6 +8,7 @@ public enum CaptureKind
     TradeStatus,
     Bid,
     Watch,
+    Unwatch,
     Watchlist,
     Other
 }
@@ -63,12 +64,14 @@ public static class UtasPayloads
         var utas = url.Contains("/ut/game/", StringComparison.Ordinal);
         var get = utas && method.Equals("GET", StringComparison.OrdinalIgnoreCase);
         var put = utas && method.Equals("PUT", StringComparison.OrdinalIgnoreCase);
+        var delete = utas && method.Equals("DELETE", StringComparison.OrdinalIgnoreCase);
 
         if (get && url.Contains("/transfermarket", StringComparison.Ordinal)) result = CaptureKind.Search;
         else if (get && url.Contains("/trade/status", StringComparison.Ordinal)) result = CaptureKind.TradeStatus;
         else if (put && (url.Contains("/bid", StringComparison.Ordinal) || url.Contains("/auctionhouse", StringComparison.Ordinal)))
             result = CaptureKind.Bid;
         else if (put && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watch;
+        else if (delete && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Unwatch;
         else if (get && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watchlist;
 
         return result;

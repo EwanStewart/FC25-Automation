@@ -10,7 +10,9 @@ public sealed record ModelSnapshot(
     string? TradeState,
     uint? CurrentBid,
     uint? StartingBid,
-    string? Name);
+    string? Name,
+    bool? Updating = null,
+    int? AgeMs = null);
 
 public sealed record RowSnapshot(
     int Index,

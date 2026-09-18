@@ -15,13 +15,16 @@ public readonly record struct TargetFacts(
     uint? MinimumBid,
     uint Estimate,
     int? SecondsLeft = null,
-    string? BidState = null);
+    string? BidState = null,
+    bool Frozen = false);
 
 public static class Snipe
 {
     private const string HIGHEST_STATE = "highest";
     private const string OUTBID_STATE = "outbid";
     private const string ACTIVE_STATE = "active";
+    private static readonly (int secondsLeft, int refreshMs)[] REFRESH_TIERS = { (30, 1000), (60, 5000), (600, 120000) };
+    private const int SLOWEST_REFRESH_MS = 600000;
 
     public static bool IsLive(string classes)
     {
@@ -53,6 +56,37 @@ public static class Snipe
         int batchSize)
     {
         return watched < batchSize && minimumBid <= Ceiling(estimate, marginCoins, maxBid);
+    }
+
+    public static int RefreshIntervalMs(int secondsLeft)
+    {
+        var tier = REFRESH_TIERS.FirstOrDefault(entry => secondsLeft < entry.secondsLeft);
+
+        return tier == default ? SLOWEST_REFRESH_MS : tier.refreshMs;
+    }
+
+    public static bool IsFrozen(int? ageMs, int? secondsLeft)
+    {
+        var result = false;
+
+        if (ageMs.HasValue && secondsLeft.HasValue)
+        {
+            var secondsAtLastUpdate = secondsLeft.Value + ageMs.Value / 1000;
+            result = ageMs.Value > 2 * RefreshIntervalMs(secondsAtLastUpdate);
+        }
+
+        return result;
+    }
+
+    public static bool StatusFreezesRows(int status)
+    {
+        return status != 200 && status != 401;
+    }
+
+    public static bool IsSacrificial(TargetFacts facts, uint marginCoins, uint maxBid)
+    {
+        return IsLive(facts.Classes) && !IsOurs(facts) && facts.MinimumBid.HasValue &&
+               facts.MinimumBid.Value > Ceiling(facts.Estimate, marginCoins, maxBid);
     }
 
     public static bool WatchConfirmed(bool unwatchEnabled, int? responseStatus)

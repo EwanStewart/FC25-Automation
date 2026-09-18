@@ -7,7 +7,7 @@ public class RowSnapshotTests
     private const string JSON = """
         [
           {"index":0,"classes":"listFUTItem has-auction-data outbid","name":"Voll","rating":"72","position":"GK","description":"","itemClasses":"item player silver","time":"<30 Seconds","bid":"1,000","start":"300","buyNow":"10,000",
-           "model":{"tradeId":"123","secondsLeft":21,"bidState":"outbid","tradeState":"active","currentBid":1000,"startingBid":300,"name":"Voll"}},
+           "model":{"tradeId":"123","secondsLeft":21,"bidState":"outbid","tradeState":"active","currentBid":1000,"startingBid":300,"name":"Voll","updating":true,"ageMs":4300}},
           {"index":1,"classes":"listFUTItem has-auction-data","name":"Rapid Wien","rating":"","position":"","description":"","itemClasses":"item badge silver","time":"3 Minutes","bid":"---","start":"350","buyNow":"5,000","model":null},
           {"index":2,"classes":"listFUTItem has-auction-data","name":"Marseiler","rating":"70","position":"LM","description":"","itemClasses":"item player","time":"1 Minute","bid":"---","start":"300","buyNow":"10,000",
            "model":{"tradeId":"9","secondsLeft":70,"bidState":"none","tradeState":"active","currentBid":0,"startingBid":550,"name":"Other"}}
@@ -49,6 +49,9 @@ public class RowSnapshotTests
         var rows = Rows();
 
         Assert.Equal(21, rows[0].TrustedModel?.SecondsLeft);
+        Assert.True(rows[0].TrustedModel?.Updating);
+        Assert.Equal(4300, rows[0].TrustedModel?.AgeMs);
+        Assert.Null(rows[2].Model?.AgeMs);
         Assert.Null(rows[1].TrustedModel);
         Assert.Null(rows[2].TrustedModel);
     }

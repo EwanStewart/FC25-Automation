@@ -33,6 +33,8 @@ public class Fc25 : IDisposable
     private readonly Random _random = new();
     private PassPacing _pacing = new(PAGE_TURN_GAP_MS, COMPARE_READ_GAP_MS);
     private DateTime _passStarted = DateTime.UtcNow;
+    private DateTime _lastRefresh = DateTime.MinValue;
+    private Dictionary<string, uint> _snipeEstimates = new();
     private string _segment = string.Empty;
     private double _calibrationRatio = 1.0;
     private uint _segmentBidAllowance = uint.MaxValue;
@@ -1032,6 +1034,7 @@ public class Fc25 : IDisposable
             MinBuyPrice = PLAYER_MIN_BUY_NOW
         };
 
+        _snipeEstimates = estimates;
         Database.AddSnipeEvent(nation, "search", null, null, null, null, _segment);
         Console.WriteLine($"Snipe {nation}: searching silver players.");
         SearchWithFilter(filter, ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
@@ -1145,6 +1148,7 @@ public class Fc25 : IDisposable
 
         GoToTransfers();
         GoToTransferTargets();
+        _lastRefresh = DateTime.UtcNow;
 
         while (!finished && DateTime.UtcNow < deadline && CanPlaceMoreBids())
         {
@@ -1179,7 +1183,13 @@ public class Fc25 : IDisposable
 
             liveCount = live.Count;
 
-            foreach (var (row, facts) in live.Where(_ => CanPlaceMoreBids())) SnipeRowIfDue(row, facts, standing);
+            var frozen = live.Where(entry => entry.facts.Frozen).Select(entry => entry.row.Key).ToList();
+            var failedStatus = _network.Since(_lastRefresh, CaptureKind.TradeStatus).Any(capture => Snipe.StatusFreezesRows(capture.Status));
+
+            if ((frozen.Count > 0 || failedStatus) && RefreshDue())
+                RefreshTransferTargets(frozen.Count > 0 ? $"frozen [{string.Join("; ", frozen)}]" : "failed status refresh");
+            else
+                foreach (var (row, facts) in live.Where(_ => CanPlaceMoreBids())) SnipeRowIfDue(row, facts, standing);
         }
         catch (StaleElementReferenceException)
         {
@@ -1216,7 +1226,7 @@ public class Fc25 : IDisposable
             if (Snipe.IsLive(row.Classes, model?.TradeState) && estimates.TryGetValue(row.Key, out var estimate))
                 result.Add((row,
                     new TargetFacts(row.Classes, row.MinutesLeft, row.NextBid, estimate, model?.SecondsLeft,
-                        model?.BidState)));
+                        model?.BidState, Snipe.IsFrozen(model?.AgeMs, model?.SecondsLeft))));
         }
 
         return result;
@@ -1387,15 +1397,86 @@ public class Fc25 : IDisposable
 
     private void RecoverFromUnregisteredBid(string info, uint amount, uint estimate, string timeText, string detail)
     {
-        Console.WriteLine($"Bid on {info} at {amount} was not registered ({detail}); refreshing the web app.");
+        Console.WriteLine($"Bid on {info} at {amount} was not registered ({detail}); refreshing transfer targets.");
         Database.AddSnipeEvent(info, "unregistered", amount, amount, estimate, timeText, detail);
+        _screen.DismissDialog();
+        RefreshTransferTargets($"unregistered bid on {info}");
+    }
+
+    private bool RefreshDue()
+    {
+        return (DateTime.UtcNow - _lastRefresh).TotalSeconds >= REFRESH_GAP_SECONDS;
+    }
+
+    private void RefreshTransferTargets(string reason)
+    {
+        var dirtied = ClearExpiredTargets() || UnwatchSacrificialRow();
+        var method = dirtied ? "dirty" : "reload";
+
+        if (dirtied) GoToTransfers();
+        if (dirtied) GoToTransferTargets();
+        else ReloadWebApp();
+
+        _lastRefresh = DateTime.UtcNow;
+        Database.AddSnipeEvent("targets", "refresh", null, null, null, null, $"{method}: {reason}");
+        Console.WriteLine($"Refreshed transfer targets ({method}): {reason}.");
+    }
+
+    private bool ClearExpiredTargets()
+    {
+        var visible = _screen.IsVisible(ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS);
+
+        if (visible) MarkExpiredTargets();
+
+        return visible && _screen.TryClick(ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS, ShortWait);
+    }
+
+    private void MarkExpiredTargets()
+    {
+        var expired = _screen.FindAll(ElementKeys.TARGET_ROWS)
+            .Where(row => !Snipe.IsLive(row.GetAttribute("class") ?? string.Empty) &&
+                          BidRow.IsLost(row.GetAttribute("class") ?? string.Empty))
+            .ToList();
+
+        foreach (var row in expired) MarkLostTarget(row);
+    }
+
+    private bool UnwatchSacrificialRow()
+    {
+        var live = LiveWatchedRows(_screen.Snapshot(ElementKeys.TARGET_ROWS, true), _snipeEstimates);
+        var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, MARGIN_COINS, SNIPE_MAX_BID));
+        var unwatched = victim.row != null && UnwatchRow(victim.row);
+
+        if (unwatched)
+            Database.AddSnipeEvent(victim.row!.Key, "unwatch", null, victim.facts.MinimumBid, victim.facts.Estimate,
+                victim.row.Time, "sacrificed to refresh the list");
+        if (unwatched) Console.WriteLine($"Unwatched {victim.row!.Key} to refresh the list.");
+
+        return unwatched;
+    }
+
+    private bool UnwatchRow(RowSnapshot row)
+    {
+        var element = FindTargetRow(row.Index);
+        var sent = DateTime.UtcNow;
+        var clicked = element != null && _screen.Click(element, ShortWait) &&
+                      _screen.Click(ElementKeys.UNWATCH, ShortWait);
+
+        if (clicked) Thread.Sleep(500);
+
+        var response = _network.Since(sent, CaptureKind.Unwatch).FirstOrDefault();
+
+        return clicked && (response == null || response.Status == 200);
+    }
+
+    private void ReloadWebApp()
+    {
         _screen.DismissDialog();
         _driver.Navigate().Refresh();
         Thread.Sleep(3000);
         EnsureLoggedIn();
         GoToTransfers();
         GoToTransferTargets();
-        Database.AddSnipeEvent(info, "refresh", null, null, null, null, _screen.ReadTitle());
     }
 
     private static string ReadTimeText(IWebElement row)
