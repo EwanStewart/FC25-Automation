@@ -348,7 +348,7 @@ public class Fc25 : IDisposable
     private void BidWithFilter(Filter filterData, ElementKeys itemMarketElement)
     {
         SearchWithFilter(filterData, itemMarketElement);
-        BidAcrossResultPages(filterData.MaxBidPrice, DEEP_RESULT_PAGES_TO_SCAN);
+        BidAcrossResultPages(filterData.MaxBidPrice);
     }
 
     private void SearchWithFilter(Filter filterData, ElementKeys itemMarketElement)
@@ -398,20 +398,22 @@ public class Fc25 : IDisposable
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, CLUB_ITEM_MAX_BID);
         SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, CLUB_ITEM_MIN_BUY_NOW);
         Search();
-        BidAcrossResultPages(CLUB_ITEM_MAX_BID, badges ? RESULT_PAGES_TO_SCAN : DEEP_RESULT_PAGES_TO_SCAN);
+        BidAcrossResultPages(CLUB_ITEM_MAX_BID);
     }
 
-    private void BidAcrossResultPages(uint maxBidCap, byte pagesToScan)
+    private void BidAcrossResultPages(uint maxBidCap)
     {
         var page = 0;
         var morePages = true;
 
-        while (morePages && page < pagesToScan && CanPlaceMoreBids())
+        while (morePages && page < MAX_RESULT_PAGES && CanPlaceMoreBids())
         {
             page++;
             ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), CanPlaceMoreBids);
-            morePages = CanPlaceMoreBids() && page < pagesToScan && !PageIsBeyondWindow() && GoToNextResultsPage();
+            morePages = CanPlaceMoreBids() && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
+
+        Console.WriteLine($"Scanned {page} result page(s).");
     }
 
     private RowFacts ReadRowFacts(RowSnapshot row)
@@ -918,13 +920,14 @@ public class Fc25 : IDisposable
         var page = 0;
         var morePages = true;
 
-        while (morePages && page < DEEP_RESULT_PAGES_TO_SCAN && CanWatchMore(estimates))
+        while (morePages && page < MAX_RESULT_PAGES && CanWatchMore(estimates))
         {
             page++;
             ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates), () => CanWatchMore(estimates));
-            morePages = CanWatchMore(estimates) && page < DEEP_RESULT_PAGES_TO_SCAN && !PageIsBeyondWindow() &&
-                        GoToNextResultsPage();
+            morePages = CanWatchMore(estimates) && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
+
+        Console.WriteLine($"Scanned {page} result page(s).");
     }
 
     private bool CanWatchMore(Dictionary<string, uint> estimates)
