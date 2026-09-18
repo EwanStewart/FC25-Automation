@@ -60,13 +60,14 @@ public static class UtasPayloads
     {
         var result = CaptureKind.Other;
         var utas = url.Contains("/ut/game/", StringComparison.Ordinal);
-        var put = method.Equals("PUT", StringComparison.OrdinalIgnoreCase);
+        var get = utas && method.Equals("GET", StringComparison.OrdinalIgnoreCase);
+        var put = utas && method.Equals("PUT", StringComparison.OrdinalIgnoreCase);
 
-        if (utas && url.Contains("/transfermarket", StringComparison.Ordinal)) result = CaptureKind.Search;
-        else if (utas && url.Contains("/trade/status", StringComparison.Ordinal)) result = CaptureKind.TradeStatus;
-        else if (utas && put && (url.Contains("/bid", StringComparison.Ordinal) || url.Contains("/auctionhouse", StringComparison.Ordinal)))
+        if (get && url.Contains("/transfermarket", StringComparison.Ordinal)) result = CaptureKind.Search;
+        else if (get && url.Contains("/trade/status", StringComparison.Ordinal)) result = CaptureKind.TradeStatus;
+        else if (put && (url.Contains("/bid", StringComparison.Ordinal) || url.Contains("/auctionhouse", StringComparison.Ordinal)))
             result = CaptureKind.Bid;
-        else if (utas && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watchlist;
+        else if (get && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watchlist;
 
         return result;
     }
