@@ -34,6 +34,15 @@ public class RowTriageTests
     }
 
     [Fact]
+    public void WithNoLowerBoundRowsInTheirLastMinuteAreCandidatesButEndedRowsAreNot()
+    {
+        Assert.True(RowTriage.IsCandidate(new RowFacts(PLAIN, 0, false, 300, null, false), 0, 20, 1000));
+        Assert.True(RowTriage.IsCandidate(new RowFacts($"{PLAIN} outbid", 0, false, 300, null, false), 0, 20, 1000));
+        Assert.False(RowTriage.IsCandidate(new RowFacts($"{PLAIN} expired", 0, false, 300, null, false), 0, 20, 1000));
+        Assert.False(RowTriage.IsCandidate(new RowFacts($"{PLAIN} won", 0, false, 300, null, false), 0, 20, 1000));
+    }
+
+    [Fact]
     public void CachedPriceBelowTheRequiredResaleRulesTheRowOutUnlessItHasSales()
     {
         Assert.False(IsCandidate(new RowFacts(PLAIN, 5, false, 300, 1300, false)));

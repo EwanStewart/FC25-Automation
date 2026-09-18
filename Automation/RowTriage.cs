@@ -16,7 +16,7 @@ public static class RowTriage
     {
         var inWindow = facts.MinutesLeft.HasValue &&
                        Pricing.IsWithinBidWindow(facts.MinutesLeft.Value, minMinutes, maxMinutes);
-        var result = inWindow && !BidRow.IsOurs(facts.Classes) && !facts.AlreadyBid;
+        var result = inWindow && Snipe.IsLive(facts.Classes) && !BidRow.IsOurs(facts.Classes) && !facts.AlreadyBid;
 
         if (result && facts.CachedResale.HasValue && !facts.HasSales)
             result = facts.CachedResale.Value >= Pricing.RequiredResale(facts.RowBid ?? 0, marginCoins);
