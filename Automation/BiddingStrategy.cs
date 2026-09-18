@@ -18,4 +18,10 @@ public static class BiddingStrategy
     public const byte DEEP_RESULT_PAGES_TO_SCAN = 12;
     public const uint CLUB_ITEM_MAX_BID = 500;
     public const uint CLUB_ITEM_MIN_BUY_NOW = 1000;
+    public const uint CALIBRATION_WINDOW_DAYS = 14;
+    public const int CALIBRATION_PRIOR_WEIGHT = 5;
+    public const double CALIBRATION_MIN_RATIO = 0.5;
+    public const double CALIBRATION_MAX_RATIO = 1.2;
+    public const int ITEM_SALES_MIN = 2;
+    public const double SALES_MAX_UPLIFT = 1.5;
 }

@@ -292,6 +292,45 @@ public static class Database
         return result;
     }
 
+    public static List<uint> GetRecentSales(string name, uint days)
+    {
+        const string query =
+            "SELECT price FROM ItemSales WHERE name = @name AND timestamp >= DATE_SUB(NOW(), INTERVAL @days DAY) ORDER BY timestamp DESC";
+
+        return ReadRows(query, new() { ["@name"] = name, ["@days"] = days }, reader => (uint)reader.GetInt32(0));
+    }
+
+    public static List<(uint sold, uint estimate)> GetSegmentSaleRatios(string segment, uint days)
+    {
+        const string query =
+            "SELECT sold_price, resale_estimate FROM Bids WHERE segment = @segment AND outcome = 'sold' AND sold_price IS NOT NULL AND resolved_at >= DATE_SUB(NOW(), INTERVAL @days DAY)";
+
+        return ReadRows(query, new() { ["@segment"] = segment, ["@days"] = days },
+            reader => ((uint)reader.GetInt32(0), (uint)reader.GetInt32(1)));
+    }
+
+    private static List<T> ReadRows<T>(string query, Dictionary<string, object> parameters,
+        Func<MySqlDataReader, T> map)
+    {
+        List<T> result = [];
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            using MySqlCommand cmd = new(query, connection);
+            foreach (var (key, value) in parameters) cmd.Parameters.AddWithValue(key, value);
+
+            connection.Open();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) result.Add(map(reader));
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+
+        return result;
+    }
+
     private static void ExecuteWithName(string query, string name)
     {
         using MySqlConnection connection = new(ConnectionString);

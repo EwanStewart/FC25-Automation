@@ -30,6 +30,7 @@ public class Fc25 : IDisposable
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly HashSet<string> _bidNamesThisRun = new();
     private string _segment = string.Empty;
+    private double _calibrationRatio = 1.0;
     private int _lastAskCount;
     private int _rowsConsidered;
     private int _compareReads;
@@ -221,11 +222,23 @@ public class Fc25 : IDisposable
         var readsBefore = _compareReads;
         _rowsConsidered = 0;
         _segment = segment;
+        _calibrationRatio = ReadCalibrationRatio(segment);
 
         Utility.Utility.RetryAction(pass, 2, 3000);
 
         Console.WriteLine(
             $"Pass {segment}: {_rowsConsidered} rows considered, {_compareReads - readsBefore} compare reads, {_bidsPlaced - bidsBefore} bids, {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
+    }
+
+    private static double ReadCalibrationRatio(string segment)
+    {
+        var sales = Database.GetSegmentSaleRatios(segment, CALIBRATION_WINDOW_DAYS);
+        var ratio = SalesFeedback.CalibrationRatio(sales, CALIBRATION_PRIOR_WEIGHT, CALIBRATION_MIN_RATIO,
+            CALIBRATION_MAX_RATIO);
+
+        Console.WriteLine($"Segment {segment}: calibration ratio {ratio:F3} from {sales.Count} sale(s).");
+
+        return ratio;
     }
 
     #endregion
@@ -473,15 +486,31 @@ public class Fc25 : IDisposable
 
     private uint? GetResaleEstimate(string info, uint requiredResale)
     {
+        var sales = Database.GetRecentSales(info, RESALE_WINDOW_DAYS);
+        var askEstimate = GetCalibratedAskEstimate(info, requiredResale);
+        var result = SalesFeedback.Resale(sales, askEstimate, ITEM_SALES_MIN, SALES_MAX_UPLIFT);
+
+        if (sales.Count > 0)
+            Console.WriteLine(
+                $"{info}: {sales.Count} sale(s), ask estimate {askEstimate?.ToString() ?? "none"}, resale {result}.");
+
+        return result;
+    }
+
+    private uint? GetCalibratedAskEstimate(string info, uint requiredResale)
+    {
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
-        var knownCheap = sightings.Count > 0 && sightings[0].price < requiredResale;
+        var knownCheap = sightings.Count > 0 &&
+                         SalesFeedback.Calibrate(sightings[0].price, _calibrationRatio) < requiredResale;
         var stale = sightings.Count == 0 ||
                     Pricing.IsStale(sightings[0].timestamp, DateTime.UtcNow, RESALE_MAX_AGE_HOURS);
 
         if (stale && !knownCheap && TryRecordLowestPrice(info))
             sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
 
-        return Pricing.EstimateResale(sightings.Select(sighting => sighting.price), RESALE_SAMPLE_SIZE);
+        var askEstimate = Pricing.EstimateResale(sightings.Select(sighting => sighting.price), RESALE_SAMPLE_SIZE);
+
+        return askEstimate.HasValue ? SalesFeedback.Calibrate(askEstimate.Value, _calibrationRatio) : null;
     }
 
     private bool TryRecordLowestPrice(string info, int maxPages = MAX_COMPARE_PAGES)
