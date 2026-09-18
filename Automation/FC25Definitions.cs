@@ -21,6 +21,7 @@ public static class Fc25Definitions
         INITIAL_LOGIN,
         SECOND_LOGIN,
         PASSWORD_INPUT,
+        EMAIL_INPUT,
         LEFT_HAND_PANE_TRANSFERS,
         TRANSFER_TARGETS,
         CLEAR_NOT_WON_TRANSFER_TARGETS,
@@ -72,6 +73,7 @@ public static class Fc25Definitions
             ("#Login button.btn-standard.primary", "Initial Login Button")
         },
         { ElementKeys.PASSWORD_INPUT, ("#password", "Password Input") },
+        { ElementKeys.EMAIL_INPUT, ("#email", "Email Input") },
         { ElementKeys.SECOND_LOGIN, ("//*[@id=\"logInBtn\"]", "Second Login Button") },
         {
             ElementKeys.LEFT_HAND_PANE_TRANSFERS,

@@ -104,10 +104,17 @@ public class Browser
 
     private void CopyAuthenticationFiles(string profileDirectory)
     {
+        var destinationProfile = Path.Combine(profileDirectory, "Default");
+
+        if (!File.Exists(Path.Combine(destinationProfile, "Cookies"))) CopyAuthenticationFilesInto(destinationProfile);
+    }
+
+    private void CopyAuthenticationFilesInto(string destinationProfile)
+    {
         var (userDataDir, _, profile) = FetchConfigurationFromJson();
         var sourceRoot = ExpandHome(userDataDir);
         var sourceProfile = Path.Combine(sourceRoot, profile);
-        var destinationProfile = Path.Combine(profileDirectory, "Default");
+        var profileDirectory = Path.GetDirectoryName(destinationProfile)!;
 
         Directory.CreateDirectory(destinationProfile);
         CopyFileIfExists(Path.Combine(sourceRoot, "Local State"), Path.Combine(profileDirectory, "Local State"));

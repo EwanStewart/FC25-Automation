@@ -65,6 +65,7 @@ public class Fc25
             Elements[ElementKeys.INITIAL_LOGIN]
         );
 
+        EnterEmailIfPrompted();
         EnterPasswordIfPrompted();
 
         Browser.WaitAndClickElementByXPath(
@@ -80,10 +81,23 @@ public class Fc25
         );
     }
 
+    private void EnterEmailIfPrompted()
+    {
+        var email = Utility.Utility.GetSecret("FC_EMAIL");
+        var emailInput = WaitForVisibleInput(ElementKeys.EMAIL_INPUT);
+
+        if (email.Length > 0 && emailInput != null)
+        {
+            emailInput.Clear();
+            emailInput.SendKeys(email);
+            Browser.WaitAndClickElementByXPath(_driver, StandardWait, Elements[ElementKeys.SECOND_LOGIN]);
+        }
+    }
+
     private void EnterPasswordIfPrompted()
     {
         var password = Utility.Utility.GetSecret("FC_PASSWORD");
-        var passwordInput = WaitForPasswordInput();
+        var passwordInput = WaitForVisibleInput(ElementKeys.PASSWORD_INPUT);
 
         if (password.Length > 0 && passwordInput != null)
         {
@@ -92,18 +106,17 @@ public class Fc25
         }
     }
 
-    private IWebElement? WaitForPasswordInput()
+    private IWebElement? WaitForVisibleInput(ElementKeys key)
     {
         IWebElement? result = null;
 
         try
         {
-            result = _wait.Until(
-                ExpectedConditions.ElementIsVisible(By.CssSelector(Elements[ElementKeys.PASSWORD_INPUT].Item1)));
+            result = _wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector(Elements[key].Item1)));
         }
         catch (WebDriverTimeoutException)
         {
-            Console.WriteLine("Password prompt did not appear.");
+            Console.WriteLine($"{Elements[key].Item2} did not appear.");
         }
 
         return result;
@@ -700,7 +713,7 @@ public class Fc25
     private void GetCoinTotal()
     {
         var coinTotalAsString = Browser.WaitAndGetElementTextByXPath(_driver,
-            StandardWait,
+            FirstPageLoadWait,
             Elements[ElementKeys.COIN_TOTAL]
         );
 
