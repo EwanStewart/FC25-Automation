@@ -106,7 +106,8 @@ public class SnipeTests
         Assert.False(Snipe.IsFrozen(9000, 45));
         Assert.True(Snipe.IsFrozen(10001, 45));
         Assert.False(Snipe.IsFrozen(100000, 300));
-        Assert.True(Snipe.IsFrozen(240001, 300));
+        Assert.False(Snipe.IsFrozen(240001, 300));
+        Assert.False(Snipe.IsFrozen(30000, 61));
         Assert.False(Snipe.IsFrozen(4000, 28));
         Assert.False(Snipe.IsFrozen(100000, 58));
         Assert.False(Snipe.IsFrozen(null, 20));
@@ -135,10 +136,11 @@ public class SnipeTests
     [Fact]
     public void WatchIsConfirmedByAnEnabledUnwatchButtonAndNoRefusalFromTheServer()
     {
-        Assert.True(Snipe.WatchConfirmed(true, 200));
-        Assert.True(Snipe.WatchConfirmed(true, null));
-        Assert.False(Snipe.WatchConfirmed(true, 461));
-        Assert.False(Snipe.WatchConfirmed(false, 200));
+        Assert.True(Snipe.WatchConfirmed(true, 200, true));
+        Assert.True(Snipe.WatchConfirmed(true, null, false));
+        Assert.False(Snipe.WatchConfirmed(true, null, true));
+        Assert.False(Snipe.WatchConfirmed(true, 461, true));
+        Assert.False(Snipe.WatchConfirmed(false, 200, true));
     }
 
     [Fact]

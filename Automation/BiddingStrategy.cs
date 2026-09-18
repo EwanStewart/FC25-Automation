@@ -38,6 +38,7 @@ public static class BiddingStrategy
     public const int SNIPE_POLL_MS = 1000;
     public const uint SNIPE_MAX_MINUTES = 25;
     public const int SNIPE_AIM_SECONDS = 15;
+    public const uint SNIPE_WATCH_MIN_MINUTES = 2;
     public const bool NETWORK_OBSERVER = true;
     public const int PAGE_TURN_GAP_MS = 2500;
     public const int PAGE_TURN_JITTER_MIN_MS = 500;

@@ -8,12 +8,16 @@ public static class Segments
     public const string ROLE_BEST = "best";
     public const string ROLE_EXPLORE = "explore";
     public const string ROLE_SNIPE = "snipe";
-    public const string SNIPE = "players:snipe";
     private const string PLAYERS_PREFIX = "players:";
 
     public static string Players(string nation)
     {
         return $"{PLAYERS_PREFIX}{nation}";
+    }
+
+    public static string Snipe(string filterName)
+    {
+        return $"{PLAYERS_PREFIX}{filterName.Trim().ToLowerInvariant().Replace(' ', '-')}";
     }
 
     public static string? Nation(string segment)

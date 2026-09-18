@@ -11,4 +11,11 @@ public class SegmentTests
         Assert.Equal("England", Segments.Nation("players:England"));
         Assert.Null(Segments.Nation("kits"));
     }
+
+    [Fact]
+    public void SnipeSegmentIsNamedAfterItsFilter()
+    {
+        Assert.Equal("players:om-silvers", Segments.Snipe("OM silvers"));
+        Assert.Equal("players:psg-silvers", Segments.Snipe(" PSG silvers "));
+    }
 }

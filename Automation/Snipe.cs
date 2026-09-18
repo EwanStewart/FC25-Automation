@@ -23,6 +23,7 @@ public static class Snipe
     private const string HIGHEST_STATE = "highest";
     private const string OUTBID_STATE = "outbid";
     private const string ACTIVE_STATE = "active";
+    private const int FAST_TIER_SECONDS = 60;
     private static readonly (int secondsLeft, int refreshMs)[] REFRESH_TIERS = { (30, 1000), (60, 5000), (600, 120000) };
     private const int SLOWEST_REFRESH_MS = 600000;
 
@@ -69,7 +70,7 @@ public static class Snipe
     {
         var result = false;
 
-        if (ageMs.HasValue && secondsLeft.HasValue)
+        if (ageMs.HasValue && secondsLeft.HasValue && secondsLeft.Value <= FAST_TIER_SECONDS)
         {
             var secondsAtLastUpdate = secondsLeft.Value + ageMs.Value / 1000;
             result = ageMs.Value > 2 * RefreshIntervalMs(secondsAtLastUpdate);
@@ -89,9 +90,11 @@ public static class Snipe
                facts.MinimumBid.Value > Ceiling(facts.Estimate, marginCoins, maxBid);
     }
 
-    public static bool WatchConfirmed(bool unwatchEnabled, int? responseStatus)
+    public static bool WatchConfirmed(bool unwatchEnabled, int? responseStatus, bool responseRequired)
     {
-        return unwatchEnabled && (responseStatus == null || responseStatus == 200);
+        var accepted = responseStatus == 200 || (responseStatus == null && !responseRequired);
+
+        return unwatchEnabled && accepted;
     }
 
     public static bool BatchFinished(IEnumerable<string> rowClasses)

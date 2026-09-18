@@ -89,7 +89,7 @@ public class Fc25 : IDisposable
 
         foreach (var failure in _network.Failures())
             Database.AddSnipeEvent(failure.Kind.ToString(), "http", (uint)failure.Status, null, null, null,
-                failure.Url.Length > 200 ? failure.Url[..200] : failure.Url);
+                $"{failure.Time:HH:mm:ss} {(failure.Url.Length > 190 ? failure.Url[..190] : failure.Url)}");
 
         _network.Dispose();
 
@@ -513,7 +513,7 @@ public class Fc25 : IDisposable
         while (morePages && page < MAX_RESULT_PAGES && CanPlaceMoreBids() && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), () => CanPlaceMoreBids() && WithinScanBudget(started));
+            ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), () => CanPlaceMoreBids() && WithinScanBudget(started), MIN_AUCTION_MINUTES);
             morePages = CanPlaceMoreBids() && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
@@ -619,10 +619,10 @@ public class Fc25 : IDisposable
 
     #region Bidding
 
-    private void ProcessCandidates(Action<IWebElement, string> action, Func<bool> canContinue)
+    private void ProcessCandidates(Action<IWebElement, string> action, Func<bool> canContinue, uint minMinutes)
     {
         HashSet<string> done = new();
-        var plan = PlanCandidates(done);
+        var plan = PlanCandidates(done, minMinutes);
         var position = 0;
         var replans = 0;
 
@@ -638,17 +638,17 @@ public class Fc25 : IDisposable
             else
             {
                 replans++;
-                plan = PlanCandidates(done);
+                plan = PlanCandidates(done, minMinutes);
                 position = 0;
             }
         }
     }
 
-    private List<(int index, string key)> PlanCandidates(ISet<string> done)
+    private List<(int index, string key)> PlanCandidates(ISet<string> done, uint minMinutes)
     {
         var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, false);
         var candidates = snapshot
-            .Where(row => !done.Contains(row.Key) && RowTriage.IsCandidate(ReadRowFacts(row), MIN_AUCTION_MINUTES,
+            .Where(row => !done.Contains(row.Key) && RowTriage.IsCandidate(ReadRowFacts(row), minMinutes,
                 MAX_AUCTION_MINUTES, MARGIN_COINS))
             .Select(row => (row.Index, row.Key))
             .ToList();
@@ -681,6 +681,7 @@ public class Fc25 : IDisposable
         }
         catch (StaleElementReferenceException)
         {
+            Console.WriteLine($"Row {key} changed while it was being processed; planning the page again.");
         }
 
         return processed;
@@ -1011,7 +1012,7 @@ public class Fc25 : IDisposable
     {
         var snipeFilter = SnipeFilters.Next(SnipeFilters.RING, Database.GetLastSnipeFilterName());
 
-        RunTimedPass(Segments.SNIPE, Segments.ROLE_SNIPE, () => SnipePlayers(snipeFilter));
+        RunTimedPass(Segments.Snipe(snipeFilter.Name), Segments.ROLE_SNIPE, () => SnipePlayers(snipeFilter));
         ListWonItemsNow();
     }
 
@@ -1059,7 +1060,7 @@ public class Fc25 : IDisposable
         while (morePages && page < MAX_RESULT_PAGES && CanWatchMore(estimates) && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates), () => CanWatchMore(estimates) && WithinScanBudget(started));
+            ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates), () => CanWatchMore(estimates) && WithinScanBudget(started), SNIPE_WATCH_MIN_MINUTES);
             morePages = CanWatchMore(estimates) && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
@@ -1133,7 +1134,7 @@ public class Fc25 : IDisposable
 
         if (response != null && response.Status != 200) RecordRefusedWatch(info, response);
 
-        return Snipe.WatchConfirmed(button != null, response?.Status);
+        return Snipe.WatchConfirmed(button != null, response?.Status, _network.Enabled);
     }
 
     private static void RecordRefusedWatch(string info, Capture response)
@@ -1415,6 +1416,7 @@ public class Fc25 : IDisposable
 
     private void RefreshTransferTargets(string reason)
     {
+        var started = DateTime.UtcNow;
         var dirtied = ClearExpiredTargets() || UnwatchSacrificialRow();
         var method = dirtied ? "dirty" : "reload";
 
@@ -1423,8 +1425,9 @@ public class Fc25 : IDisposable
         else ReloadWebApp();
 
         _lastRefresh = DateTime.UtcNow;
-        Database.AddSnipeEvent("targets", "refresh", null, null, null, null, $"{method}: {reason}");
-        Console.WriteLine($"Refreshed transfer targets ({method}): {reason}.");
+        var elapsedMs = (int)(_lastRefresh - started).TotalMilliseconds;
+        Database.AddSnipeEvent("targets", "refresh", (uint)elapsedMs, null, null, null, $"{method}: {reason}");
+        Console.WriteLine($"Refreshed transfer targets ({method}) in {elapsedMs} ms: {reason}.");
     }
 
     private bool ClearExpiredTargets()
