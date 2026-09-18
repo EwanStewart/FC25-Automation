@@ -805,6 +805,17 @@ public class Fc25 : IDisposable
             new HashSet<string>());
 
         if (nation != null) RunTimedPass(Segments.SNIPE, Segments.ROLE_SNIPE, () => SnipeSilverPlayers(nation));
+        if (nation != null) ListWonItemsNow();
+    }
+
+    private void ListWonItemsNow()
+    {
+        var started = DateTime.UtcNow;
+
+        Utility.Utility.RetryAction(ClearItemsFromTransferTargets);
+        Utility.Utility.RetryAction(ListItemsFromTransferList);
+
+        Console.WriteLine($"Listing after the snipe pass took {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
     }
 
     private void SnipeSilverPlayers(string nation)
