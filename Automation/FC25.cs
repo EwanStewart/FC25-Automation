@@ -314,10 +314,25 @@ public class Fc25
             var item = items[index];
             index++;
             Thread.Sleep(500);
-            listIsCurrent = TrySelectItem(item);
-
-            if (listIsCurrent && IsWithinBidWindow(item)) TryBidOnSelectedItem(item, maxBidCap);
+            listIsCurrent = TrySelectItem(item) && TryProcessSelectedItem(item, maxBidCap);
         }
+    }
+
+    private bool TryProcessSelectedItem(IWebElement item, uint maxBidCap)
+    {
+        var processed = true;
+
+        try
+        {
+            Thread.Sleep(500);
+            if (IsWithinBidWindow(item)) TryBidOnSelectedItem(item, maxBidCap);
+        }
+        catch (StaleElementReferenceException)
+        {
+            processed = false;
+        }
+
+        return processed;
     }
 
     private bool CanPlaceMoreBids()
