@@ -8,7 +8,7 @@ public class SnipeTests
     private const uint MARGIN = 1000;
     private const uint MAX_BID = 1500;
 
-    private const int AIM_SECONDS = 10;
+    private const int AIM_SECONDS = 15;
 
     private static bool ShouldBid(string classes, uint? minutes, uint? minimumBid, uint estimate)
     {
@@ -24,9 +24,9 @@ public class SnipeTests
     [Fact]
     public void ExactSecondsTakePrecedenceOverTheMinuteText()
     {
-        Assert.True(ShouldBidWithModel(PLAIN, 10, "none"));
+        Assert.True(ShouldBidWithModel(PLAIN, 15, "none"));
         Assert.True(ShouldBidWithModel(PLAIN, 3, "outbid"));
-        Assert.False(ShouldBidWithModel(PLAIN, 11, "none"));
+        Assert.False(ShouldBidWithModel(PLAIN, 16, "none"));
         Assert.False(ShouldBidWithModel(PLAIN, 5, "highest"));
     }
 

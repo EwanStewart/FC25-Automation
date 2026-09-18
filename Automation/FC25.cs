@@ -964,9 +964,12 @@ public class Fc25 : IDisposable
         try
         {
             var started = DateTime.UtcNow;
-            var live = ReadLiveWatchedRows(estimates);
+            var snapshot = _screen.Snapshot(ElementKeys.TARGET_ROWS, true);
+            var live = LiveWatchedRows(snapshot, estimates);
             var readMs = (int)(DateTime.UtcNow - started).TotalMilliseconds;
             finished = live.Count == 0;
+
+            if (liveCount < 0) LogMissingWatchedItems(snapshot, estimates);
 
             if (live.Count != liveCount)
                 Console.WriteLine(
@@ -984,11 +987,27 @@ public class Fc25 : IDisposable
         return finished;
     }
 
-    private List<(RowSnapshot row, TargetFacts facts)> ReadLiveWatchedRows(Dictionary<string, uint> estimates)
+    private void LogMissingWatchedItems(IReadOnlyList<RowSnapshot> snapshot, Dictionary<string, uint> estimates)
+    {
+        var present = snapshot.Select(row => row.Key).ToHashSet();
+        var missing = estimates.Keys.Where(key => !present.Contains(key)).ToList();
+
+        Console.WriteLine(
+            $"Transfer targets hold {snapshot.Count} row(s): [{string.Join("; ", snapshot.Select(row => $"{row.Key}: {row.Classes.Replace("listFUTItem has-auction-data", string.Empty).Trim()} {row.Time}"))}].");
+
+        foreach (var key in missing)
+        {
+            Console.WriteLine($"Watched item {key} is not on the transfer targets list.");
+            Database.AddSnipeEvent(key, "missing", null, null, estimates[key], null, null);
+        }
+    }
+
+    private static List<(RowSnapshot row, TargetFacts facts)> LiveWatchedRows(IReadOnlyList<RowSnapshot> snapshot,
+        Dictionary<string, uint> estimates)
     {
         List<(RowSnapshot row, TargetFacts facts)> result = [];
 
-        foreach (var row in _screen.Snapshot(ElementKeys.TARGET_ROWS, true))
+        foreach (var row in snapshot)
         {
             var model = row.TrustedModel;
 
@@ -1083,7 +1102,7 @@ public class Fc25 : IDisposable
         else if (outcome == BidOutcome.Overtaken)
             RecordOvertakenBid(info, amount, estimate, timeText);
         else
-            RecoverFromUnregisteredBid(info, amount, estimate, timeText);
+            RecoverFromUnregisteredBid(info, amount, estimate, timeText, DescribeSelectedRow(typed, clicked));
 
         _screen.DismissDialog();
     }
@@ -1136,10 +1155,20 @@ public class Fc25 : IDisposable
         Console.WriteLine($"Snipe {eventName} {amount} on {info} in {_segment} (resale estimate {estimate}, {timeText}).");
     }
 
-    private void RecoverFromUnregisteredBid(string info, uint amount, uint estimate, string timeText)
+    private string DescribeSelectedRow(bool typed, bool clicked)
     {
-        Console.WriteLine($"Bid on {info} at {amount} was not registered; refreshing the web app.");
-        Database.AddSnipeEvent(info, "unregistered", amount, amount, estimate, timeText, _screen.ReadTitle());
+        var selected = _screen.Snapshot(ElementKeys.TARGET_ROWS, true).FirstOrDefault(row => BidRow.IsSelected(row.Classes));
+        var state = selected == null
+            ? "no selected row"
+            : $"{selected.Key} {selected.Classes.Replace("listFUTItem has-auction-data", string.Empty).Trim()} bid {selected.Bid} {selected.Time} model {selected.TrustedModel?.BidState ?? "none"} {selected.TrustedModel?.SecondsLeft?.ToString() ?? "?"}s";
+
+        return $"typed {typed}, clicked {clicked}, {state}";
+    }
+
+    private void RecoverFromUnregisteredBid(string info, uint amount, uint estimate, string timeText, string detail)
+    {
+        Console.WriteLine($"Bid on {info} at {amount} was not registered ({detail}); refreshing the web app.");
+        Database.AddSnipeEvent(info, "unregistered", amount, amount, estimate, timeText, detail);
         _screen.DismissDialog();
         _driver.Navigate().Refresh();
         Thread.Sleep(3000);

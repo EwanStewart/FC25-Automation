@@ -36,5 +36,5 @@ public static class BiddingStrategy
     public const uint SNIPE_MAX_BID = 1500;
     public const int SNIPE_POLL_MS = 1000;
     public const uint SNIPE_MAX_MINUTES = 25;
-    public const int SNIPE_AIM_SECONDS = 10;
+    public const int SNIPE_AIM_SECONDS = 15;
 }
