@@ -462,6 +462,9 @@ public class Fc25 : IDisposable
         if (filterData.Nationality != null)
             SelectDropdownOption(ElementKeys.NATIONALITY_DROPDOWN, filterData.Nationality);
         if (filterData.Rarity != null) SelectDropdownOption(ElementKeys.RARITY_DROPDOWN, filterData.Rarity);
+        if (filterData.League != null) SelectDropdownOption(ElementKeys.LEAGUE_DROPDOWN, filterData.League);
+        if (filterData.Club != null) SelectDropdownOption(ElementKeys.CLUB_DROPDOWN, filterData.Club);
+        if (filterData.Position != null) SelectDropdownOption(ElementKeys.POSITION_DROPDOWN, filterData.Position);
 
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, filterData.MaxBidPrice);
         SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, filterData.MinBuyPrice);
