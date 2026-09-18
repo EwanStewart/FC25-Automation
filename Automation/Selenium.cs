@@ -15,6 +15,9 @@ public class Browser
 
     private readonly string _configurationToUse;
 
+    private static readonly string[] AuthenticationFiles =
+        { "Cookies", "Login Data", "Preferences", "Secure Preferences", "Web Data" };
+
     /// <summary>
     /// Constructor for BrowserSetup, create a new browser instance with configuration.
     /// </summary>
@@ -47,7 +50,15 @@ public class Browser
             Utility.Utility.GetJsonValue(configuration, "Profile"));
     }
 
-    private void KillChromeProcesses()
+    private static void KillChromeProcesses(string profileDirectory)
+    {
+        if (OperatingSystem.IsWindows())
+            KillAllChromeProcesses();
+        else
+            KillChromeProcessesUsingProfile(profileDirectory);
+    }
+
+    private static void KillAllChromeProcesses()
     {
         foreach (var process in Process.GetProcessesByName("chrome"))
             try
@@ -60,23 +71,63 @@ public class Browser
             }
     }
 
+    private static void KillChromeProcessesUsingProfile(string profileDirectory)
+    {
+        using var pkill = Process.Start("pkill", $"-f {profileDirectory}");
+        pkill?.WaitForExit();
+    }
+
+    private static string GetSeleniumProfileDirectory()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SeleniumChromeProfile");
+    }
+
+    private static string ExpandHome(string path)
+    {
+        var result = path;
+
+        if (path.StartsWith('~'))
+            result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[1..].TrimStart('/', '\\'));
+
+        return result;
+    }
+
+    private static void CopyFileIfExists(string source, string destination)
+    {
+        if (File.Exists(source)) File.Copy(source, destination, true);
+    }
+
+    private void CopyAuthenticationFiles(string profileDirectory)
+    {
+        var (userDataDir, _, profile) = FetchConfigurationFromJson();
+        var sourceRoot = ExpandHome(userDataDir);
+        var sourceProfile = Path.Combine(sourceRoot, profile);
+        var destinationProfile = Path.Combine(profileDirectory, "Default");
+
+        Directory.CreateDirectory(destinationProfile);
+        CopyFileIfExists(Path.Combine(sourceRoot, "Local State"), Path.Combine(profileDirectory, "Local State"));
+
+        foreach (var fileName in AuthenticationFiles)
+            CopyFileIfExists(Path.Combine(sourceProfile, fileName), Path.Combine(destinationProfile, fileName));
+    }
+
     /// <summary>
     /// Create a new ChromeDriver instance with default profile and basic options.
     /// </summary>
     private ChromeDriver CreateDefaultChromeDriver()
     {
-        KillChromeProcesses();
+        var profileDirectory = GetSeleniumProfileDirectory();
+        KillChromeProcesses(profileDirectory);
+        CopyAuthenticationFiles(profileDirectory);
         var options = new ChromeOptions();
 
         // Default Chrome options for stability
         options.AddArgument("--no-sandbox");
         options.AddArgument("--disable-dev-shm-usage");
         options.AddArgument("--disable-extensions");
-        options.AddArgument("--disable-gpu");
 
-        var profileDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SeleniumChromeProfile");
         options.AddArgument($"--user-data-dir={profileDirectory}");
         options.AddArgument("--remote-debugging-port=9222");
 

@@ -8,13 +8,15 @@ internal class Program
     /// <param name="args">CLI arguments.</param>
     private static void Main(string[] args)
     {
+        var smokeTest = args.Contains("--smoke");
+
         List<string> toRun = new()
         {
             ""
         };
 
-        foreach (var run in toRun) _ = new Fc25(run);
+        foreach (var run in toRun) _ = new Fc25(run, smokeTest);
 
-        Utility.Utility.ShutdownPc();
+        if (!smokeTest) Utility.Utility.ShutdownPc();
     }
 }

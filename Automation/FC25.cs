@@ -17,10 +17,12 @@ public class Fc25
     private readonly WebDriverWait _wait;
     private readonly string _user;
     private uint _total;
+    private readonly uint _maxBids;
+    private uint _bidsPlaced;
 
     #region Constructor
 
-    public Fc25(string configuration)
+    public Fc25(string configuration, bool smokeTest)
     {
         try
         {
@@ -28,10 +30,15 @@ public class Fc25
             _user = configuration;
             _driver = browser.Chrome;
             _wait = new WebDriverWait(_driver, StandardWait);
+            _maxBids = smokeTest ? 1u : uint.MaxValue;
 
             LoginToFc25();
             GetCoinTotal();
-            ListAndBidRoutine();
+
+            if (smokeTest)
+                BidOnSilverClubItems(false, 0);
+            else
+                ListAndBidRoutine();
         }
         catch (Exception exception)
         {
@@ -276,7 +283,7 @@ public class Fc25
 
         foreach (var item in items)
         {
-            if (_total == 49) return;
+            if (_total == 49 || _bidsPlaced >= _maxBids) return;
 
             Thread.Sleep(500);
             uint lowestPrice = 0;
@@ -330,6 +337,7 @@ public class Fc25
 
                 SendXPathClickCommandStandardWait(ElementKeys.MAKE_BID);
                 _total += 1;
+                _bidsPlaced += 1;
             }
 
             Thread.Sleep(1000);
@@ -343,7 +351,7 @@ public class Fc25
 
         foreach (var item in items)
         {
-            if (_total == 49) return;
+            if (_total == 49 || _bidsPlaced >= _maxBids) return;
 
             Thread.Sleep(500);
 
@@ -364,6 +372,7 @@ public class Fc25
 
             SendXPathClickCommandStandardWait(ElementKeys.MAKE_BID);
             _total += 1;
+            _bidsPlaced += 1;
 
 
             Thread.Sleep(1000);
