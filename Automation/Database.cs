@@ -236,6 +236,54 @@ public static class Database
         ExecuteWithName(query, name);
     }
 
+    public static void RaiseOpenBid(string name, uint amount)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "UPDATE Bids SET bid = @amount, current_bid = @amount, rebids = rebids + 1 WHERE name = @name AND outcome = 'open' ORDER BY timestamp DESC LIMIT 1";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@amount", amount);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static void AddSnipeEvent(string name, string eventName, uint? amount, uint? minimumBid, uint? estimate,
+        string? timeLeft, string? detail)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "INSERT INTO SnipeEvents (name, event, amount, minimum_bid, estimate, time_left, detail) VALUES (@name, @event, @amount, @minimum, @estimate, @timeLeft, @detail)";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@event", eventName);
+            cmd.Parameters.AddWithValue("@amount", amount);
+            cmd.Parameters.AddWithValue("@minimum", minimumBid);
+            cmd.Parameters.AddWithValue("@estimate", estimate);
+            cmd.Parameters.AddWithValue("@timeLeft", timeLeft);
+            cmd.Parameters.AddWithValue("@detail", detail);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
     public static void MarkLatestWonBidSold(string name, uint soldPrice)
     {
         using MySqlConnection connection = new(ConnectionString);

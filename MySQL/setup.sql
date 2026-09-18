@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS Bids (
     ask_count INT NULL,
     listed_price INT NULL,
     segment VARCHAR(32) NULL,
+    rebids INT NOT NULL DEFAULT 0,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP NULL
 );
@@ -58,5 +59,17 @@ CREATE TABLE IF NOT EXISTS Passes (
     compare_reads INT NOT NULL,
     bids INT NOT NULL,
     seconds INT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS SnipeEvents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    event VARCHAR(24) NOT NULL,
+    amount INT NULL,
+    minimum_bid INT NULL,
+    estimate INT NULL,
+    time_left VARCHAR(16) NULL,
+    detail VARCHAR(255) NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
