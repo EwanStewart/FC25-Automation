@@ -69,14 +69,6 @@ public class Screen
         return _driver.FindElements(Locator(Elements[key].Item1));
     }
 
-    public void Hide(IReadOnlyCollection<IWebElement> elements)
-    {
-        if (elements.Count > 0)
-            _driver.ExecuteScript(
-                "for (const element of arguments[0]) { element.classList.add('bot-skip'); element.style.display = 'none'; }",
-                elements);
-    }
-
     public IReadOnlyList<RowSnapshot> Snapshot(ElementKeys key, bool withModel)
     {
         var json = _driver.ExecuteScript(SnapshotScript, Elements[key].Item1, withModel) as string ?? string.Empty;
