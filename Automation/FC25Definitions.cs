@@ -112,7 +112,7 @@ public static class Fc25Definitions
         },
         {
             ElementKeys.TARGET_ROWS,
-            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and not(ancestor::div[contains(@class, 'ut-navigation-container-view') and contains(@class, 'ui-layout-right')])]",
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and not(ancestor::*[contains(@class, 'ui-layout-right')])]",
                 "Transfer Target Rows")
         },
         {
@@ -186,12 +186,12 @@ public static class Fc25Definitions
         { ElementKeys.SEARCH, ("//button[contains(text(), 'Search')]", "Search Button") },
         {
             ElementKeys.AUCTION_ITEMS,
-            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and (contains(@class, 'selected') or not(contains(@class, 'expired'))) and not(ancestor::div[contains(@class, 'ut-navigation-container-view') and contains(@class, 'ui-layout-right')])]",
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and (contains(@class, 'selected') or not(contains(@class, 'expired'))) and not(ancestor::*[contains(@class, 'ui-layout-right')])]",
                 "Auction Items")
         },
         {
             ElementKeys.RESULT_ROWS,
-            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and not(ancestor::div[contains(@class, 'ut-navigation-container-view') and contains(@class, 'ui-layout-right')])]",
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and not(ancestor::*[contains(@class, 'ui-layout-right')])]",
                 "Result Rows")
         },
         {
