@@ -136,7 +136,7 @@ public static class Pricing
         return result;
     }
 
-    private static uint Median(IReadOnlyList<uint> sorted)
+    public static uint Median(IReadOnlyList<uint> sorted)
     {
         var middle = sorted.Count / 2;
         var isEven = sorted.Count % 2 == 0;
