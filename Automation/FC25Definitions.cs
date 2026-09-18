@@ -72,7 +72,8 @@ public static class Fc25Definitions
         DIALOG_BUTTONS,
         UNSUPPORTED_BROWSER,
         COMPARE_PRICE_NEXT,
-        RESULTS_NEXT
+        RESULTS_NEXT,
+        BOUGHT_FOR_VALUE
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
@@ -236,6 +237,11 @@ public static class Fc25Definitions
             ElementKeys.RESULTS_NEXT,
             ("//section[contains(@class, 'ui-layout-left')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled')) and not(@disabled)]",
                 "Results Next Page")
+        },
+        {
+            ElementKeys.BOUGHT_FOR_VALUE,
+            ("//section[contains(@class, 'ui-layout-right')]//span[contains(text(), 'Bought For')]/following-sibling::span",
+                "Bought For Value")
         }
     };
 }

@@ -81,20 +81,45 @@ public static class Pricing
         return minutesRemaining >= minMinutes && minutesRemaining <= maxMinutes;
     }
 
-    public static uint LowestBuyNow(IEnumerable<uint> listings, int minListings)
+    public static uint ResaleFromAsks(IEnumerable<uint> asks, int minListings)
     {
-        var prices = listings.Select(price => (double)price).ToList();
+        var sorted = asks.OrderBy(price => price).ToList();
         uint result = 0;
 
-        if (prices.Count >= minListings)
-        {
-            var mean = prices.Average();
-            var standardDeviation = Math.Sqrt(prices.Average(price => Math.Pow(price - mean, 2)));
-            var kept = prices.Where(price => Math.Abs(price - mean) <= 2 * standardDeviation).ToList();
-            result = (uint)(kept.Count > 0 ? kept.Min() : prices.Min());
-        }
+        if (sorted.Count >= minListings && sorted.Count >= 2) result = sorted[1];
 
         return result;
+    }
+
+    public static uint RequiredResale(uint bid, uint marginCoins)
+    {
+        return (uint)Math.Ceiling((bid + marginCoins) / (1 - TAX_RATE));
+    }
+
+    public static uint RoundUpToIncrement(uint price)
+    {
+        var increment = BidIncrement(price);
+
+        return (price + increment - 1) / increment * increment;
+    }
+
+    public static uint BreakEvenListing(uint cost)
+    {
+        return RoundUpToIncrement((uint)Math.Ceiling(cost / (1 - TAX_RATE)));
+    }
+
+    public static (uint startPrice, uint buyNow) ListingPrices(uint marketResale, uint? cost)
+    {
+        var buyNow = ListingPrice(marketResale);
+        var startPrice = ListingPrice(buyNow);
+
+        if (cost.HasValue && !IsProfitable(startPrice, cost.Value))
+        {
+            startPrice = BreakEvenListing(cost.Value);
+            buyNow = startPrice + BidIncrement(startPrice);
+        }
+
+        return (startPrice, buyNow);
     }
 
     public static uint? EstimateResale(IEnumerable<uint> sightings, int sampleSize)

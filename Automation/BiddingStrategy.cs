@@ -3,7 +3,7 @@
 public static class BiddingStrategy
 {
     public const uint MARGIN_COINS = 1000;
-    public const uint MIN_AUCTION_MINUTES = 2;
+    public const uint MIN_AUCTION_MINUTES = 3;
     public const uint MAX_AUCTION_MINUTES = 20;
     public const double MAX_EXPOSURE_SHARE = 0.5;
     public const uint RESALE_WINDOW_DAYS = 7;

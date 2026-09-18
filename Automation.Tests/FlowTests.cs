@@ -1,4 +1,4 @@
-using Automation.Flow;
+﻿using Automation.Flow;
 
 namespace Automation.Tests;
 
@@ -29,6 +29,24 @@ public class FlowTests
         Assert.Equal(LoginStep.EnterEmail, LoginFlow.NextStep(new LoginScreen(false, false, false, true, true, false)));
         Assert.Equal(LoginStep.ClickLogin,
             LoginFlow.NextStep(new LoginScreen(false, false, false, false, true, false)));
+    }
+
+    [Fact]
+    public void NextStepWaitsWhileTheClickShieldIsUp()
+    {
+        Assert.Equal(LoginStep.Wait, LoginFlow.NextStep(new LoginScreen(false, false, false, false, true, false, true)));
+        Assert.Equal(LoginStep.Done, LoginFlow.NextStep(new LoginScreen(true, false, false, false, false, false, true)));
+    }
+
+    [Theory]
+    [InlineData("Derby County", "Home Kit", "small kit item common", "", "", "Derby County Home Kit")]
+    [InlineData("Jagiellonia", "", "small badge item common", "", "", "Jagiellonia Badge")]
+    [InlineData("Stach", "", "small player item common ut-item-loaded", "80", "CM", "Stach 80 CM")]
+    [InlineData("Mystery", "", "", "", "", "Mystery")]
+    public void ItemKeyComesFromTheRowItself(string name, string desc, string classes, string rating, string position,
+        string expected)
+    {
+        Assert.Equal(expected, ItemKey.Build(name, desc, classes, rating, position));
     }
 
     [Fact]

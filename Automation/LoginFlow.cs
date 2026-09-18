@@ -1,4 +1,4 @@
-namespace Automation.Flow;
+﻿namespace Automation.Flow;
 
 public enum LoginStep
 {
@@ -17,7 +17,8 @@ public readonly record struct LoginScreen(
     bool HasPassword,
     bool HasEmail,
     bool HasLoginButton,
-    bool IsUnsupported);
+    bool IsUnsupported,
+    bool HasShield = false);
 
 public static class LoginFlow
 {
@@ -27,6 +28,7 @@ public static class LoginFlow
 
         if (screen.HasNavigation) result = LoginStep.Done;
         else if (screen.IsUnsupported) result = LoginStep.Unsupported;
+        else if (screen.HasShield) result = LoginStep.Wait;
         else if (screen.HasContinue) result = LoginStep.Continue;
         else if (screen.HasPassword) result = LoginStep.EnterPassword;
         else if (screen.HasEmail) result = LoginStep.EnterEmail;

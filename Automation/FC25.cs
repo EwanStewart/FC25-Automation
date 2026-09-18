@@ -27,6 +27,8 @@ public class Fc25
     private readonly string _user;
     private readonly uint _maxBids;
     private readonly Dictionary<string, int> _credentialAttempts = new();
+    private readonly HashSet<string> _bidNamesThisRun = new();
+    private int _lastAskCount;
     private uint _total;
     private uint _bidsPlaced;
     private uint _coinBalance;
@@ -86,7 +88,8 @@ public class Fc25
             _screen.IsVisible(ElementKeys.PASSWORD_INPUT),
             _screen.IsVisible(ElementKeys.EMAIL_INPUT),
             _screen.IsVisible(ElementKeys.INITIAL_LOGIN),
-            _screen.IsVisible(ElementKeys.UNSUPPORTED_BROWSER));
+            _screen.IsVisible(ElementKeys.UNSUPPORTED_BROWSER),
+            _screen.IsShieldShowing());
     }
 
     private void PerformLoginStep(LoginStep step)
@@ -279,20 +282,20 @@ public class Fc25
     private void SelectDropdownOption(ElementKeys dropdown, ElementKeys option)
     {
         RequireClick(dropdown);
-        Thread.Sleep(300);
+        Thread.Sleep(150);
         RequireClick(option);
-        Thread.Sleep(300);
+        Thread.Sleep(150);
     }
 
     private void SelectDropdownOption(ElementKeys dropdown, string optionText)
     {
         RequireClick(dropdown);
-        Thread.Sleep(300);
+        Thread.Sleep(150);
 
         if (!_screen.Click(By.XPath($"//li[text()='{optionText}']"), StandardWait))
             throw new InvalidOperationException($"Dropdown option '{optionText}' was not found.");
 
-        Thread.Sleep(300);
+        Thread.Sleep(150);
     }
 
     private void SetSearchPrice(ElementKeys input, uint value)
@@ -318,12 +321,19 @@ public class Fc25
     {
         var rows = _screen.FindAll(ElementKeys.AUCTION_ITEMS);
         var index = 0;
-        var listIsCurrent = true;
+        var refreshes = 0;
 
-        while (index < rows.Count && listIsCurrent && CanPlaceMoreBids())
+        while (index < rows.Count && refreshes < 3 && CanPlaceMoreBids())
         {
-            listIsCurrent = TryProcessRow(rows[index], maxBidCap);
-            index++;
+            if (TryProcessRow(rows[index], maxBidCap))
+            {
+                index++;
+            }
+            else
+            {
+                refreshes++;
+                rows = _screen.FindAll(ElementKeys.AUCTION_ITEMS);
+            }
         }
     }
 
@@ -375,18 +385,27 @@ public class Fc25
     private void TryBidOnSelectedItem(IWebElement row, uint maxBidCap)
     {
         var info = GetItemInfo(row);
-        var resaleEstimate = GetResaleEstimate(info);
+        var bidInput = _screen.WaitVisible(ElementKeys.FIND_ALL_PRICE_INPUTS, ShortWait);
 
-        if (resaleEstimate.HasValue) PlaceBidIfWorthwhile(info, resaleEstimate.Value, maxBidCap);
+        if (bidInput != null && !_bidNamesThisRun.Contains(info))
+        {
+            var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
+            var requiredResale = Pricing.RequiredResale(minimumBid, MARGIN_COINS);
+            var resaleEstimate = GetResaleEstimate(info, requiredResale);
+
+            if (resaleEstimate.HasValue)
+                PlaceBidIfWorthwhile(row, info, bidInput, minimumBid, resaleEstimate.Value, maxBidCap);
+        }
     }
 
-    private uint? GetResaleEstimate(string info)
+    private uint? GetResaleEstimate(string info, uint requiredResale)
     {
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
-        var needsRefresh = sightings.Count == 0 ||
-                           Pricing.IsStale(sightings[0].timestamp, DateTime.UtcNow, RESALE_MAX_AGE_HOURS);
+        var knownCheap = sightings.Count > 0 && sightings[0].price < requiredResale;
+        var stale = sightings.Count == 0 ||
+                    Pricing.IsStale(sightings[0].timestamp, DateTime.UtcNow, RESALE_MAX_AGE_HOURS);
 
-        if (needsRefresh && TryRecordLowestPrice(info))
+        if (stale && !knownCheap && TryRecordLowestPrice(info))
             sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
 
         return Pricing.EstimateResale(sightings.Select(sighting => sighting.price), RESALE_SAMPLE_SIZE);
@@ -401,11 +420,13 @@ public class Fc25
 
         if (comparePriceList != null)
         {
-            Thread.Sleep(1000);
-            var lowestPrice = Pricing.LowestBuyNow(CollectComparePrices(), MIN_COMPARE_LISTINGS);
-            recorded = lowestPrice > 0;
+            var (asks, pages) = CollectComparePrices();
+            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS);
+            recorded = resale > 0;
+            _lastAskCount = asks.Count;
 
-            if (recorded) Database.AddToSeenTable(lowestPrice, info);
+            Database.AddCompareRead(info, asks, pages);
+            if (recorded) Database.AddToSeenTable(resale, info);
 
             _screen.Click(ElementKeys.COMPARE_PRICE_BACK_BUTTON, StandardWait);
             _screen.WaitHidden(ElementKeys.COMPARE_PRICE_LIST, ShortWait);
@@ -414,26 +435,50 @@ public class Fc25
         return recorded;
     }
 
-    private void PlaceBidIfWorthwhile(string info, uint resaleEstimate, uint maxBidCap)
+    private void PlaceBidIfWorthwhile(IWebElement row, string info, IWebElement bidInput, uint minimumBid,
+        uint resaleEstimate, uint maxBidCap)
     {
         var ceiling = Math.Min(Pricing.MaxBid(resaleEstimate, MARGIN_COINS), maxBidCap);
-        var bidInput = _screen.WaitVisible(ElementKeys.FIND_ALL_PRICE_INPUTS, ShortWait);
-        var minimumBid = bidInput == null
-            ? uint.MaxValue
-            : Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
-        var withinBudget = Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, ceiling, MAX_EXPOSURE_SHARE);
+        var withinBudget = Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, minimumBid, MAX_EXPOSURE_SHARE);
 
-        if (bidInput != null && minimumBid <= ceiling && withinBudget)
-            PlaceBid(info, bidInput, ceiling, resaleEstimate);
+        if (minimumBid <= ceiling && withinBudget)
+            PlaceBid(info, bidInput, minimumBid, resaleEstimate, ReadBidContext(row, minimumBid));
     }
 
-    private void PlaceBid(string info, IWebElement bidInput, uint amount, uint resaleEstimate)
+    private BidContext ReadBidContext(IWebElement row, uint minimumBid)
+    {
+        return new BidContext(
+            minimumBid,
+            ReadRowValue(row, "Bid"),
+            ReadRowValue(row, "Buy Now:"),
+            ReadRowMinutes(row),
+            _lastAskCount);
+    }
+
+    private static uint? ReadRowValue(IWebElement row, string label)
+    {
+        var values = row.FindElements(By.XPath($".//span[@class='label' and normalize-space(text())='{label}']/following-sibling::span"));
+        uint? result = null;
+
+        if (values.Count > 0 && uint.TryParse(values[0].Text.Replace(",", ""), out var parsed)) result = parsed;
+
+        return result;
+    }
+
+    private static uint? ReadRowMinutes(IWebElement row)
+    {
+        var timeElements = row.FindElements(By.CssSelector(Elements[ElementKeys.ITEM_TIME_REMAINING].Item1));
+
+        return timeElements.Count > 0 ? Pricing.ParseMinutesRemaining(timeElements[0].Text) : null;
+    }
+
+    private void PlaceBid(string info, IWebElement bidInput, uint amount, uint resaleEstimate, BidContext context)
     {
         var typed = _screen.SetInputValue(bidInput, amount) == amount;
         var clicked = typed && _screen.Click(ElementKeys.MAKE_BID, ShortWait);
 
         if (clicked && WaitForBidRegistered())
-            RecordBid(info, amount, resaleEstimate);
+            RecordBid(info, amount, resaleEstimate, context);
         else
             Console.WriteLine($"Bid on {info} at {amount} was not registered.");
 
@@ -461,33 +506,34 @@ public class Fc25
         return row != null && BidRow.IsRegistered(row.GetAttribute("class") ?? string.Empty);
     }
 
-    private void RecordBid(string info, uint amount, uint resaleEstimate)
+    private void RecordBid(string info, uint amount, uint resaleEstimate, BidContext context)
     {
-        Database.AddBid(info, amount, resaleEstimate);
+        Database.AddBid(info, amount, resaleEstimate, context);
+        _bidNamesThisRun.Add(info);
         _coinsCommitted += amount;
         _total += 1;
         _bidsPlaced += 1;
-        Console.WriteLine($"Bid {amount} on {info} (resale estimate {resaleEstimate}).");
+        Console.WriteLine($"Bid {amount} on {info} (resale estimate {resaleEstimate}, {context.MinutesLeft} min left).");
     }
 
-    private string GetItemInfo(IWebElement row)
+    private static string GetItemInfo(IWebElement row)
     {
         var name = row.FindElement(By.CssSelector(Elements[ElementKeys.ITEM_NAME].Item1)).Text;
-        var type = string.Empty;
+        var item = row.FindElements(By.CssSelector("div.entityContainer > div.item"));
+        var classes = item.Count > 0 ? item[0].GetAttribute("class") ?? string.Empty : string.Empty;
 
-        try
-        {
-            var typeParent = _driver.FindElement(By.CssSelector("div.tns-item.tns-slide-active"));
-            type = typeParent.FindElement(By.CssSelector("div.clubView")).Text;
-        }
-        catch (NoSuchElementException)
-        {
-        }
-
-        return $"{name} {type}";
+        return ItemKey.Build(name, TextOf(row, "div.itemDesc"), classes, TextOf(row, "div.rating"),
+            TextOf(row, "div.position"));
     }
 
-    private List<uint> CollectComparePrices()
+    private static string TextOf(IWebElement row, string cssSelector)
+    {
+        var elements = row.FindElements(By.CssSelector(cssSelector));
+
+        return elements.Count > 0 ? elements[0].Text : string.Empty;
+    }
+
+    private (List<uint> asks, int pages) CollectComparePrices()
     {
         List<uint> prices = [];
         var page = 0;
@@ -498,16 +544,21 @@ public class Fc25
             page++;
             var list = _screen.WaitVisible(ElementKeys.COMPARE_PRICE_LIST, ShortWait);
 
-            if (list != null) prices.AddRange(ReadBuyNowPrices(list));
+            if (list != null)
+            {
+                _screen.WaitVisible(By.XPath($"{Elements[ElementKeys.COMPARE_PRICE_LIST].Item1}//span[text()='Buy Now:']"), ShortWait);
+                prices.AddRange(ReadBuyNowPrices(list));
+            }
 
-            morePages = list != null && _screen.TryClick(ElementKeys.COMPARE_PRICE_NEXT, TimeSpan.FromSeconds(1));
+            morePages = list != null && _screen.IsVisible(ElementKeys.COMPARE_PRICE_NEXT) &&
+                        _screen.TryClick(ElementKeys.COMPARE_PRICE_NEXT, ShortWait);
 
-            if (morePages) Thread.Sleep(1500);
+            if (morePages) Thread.Sleep(1000);
         }
 
         Console.WriteLine($"Compare price read {prices.Count} listings over {page} page(s).");
 
-        return prices;
+        return (prices, page);
     }
 
     private static List<uint> ReadBuyNowPrices(IWebElement list)
@@ -538,7 +589,7 @@ public class Fc25
         while (!finished && attempts < MAX_LISTING_ATTEMPTS)
         {
             attempts++;
-            Thread.Sleep(1000);
+            Thread.Sleep(300);
 
             var candidates = _screen.FindAll(ElementKeys.LISTABLE_ITEMS);
             finished = candidates.Count <= skipped;
@@ -566,50 +617,64 @@ public class Fc25
             Thread.Sleep(500);
             var info = GetItemInfo(row);
 
-            if (!listPrices.TryGetValue(info, out var listPrice))
+            if (!listPrices.TryGetValue(info, out var marketResale))
             {
-                listPrice = DetermineListingPrice(info);
-                listPrices[info] = listPrice;
+                marketResale = DetermineMarketResale(info);
+                listPrices[info] = marketResale;
             }
 
-            listed = ShouldList(info, listPrice) && ListSelectedItem(listPrice);
+            listed = marketResale > 0 && ListSelectedItem(info, marketResale);
         }
 
         return listed;
     }
 
-    private uint DetermineListingPrice(string info)
+    private uint DetermineMarketResale(string info)
     {
         uint result = 0;
 
         if (TryRecordLowestPrice(info))
         {
             var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
-            result = Pricing.ListingPrice(sightings[0].price);
+            result = sightings[0].price;
         }
 
         return result;
     }
 
-    private static bool ShouldList(string info, uint listPrice)
+    private uint? ReadCost(string info)
     {
-        var paid = Database.GetLatestWonBidPrice(info);
-        var result = listPrice > 0 && (!paid.HasValue || Pricing.IsProfitable(listPrice, paid.Value));
+        var boughtFor = ReadBoughtFor();
+        var lastBid = Database.GetLatestBidPrice(info, RESALE_WINDOW_DAYS);
+        uint? result = boughtFor ?? lastBid;
 
-        if (!result) Console.WriteLine($"Not listing {info} at {listPrice}.");
+        if (boughtFor.HasValue && lastBid.HasValue) result = Math.Max(boughtFor.Value, lastBid.Value);
 
         return result;
     }
 
-    private bool ListSelectedItem(uint listPrice)
+    private uint? ReadBoughtFor()
     {
-        var startPrice = Pricing.ListingPrice(listPrice);
+        var values = _screen.FindAll(ElementKeys.BOUGHT_FOR_VALUE);
+        uint? result = null;
+
+        if (values.Count > 0 && uint.TryParse(values[0].Text.Replace(",", ""), out var parsed)) result = parsed;
+
+        return result;
+    }
+
+    private bool ListSelectedItem(string info, uint marketResale)
+    {
+        var cost = ReadCost(info);
+        var (startPrice, buyNow) = Pricing.ListingPrices(marketResale, cost);
         var listed = _screen.Click(ElementKeys.LIST_ITEM_PRE_PRICE, StandardWait)
                      && _screen.SetInputValue(ElementKeys.MIN_PRICE_LIST_ITEM, startPrice, ShortWait) != null
-                     && _screen.SetInputValue(ElementKeys.MAX_PRICE_LIST_ITEM, listPrice, ShortWait) != null
+                     && _screen.SetInputValue(ElementKeys.MAX_PRICE_LIST_ITEM, buyNow, ShortWait) != null
                      && _screen.Click(ElementKeys.LIST_ITEM, StandardWait);
 
-        Thread.Sleep(2000);
+        Console.WriteLine($"Listing {info}: market {marketResale}, cost {cost?.ToString() ?? "unknown"}, start {startPrice}, buy now {buyNow}, listed {listed}.");
+        if (listed) Database.MarkLatestBidListed(info, buyNow);
+        Thread.Sleep(1000);
 
         return listed;
     }
@@ -620,7 +685,8 @@ public class Fc25
 
     private void ClearNotWonItemsFromTransferTargets()
     {
-        _screen.TryClick(ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS, ShortWait);
+        if (_screen.IsVisible(ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS))
+            _screen.TryClick(ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS, ShortWait);
         Database.MarkStaleOpenBidsLost(OPEN_BID_TIMEOUT_HOURS);
     }
 
@@ -707,7 +773,7 @@ public class Fc25
 
     private void GoToTransfers()
     {
-        EnsureLoggedIn();
+        if (!_screen.IsVisible(ElementKeys.NAVIGATION_BAR)) EnsureLoggedIn();
         RequireClick(ElementKeys.LEFT_HAND_PANE_TRANSFERS);
         RequireTitle("Transfers");
 

@@ -76,18 +76,38 @@ public class PricingTests
     }
 
     [Fact]
-    public void LowestBuyNowNeedsEnoughListingsToBeTrusted()
+    public void ResaleFromAsksIsSecondLowestWithEnoughListings()
     {
-        Assert.Equal(0u, Pricing.LowestBuyNow(new uint[] { 5000 }, 3));
-        Assert.Equal(0u, Pricing.LowestBuyNow(new uint[] { 5000, 4800 }, 3));
-        Assert.Equal(200u, Pricing.LowestBuyNow(new uint[] { 200, 250, 300 }, 3));
-        Assert.Equal(200u, Pricing.LowestBuyNow(new uint[] { 200, 200, 5000 }, 3));
+        Assert.Equal(0u, Pricing.ResaleFromAsks(new uint[] { 5000 }, 3));
+        Assert.Equal(0u, Pricing.ResaleFromAsks(new uint[] { 5000, 4800 }, 3));
+        Assert.Equal(250u, Pricing.ResaleFromAsks(new uint[] { 300, 200, 250 }, 3));
+        Assert.Equal(200u, Pricing.ResaleFromAsks(new uint[] { 200, 200, 5000 }, 3));
+        Assert.Equal(1000u, Pricing.ResaleFromAsks(new uint[] { 50, 1000, 1000, 5000 }, 3));
+    }
+
+    [Theory]
+    [InlineData(150u, 1000u, 1211u)]
+    [InlineData(500u, 1000u, 1579u)]
+    public void RequiredResaleCoversBidMarginAndTax(uint bid, uint margin, uint expected)
+    {
+        Assert.Equal(expected, Pricing.RequiredResale(bid, margin));
+    }
+
+    [Theory]
+    [InlineData(500u, 550u)]
+    [InlineData(250u, 300u)]
+    [InlineData(2000u, 2200u)]
+    public void BreakEvenListingCoversCostAfterTaxOnTheIncrementGrid(uint cost, uint expected)
+    {
+        Assert.Equal(expected, Pricing.BreakEvenListing(cost));
     }
 
     [Fact]
-    public void LowestBuyNowIgnoresOutliersBeyondTwoStandardDeviations()
+    public void ListingPricesUndercutMarketUnlessThatWouldLoseMoney()
     {
-        Assert.Equal(1000u, Pricing.LowestBuyNow(new uint[] { 50, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000 }, 3));
+        Assert.Equal((850u, 900u), Pricing.ListingPrices(1000, null));
+        Assert.Equal((850u, 900u), Pricing.ListingPrices(1000, 500));
+        Assert.Equal((550u, 600u), Pricing.ListingPrices(400, 500));
     }
 
     [Fact]

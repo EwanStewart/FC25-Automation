@@ -30,6 +30,21 @@ CREATE TABLE IF NOT EXISTS Bids (
     resale_estimate INT NOT NULL,
     outcome VARCHAR(16) NOT NULL DEFAULT 'open',
     sold_price INT NULL,
+    minimum_bid INT NULL,
+    current_bid INT NULL,
+    buy_now INT NULL,
+    minutes_left INT NULL,
+    ask_count INT NULL,
+    listed_price INT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS CompareReads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    asks TEXT NOT NULL,
+    page_count INT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

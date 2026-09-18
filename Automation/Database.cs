@@ -1,4 +1,5 @@
-﻿using MySql.Data.MySqlClient;
+﻿using Automation.Flow;
+using MySql.Data.MySqlClient;
 
 namespace Automation;
 
@@ -123,17 +124,90 @@ public static class Database
         return result;
     }
 
-    public static void AddBid(string name, uint bid, uint resaleEstimate)
+    public static void AddBid(string name, uint bid, uint resaleEstimate, BidContext context)
     {
         using MySqlConnection connection = new(ConnectionString);
         try
         {
-            const string query = "INSERT INTO Bids (name, bid, resale_estimate) VALUES (@name, @bid, @resale)";
+            const string query =
+                "INSERT INTO Bids (name, bid, resale_estimate, minimum_bid, current_bid, buy_now, minutes_left, ask_count) VALUES (@name, @bid, @resale, @minimum, @current, @buyNow, @minutes, @asks)";
 
             using MySqlCommand cmd = new(query, connection);
             cmd.Parameters.AddWithValue("@name", name);
             cmd.Parameters.AddWithValue("@bid", bid);
             cmd.Parameters.AddWithValue("@resale", resaleEstimate);
+            cmd.Parameters.AddWithValue("@minimum", context.MinimumBid);
+            cmd.Parameters.AddWithValue("@current", context.CurrentBid);
+            cmd.Parameters.AddWithValue("@buyNow", context.BuyNow);
+            cmd.Parameters.AddWithValue("@minutes", context.MinutesLeft);
+            cmd.Parameters.AddWithValue("@asks", context.AskCount);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static void AddCompareRead(string name, IReadOnlyList<uint> asks, int pageCount)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query = "INSERT INTO CompareReads (name, asks, page_count) VALUES (@name, @asks, @pages)";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@asks", string.Join(",", asks));
+            cmd.Parameters.AddWithValue("@pages", pageCount);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static uint? GetLatestBidPrice(string name, uint days)
+    {
+        uint? result = null;
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "SELECT bid FROM Bids WHERE name = @name AND timestamp >= DATE_SUB(NOW(), INTERVAL @days DAY) ORDER BY timestamp DESC LIMIT 1";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@days", days);
+
+            connection.Open();
+            var value = cmd.ExecuteScalar();
+            if (value != null) result = Convert.ToUInt32(value);
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    public static void MarkLatestBidListed(string name, uint listedPrice)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "UPDATE Bids SET listed_price = @price WHERE name = @name AND outcome IN ('won', 'open') ORDER BY timestamp DESC LIMIT 1";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@price", listedPrice);
 
             connection.Open();
             cmd.ExecuteNonQuery();
