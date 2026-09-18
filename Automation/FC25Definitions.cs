@@ -55,6 +55,7 @@ public static class Fc25Definitions
         RESET,
         MAKE_BID,
         WATCH,
+        UNWATCH,
         NEXT,
         TRANSFER_TARGETS_TOTAL,
         RARITY_DROPDOWN,
@@ -193,6 +194,7 @@ public static class Fc25Definitions
         { ElementKeys.RESET, ("//button[contains(text(), 'Reset')]", "Reset") },
         { ElementKeys.MAKE_BID, ("//button[contains(text(), 'Make Bid')]", "Make Bid") },
         { ElementKeys.WATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Watch']", "Watch") },
+        { ElementKeys.UNWATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Unwatch']", "Unwatch") },
         { ElementKeys.NEXT, ("//button[contains(text(), 'Next')]", "Next") },
         {
             ElementKeys.TRANSFER_TARGETS_TOTAL,

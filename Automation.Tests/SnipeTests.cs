@@ -115,8 +115,14 @@ public class SnipeBidOutcomeTests
     public void ModelBidStateSettlesTheOutcomeWhenPresent()
     {
         Assert.Equal(BidOutcome.Registered, Snipe.Outcome(PLAIN, 900, 900, "highest"));
-        Assert.Equal(BidOutcome.Overtaken, Snipe.Outcome(PLAIN, 900, 900, "outbid"));
+        Assert.Equal(BidOutcome.Overtaken, Snipe.Outcome(PLAIN, 900, 1000, "outbid"));
         Assert.Equal(BidOutcome.Failed, Snipe.Outcome(PLAIN, 900, 900, "none"));
+    }
+
+    [Fact]
+    public void StaleOutbidStateWithOurAmountShowingIsNotSettledYet()
+    {
+        Assert.Equal(BidOutcome.Failed, Snipe.Outcome($"{PLAIN} outbid", 900, 900, "outbid"));
     }
 
     [Fact]

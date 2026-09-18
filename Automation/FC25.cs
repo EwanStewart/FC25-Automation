@@ -923,7 +923,7 @@ public class Fc25 : IDisposable
     {
         var timeText = ReadTimeText(row);
 
-        if (_screen.Click(ElementKeys.WATCH, ShortWait))
+        if (TryWatch())
         {
             estimates[info] = estimate;
             _total += 1;
@@ -934,6 +934,21 @@ public class Fc25 : IDisposable
         {
             Console.WriteLine($"Could not watch {info}.");
         }
+    }
+
+    private bool TryWatch()
+    {
+        var attempts = 0;
+        var watched = false;
+
+        while (!watched && attempts < 2)
+        {
+            attempts++;
+            watched = _screen.Click(ElementKeys.WATCH, ShortWait) &&
+                      _screen.WaitVisible(ElementKeys.UNWATCH, ShortWait) != null;
+        }
+
+        return watched;
     }
 
     private void SnipeWatchedTargets(Dictionary<string, uint> estimates)

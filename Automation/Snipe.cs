@@ -63,7 +63,7 @@ public static class Snipe
     public static BidOutcome Outcome(string classes, uint ourAmount, uint? rowBidAfter, string? bidState = null)
     {
         var result = BidOutcome.Failed;
-        var overtaken = bidState == OUTBID_STATE || (rowBidAfter.HasValue && rowBidAfter.Value > ourAmount);
+        var overtaken = rowBidAfter.HasValue && rowBidAfter.Value > ourAmount;
 
         if (BidRow.IsOurs(classes) || bidState == HIGHEST_STATE) result = BidOutcome.Registered;
         else if (overtaken) result = BidOutcome.Overtaken;
