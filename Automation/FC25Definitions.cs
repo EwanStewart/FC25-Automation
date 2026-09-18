@@ -236,8 +236,8 @@ public static class Fc25Definitions
         { ElementKeys.NAVIGATION_BAR, ("nav.ut-tab-bar", "Navigation Bar") },
         { ElementKeys.SCREEN_TITLE, ("h1.title", "Screen Title") },
         { ElementKeys.CLICK_SHIELD, (".ut-click-shield.showing", "Click Shield") },
-        { ElementKeys.DIALOG, (".ea-dialog-view", "Dialog") },
-        { ElementKeys.DIALOG_BUTTONS, (".ea-dialog-view button", "Dialog Buttons") },
+        { ElementKeys.DIALOG, (".ea-dialog-view, .view-modal-container.form-modal", "Dialog") },
+        { ElementKeys.DIALOG_BUTTONS, (".ea-dialog-view button, .view-modal-container.form-modal button", "Dialog Buttons") },
         { ElementKeys.UNSUPPORTED_BROWSER, ("#unsupported-browser-shield", "Unsupported Browser") },
         {
             ElementKeys.COMPARE_PRICE_NEXT,

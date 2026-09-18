@@ -8,7 +8,7 @@ public class Screen
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(300);
 
-    private static readonly string[] DismissLabels = { "Cancel", "Close", "Ok" };
+    private static readonly string[] DismissLabels = { "Cancel", "Close", "Ok", "Continue" };
 
     private readonly ChromeDriver _driver;
 
