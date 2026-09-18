@@ -67,3 +67,28 @@ public class SnipeTests
         Assert.True(Snipe.BatchFinished(Array.Empty<string>()));
     }
 }
+
+public class SnipeBidOutcomeTests
+{
+    private const string PLAIN = "listFUTItem has-auction-data";
+
+    [Fact]
+    public void RowShowingOurHighestBidMeansTheBidRegistered()
+    {
+        Assert.Equal(BidOutcome.Registered, Snipe.Outcome($"{PLAIN} highest-bid", 900, 950));
+    }
+
+    [Fact]
+    public void RowOutbidAboveOurAmountMeansWeWereOvertakenNotThatTheBidFailed()
+    {
+        Assert.Equal(BidOutcome.Overtaken, Snipe.Outcome($"{PLAIN} outbid", 900, 1000));
+        Assert.Equal(BidOutcome.Overtaken, Snipe.Outcome(PLAIN, 900, 1000));
+    }
+
+    [Fact]
+    public void RowUnchangedAfterTheClickMeansTheBidFailed()
+    {
+        Assert.Equal(BidOutcome.Failed, Snipe.Outcome($"{PLAIN} outbid", 900, 900));
+        Assert.Equal(BidOutcome.Failed, Snipe.Outcome(PLAIN, 300, null));
+    }
+}

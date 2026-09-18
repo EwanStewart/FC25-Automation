@@ -999,8 +999,9 @@ public class Fc25 : IDisposable
     private void SnipeRowIfDue(IWebElement row, string info, TargetFacts facts, Dictionary<string, uint> standing)
     {
         var ours = BidRow.IsOurs(facts.Classes);
+        var shown = ReadRowValue(row, "Bid") ?? 0;
 
-        if (ours && !standing.ContainsKey(info))
+        if (ours && shown > standing.GetValueOrDefault(info))
             ConfirmUnrecordedBid(row, info, facts, standing);
         else if (Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID))
             SnipeRow(row, info, facts, standing);
@@ -1059,34 +1060,45 @@ public class Fc25 : IDisposable
     {
         var typed = _screen.SetInputValue(bidInput, amount) == amount;
         var clicked = typed && _screen.Click(ElementKeys.MAKE_BID, ShortWait);
+        var outcome = clicked ? WaitForSnipeOutcome(amount) : BidOutcome.Failed;
 
-        if (clicked && WaitForSnipeRegistered())
+        if (outcome == BidOutcome.Registered)
             RecordSnipeBid(info, amount, estimate, standing, timeText, standing.ContainsKey(info) ? "rebid" : "bid", context);
+        else if (outcome == BidOutcome.Overtaken)
+            RecordOvertakenBid(info, amount, estimate, timeText);
         else
             RecoverFromUnregisteredBid(info, amount, estimate, timeText);
 
         _screen.DismissDialog();
     }
 
-    private bool WaitForSnipeRegistered()
+    private BidOutcome WaitForSnipeOutcome(uint amount)
     {
         var deadline = DateTime.UtcNow + ShortWait;
-        var registered = SelectedRowIsOurs();
+        var outcome = ReadSelectedRowOutcome(amount);
 
-        while (!registered && DateTime.UtcNow < deadline)
+        while (outcome == BidOutcome.Failed && DateTime.UtcNow < deadline)
         {
             Thread.Sleep(300);
-            registered = SelectedRowIsOurs();
+            outcome = ReadSelectedRowOutcome(amount);
         }
 
-        return registered;
+        return outcome;
     }
 
-    private bool SelectedRowIsOurs()
+    private BidOutcome ReadSelectedRowOutcome(uint amount)
     {
         var row = _screen.WaitVisible(ElementKeys.SELECTED_ITEM, TimeSpan.Zero);
 
-        return row != null && BidRow.IsOurs(row.GetAttribute("class") ?? string.Empty);
+        return row == null
+            ? BidOutcome.Failed
+            : Snipe.Outcome(row.GetAttribute("class") ?? string.Empty, amount, ReadRowValue(row, "Bid"));
+    }
+
+    private void RecordOvertakenBid(string info, uint amount, uint estimate, string timeText)
+    {
+        Database.AddSnipeEvent(info, "overtaken", amount, amount, estimate, timeText, null);
+        Console.WriteLine($"Bid on {info} at {amount} was overtaken before it showed; trying again next poll.");
     }
 
     private void RecordSnipeBid(string info, uint amount, uint estimate, Dictionary<string, uint> standing,
