@@ -27,11 +27,11 @@ Two things to know before running:
 
 ## Bidding rules
 
-The resale estimate for an item is the second-lowest buy-now ask across every Compare Price page, and it needs at least three asks to count. Estimates are kept for seven days and refreshed after six hours, except for items already known to be too cheap to qualify, which are skipped without another Compare Price. The bot bids the minimum the auction allows, only when that minimum is at or below the break-even ceiling: the estimate after the 5 percent tax, minus a 1000 coin profit margin, rounded down to the bid increment. It bids only on auctions with 3 to 20 minutes left, once per item per run, and keeps open bids under half the coin balance. Every bid is recorded in the Bids table with the minimum bid, current bid, buy-now, minutes left and ask count, and marked won, lost or sold as the routine sees the outcome. Every Compare Price read is stored in CompareReads.
+The resale estimate for an item is the second-lowest buy-now ask across every Compare Price page, ignoring asks at the 4,800 to 5,000 price ceiling, and it needs at least three real asks to count. Estimates are kept for seven days and refreshed after six hours, except for items already known to be too cheap to qualify, which are skipped without another Compare Price. The bot bids the minimum the auction allows, only when that minimum is at or below the break-even ceiling: the estimate after the 5 percent tax, minus a 1000 coin profit margin, rounded down to the bid increment. It bids only on auctions with 3 to 20 minutes left, once per item per run, and keeps open bids under half the coin balance. Every bid is recorded in the Bids table with the minimum bid, current bid, buy-now, minutes left and ask count, and marked won, lost or sold as the routine sees the outcome. Every Compare Price read is stored in CompareReads.
 
 Listings undercut the market by one increment, with the start price one increment under that. If the start price would not cover what the item cost after tax, the listing goes up at break-even instead. The cost comes from the panel's "Bought For" figure or the recorded bid. The knobs live in Automation/BiddingStrategy.cs.
 
-Run the tests with `dotnet test`.
+Run the tests with `dotnet test`. Add `--loop 10` to keep cycling every ten minutes instead of shutting down after one pass.
 
 ## Running on Windows
 

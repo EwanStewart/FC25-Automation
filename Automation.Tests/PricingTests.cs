@@ -85,6 +85,14 @@ public class PricingTests
         Assert.Equal(1000u, Pricing.ResaleFromAsks(new uint[] { 50, 1000, 1000, 5000 }, 3));
     }
 
+    [Fact]
+    public void ResaleFromAsksIgnoresAsksAtThePriceCeiling()
+    {
+        Assert.Equal(1300u, Pricing.ResaleFromAsks(new uint[] { 5000, 1100, 5000, 1300, 1800, 4000 }, 3, 4800));
+        Assert.Equal(0u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 3, 4800));
+        Assert.Equal(5000u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 3));
+    }
+
     [Theory]
     [InlineData(150u, 1000u, 1211u)]
     [InlineData(500u, 1000u, 1579u)]

@@ -83,7 +83,12 @@ public static class Pricing
 
     public static uint ResaleFromAsks(IEnumerable<uint> asks, int minListings)
     {
-        var sorted = asks.OrderBy(price => price).ToList();
+        return ResaleFromAsks(asks, minListings, uint.MaxValue);
+    }
+
+    public static uint ResaleFromAsks(IEnumerable<uint> asks, int minListings, uint wallAsk)
+    {
+        var sorted = asks.Where(price => price < wallAsk).OrderBy(price => price).ToList();
         uint result = 0;
 
         if (sorted.Count >= minListings && sorted.Count >= 2) result = sorted[1];

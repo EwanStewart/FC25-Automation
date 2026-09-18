@@ -142,9 +142,34 @@ public class Fc25
     private void SmokeTestRoutine()
     {
         MaintainTransfers();
-        RunClubItemBidPass(false);
+        RunClubItemBidPass(true);
 
-        if (_bidsPlaced == 0) RunClubItemBidPass(true);
+        if (_bidsPlaced == 0) RunClubItemBidPass(false);
+    }
+
+    public void RunCycleSafely()
+    {
+        try
+        {
+            _bidsPlaced = 0;
+            _bidNamesThisRun.Clear();
+            GetCoinTotal();
+            RunCycle();
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+        }
+    }
+
+    public void RunCycle()
+    {
+        MaintainTransfers();
+        RunClubItemBidPass(true);
+
+        if (CanPlaceMoreBids()) RunClubItemBidPass(false);
+
+        Utility.Utility.RetryAction(() => BidOnPlayerItems());
     }
 
     private void MaintainTransfers()
@@ -156,13 +181,7 @@ public class Fc25
 
     private void ListAndBidRoutine()
     {
-        MaintainTransfers();
-
-        RunClubItemBidPass(false);
-
-        if (CanPlaceMoreBids()) RunClubItemBidPass(true);
-
-        Utility.Utility.RetryAction(() => BidOnPlayerItems());
+        RunCycle();
     }
 
     private void RunClubItemBidPass(bool badges)
@@ -411,7 +430,7 @@ public class Fc25
         return Pricing.EstimateResale(sightings.Select(sighting => sighting.price), RESALE_SAMPLE_SIZE);
     }
 
-    private bool TryRecordLowestPrice(string info)
+    private bool TryRecordLowestPrice(string info, int maxPages = MAX_COMPARE_PAGES)
     {
         var recorded = false;
         var comparePriceList = _screen.Click(ElementKeys.COMPARE_PRICE, StandardWait)
@@ -420,8 +439,8 @@ public class Fc25
 
         if (comparePriceList != null)
         {
-            var (asks, pages) = CollectComparePrices();
-            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS);
+            var (asks, pages) = CollectComparePrices(maxPages);
+            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS, WALL_ASK);
             recorded = resale > 0;
             _lastAskCount = asks.Count;
 
@@ -533,13 +552,13 @@ public class Fc25
         return elements.Count > 0 ? elements[0].Text : string.Empty;
     }
 
-    private (List<uint> asks, int pages) CollectComparePrices()
+    private (List<uint> asks, int pages) CollectComparePrices(int maxPages)
     {
         List<uint> prices = [];
         var page = 0;
         var morePages = true;
 
-        while (morePages && page < MAX_COMPARE_PAGES)
+        while (morePages && page < maxPages)
         {
             page++;
             var list = _screen.WaitVisible(ElementKeys.COMPARE_PRICE_LIST, ShortWait);
@@ -633,7 +652,7 @@ public class Fc25
     {
         uint result = 0;
 
-        if (TryRecordLowestPrice(info))
+        if (TryRecordLowestPrice(info, MAX_COMPARE_PAGES_FOR_LISTING))
         {
             var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
             result = sightings[0].price;
