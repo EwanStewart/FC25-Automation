@@ -146,7 +146,7 @@ public class Browser
         {
             FileName = GetChromeExecutable(),
             Arguments =
-                $"--remote-debugging-port={DEBUGGING_PORT} --user-data-dir=\"{profileDirectory}\" --no-first-run --window-size=1400,1000",
+                $"--remote-debugging-port={DEBUGGING_PORT} --user-data-dir=\"{profileDirectory}\" --no-first-run --window-size=1400,1000 --use-gl=angle --use-angle=swiftshader",
             UseShellExecute = false
         };
 

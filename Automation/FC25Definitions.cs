@@ -63,7 +63,8 @@ public static class Fc25Definitions
         MIN_BUY_NOW_PRICE_INPUT,
         MAX_BUY_NOW_PRICE_INPUT,
         COIN_TOTAL,
-        ITEM_NAME
+        ITEM_NAME,
+        ITEM_TIME_REMAINING
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
@@ -205,6 +206,7 @@ public static class Fc25Definitions
                 "Max Buy Now Price Input")
         },
         { ElementKeys.COIN_TOTAL, ("//div[contains(@class, 'view-navbar-currency-coins')]", "Coin Total Text") },
-        { ElementKeys.ITEM_NAME, ("div.entityContainer > div.name", "Item Name") }
+        { ElementKeys.ITEM_NAME, ("div.entityContainer > div.name", "Item Name") },
+        { ElementKeys.ITEM_TIME_REMAINING, ("div.auction-state span.time", "Item Time Remaining") }
     };
 }

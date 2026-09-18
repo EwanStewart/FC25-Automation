@@ -14,6 +14,7 @@ public class Fc25
 
     private readonly ChromeDriver _driver;
     private static readonly TimeSpan StandardWait = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan FirstPageLoadWait = TimeSpan.FromSeconds(60);
     private readonly WebDriverWait _wait;
     private readonly string _user;
     private uint _total;
@@ -36,7 +37,7 @@ public class Fc25
             GetCoinTotal();
 
             if (smokeTest)
-                BidOnSilverClubItems(false, 0);
+                SmokeTestRoutine();
             else
                 ListAndBidRoutine();
         }
@@ -56,7 +57,7 @@ public class Fc25
 
         Browser.WaitAndClickElementByCssSelector(
             _driver,
-            StandardWait,
+            FirstPageLoadWait,
             Elements[ElementKeys.INITIAL_LOGIN]
         );
 
@@ -102,6 +103,15 @@ public class Fc25
         }
 
         return result;
+    }
+
+    private void SmokeTestRoutine()
+    {
+        const byte pagesToTry = 3;
+
+        for (byte page = 0; page < pagesToTry && _bidsPlaced == 0; page++) BidOnSilverClubItems(false, page);
+
+        for (byte page = 0; page < pagesToTry && _bidsPlaced == 0; page++) BidOnSilverClubItems(true, page);
     }
 
     private void ListAndBidRoutine()
@@ -297,6 +307,8 @@ public class Fc25
                 break;
             }
 
+            if (IsEndingWithinAMinute(item)) continue;
+
             var info = GetItemInfo(item);
 
             if (Database.HasBeenSeenTodayAndLessThanBidThreshold(info, bidThreshold)) continue;
@@ -330,10 +342,11 @@ public class Fc25
             {
                 Thread.Sleep(1000);
                 var bidInput = _driver.FindElement(By.XPath(Elements[ElementKeys.FIND_ALL_PRICE_INPUTS].Item1));
+                var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value"));
 
-                if (Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value")) > maxBid) continue;
+                if (minimumBid > maxBid) continue;
 
-                UpdateInputElementText(bidPrice, bidInput);
+                UpdateInputElementText(Math.Max(bidPrice, minimumBid), bidInput);
 
                 SendXPathClickCommandStandardWait(ElementKeys.MAKE_BID);
                 _total += 1;
@@ -363,6 +376,8 @@ public class Fc25
             {
                 break;
             }
+
+            if (IsEndingWithinAMinute(item)) continue;
 
             var bidInput = _driver.FindElement(By.XPath(Elements[ElementKeys.FIND_ALL_PRICE_INPUTS].Item1));
 
@@ -395,6 +410,16 @@ public class Fc25
         inputElement.SendKeys(Keys.Control + "a");
         inputElement.SendKeys(Keys.Backspace);
         inputElement.SendKeys(listPrice.ToString());
+    }
+
+    private static bool IsEndingWithinAMinute(IWebElement item)
+    {
+        var result = false;
+        var timeElements = item.FindElements(By.CssSelector(Elements[ElementKeys.ITEM_TIME_REMAINING].Item1));
+
+        if (timeElements.Count > 0) result = timeElements[0].Text.Contains("<1");
+
+        return result;
     }
 
     private string GetItemInfo(IWebElement item)
