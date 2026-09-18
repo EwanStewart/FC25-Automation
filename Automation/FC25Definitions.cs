@@ -70,7 +70,8 @@ public static class Fc25Definitions
         CLICK_SHIELD,
         DIALOG,
         DIALOG_BUTTONS,
-        UNSUPPORTED_BROWSER
+        UNSUPPORTED_BROWSER,
+        COMPARE_PRICE_NEXT
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
@@ -224,6 +225,11 @@ public static class Fc25Definitions
         { ElementKeys.CLICK_SHIELD, (".ut-click-shield.showing", "Click Shield") },
         { ElementKeys.DIALOG, (".ea-dialog-view", "Dialog") },
         { ElementKeys.DIALOG_BUTTONS, (".ea-dialog-view button", "Dialog Buttons") },
-        { ElementKeys.UNSUPPORTED_BROWSER, ("#unsupported-browser-shield", "Unsupported Browser") }
+        { ElementKeys.UNSUPPORTED_BROWSER, ("#unsupported-browser-shield", "Unsupported Browser") },
+        {
+            ElementKeys.COMPARE_PRICE_NEXT,
+            ("//section[contains(@class, 'ui-layout-right')]//button[contains(@class, 'pagination') and contains(@class, 'next') and not(contains(@class, 'disabled'))]",
+                "Compare Price Next Page")
+        }
     };
 }

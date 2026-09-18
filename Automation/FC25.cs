@@ -392,7 +392,7 @@ public class Fc25
         if (comparePriceList != null)
         {
             Thread.Sleep(1000);
-            var lowestPrice = FindLowestPrice(comparePriceList);
+            var lowestPrice = Pricing.LowestBuyNow(CollectComparePrices(), MIN_COMPARE_LISTINGS);
             recorded = lowestPrice > 0;
 
             if (recorded) Database.AddToSeenTable(lowestPrice, info);
@@ -477,15 +477,38 @@ public class Fc25
         return $"{name} {type}";
     }
 
-    private static uint FindLowestPrice(IWebElement list)
+    private List<uint> CollectComparePrices()
+    {
+        List<uint> prices = [];
+        var page = 0;
+        var morePages = true;
+
+        while (morePages && page < MAX_COMPARE_PAGES)
+        {
+            page++;
+            var list = _screen.WaitVisible(ElementKeys.COMPARE_PRICE_LIST, ShortWait);
+
+            if (list != null) prices.AddRange(ReadBuyNowPrices(list));
+
+            morePages = list != null && _screen.IsVisible(ElementKeys.COMPARE_PRICE_NEXT) &&
+                        _screen.Click(ElementKeys.COMPARE_PRICE_NEXT, ShortWait);
+
+            if (morePages) Thread.Sleep(1500);
+        }
+
+        Console.WriteLine($"Compare price read {prices.Count} listings over {page} page(s).");
+
+        return prices;
+    }
+
+    private static List<uint> ReadBuyNowPrices(IWebElement list)
     {
         IList<IWebElement> buyNowSpans = list.FindElements(By.XPath(".//span[text()='Buy Now:']"));
-        var buyNowPrices = buyNowSpans
+
+        return buyNowSpans
             .Select(span => span.FindElement(By.XPath("./following-sibling::span")).Text)
             .Select(Utility.Utility.CommaSeperatedNumberToUInt)
             .ToList();
-
-        return Pricing.LowestBuyNow(buyNowPrices, MIN_COMPARE_LISTINGS);
     }
 
     #endregion
