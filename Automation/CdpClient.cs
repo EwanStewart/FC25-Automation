@@ -24,9 +24,10 @@ public sealed class CdpClient : IDisposable
         {
             using HttpClient client = new();
             var targets = JsonNode.Parse(client.GetStringAsync($"{debuggerHttp}/json").GetAwaiter().GetResult());
-            var page = targets?.AsArray().FirstOrDefault(target =>
-                target?["type"]?.GetValue<string>() == "page" &&
-                (target["url"]?.GetValue<string>() ?? string.Empty).Contains(urlFragment, StringComparison.Ordinal));
+            var pages = targets?.AsArray().Where(target => target?["type"]?.GetValue<string>() == "page").ToList() ?? [];
+            var page = pages.FirstOrDefault(target =>
+                           (target?["url"]?.GetValue<string>() ?? string.Empty).Contains(urlFragment, StringComparison.Ordinal)) ??
+                       pages.FirstOrDefault();
 
             result = page?["webSocketDebuggerUrl"]?.GetValue<string>();
         }
