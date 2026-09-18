@@ -228,6 +228,14 @@ public static class Database
         ExecuteWithName(query, name);
     }
 
+    public static void MarkLatestOpenBidLost(string name)
+    {
+        const string query =
+            "UPDATE Bids SET outcome = 'lost', resolved_at = NOW() WHERE name = @name AND outcome = 'open' ORDER BY timestamp DESC LIMIT 1";
+
+        ExecuteWithName(query, name);
+    }
+
     public static void MarkLatestWonBidSold(string name, uint soldPrice)
     {
         using MySqlConnection connection = new(ConnectionString);

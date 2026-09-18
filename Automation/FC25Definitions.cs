@@ -26,6 +26,7 @@ public static class Fc25Definitions
         TRANSFER_TARGETS,
         CLEAR_NOT_WON_TRANSFER_TARGETS,
         WON_TARGET,
+        TARGET_ROWS,
         SEND_TO_TRANSFER_LIST,
         CLEAR_SOLD_TRANSFERS,
         TRANSFER_LIST,
@@ -101,6 +102,10 @@ public static class Fc25Definitions
             ElementKeys.WON_TARGET,
             ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data') and contains(@class, 'won')]",
                 "Won Target")
+        },
+        {
+            ElementKeys.TARGET_ROWS,
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'has-auction-data')]", "Transfer Target Rows")
         },
         {
             ElementKeys.SEND_TO_TRANSFER_LIST,

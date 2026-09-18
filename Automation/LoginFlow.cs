@@ -42,6 +42,8 @@ public static class BidRow
 {
     private const string HIGHEST_BID_CLASS = "highest-bid";
     private const string OUTBID_CLASS = "outbid";
+    private const string EXPIRED_CLASS = "expired";
+    private const string WON_CLASS = "won";
 
     public static bool IsRegistered(string classes)
     {
@@ -53,6 +55,13 @@ public static class BidRow
     public static bool IsOurs(string classes)
     {
         return Tokens(classes).Contains(HIGHEST_BID_CLASS);
+    }
+
+    public static bool IsLost(string classes)
+    {
+        var tokens = Tokens(classes);
+
+        return !tokens.Contains(WON_CLASS) && (tokens.Contains(EXPIRED_CLASS) || tokens.Contains(OUTBID_CLASS));
     }
 
     private static HashSet<string> Tokens(string classes)

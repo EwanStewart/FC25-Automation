@@ -306,6 +306,7 @@ public class Fc25 : IDisposable
     {
         GoToTransfers();
         GoToTransferTargets();
+        MarkLostTargets();
         ClearNotWonItemsFromTransferTargets();
         SendWonItemsToTransferListFromTransferTargets();
     }
@@ -859,6 +860,35 @@ public class Fc25 : IDisposable
     #endregion
 
     #region Transfer Targets And Sold Items
+
+    private void MarkLostTargets()
+    {
+        var lostRows = _screen.FindAll(ElementKeys.TARGET_ROWS)
+            .Where(row => BidRow.IsLost(row.GetAttribute("class") ?? string.Empty))
+            .ToList();
+        var marked = 0;
+
+        foreach (var row in lostRows) marked += MarkLostTarget(row);
+
+        Console.WriteLine($"Transfer targets: {lostRows.Count} expired or outbid rows, {marked} names read.");
+    }
+
+    private static int MarkLostTarget(IWebElement row)
+    {
+        var result = 0;
+
+        try
+        {
+            Database.MarkLatestOpenBidLost(GetItemInfo(row));
+            result = 1;
+        }
+        catch (WebDriverException exception)
+        {
+            Console.WriteLine($"Could not read a lost target row: {exception.Message}");
+        }
+
+        return result;
+    }
 
     private void ClearNotWonItemsFromTransferTargets()
     {

@@ -73,4 +73,15 @@ public class FlowTests
     {
         Assert.Equal(expected, BidRow.IsOurs(classes));
     }
+
+    [Theory]
+    [InlineData("listFUTItem has-auction-data expired", true)]
+    [InlineData("listFUTItem has-auction-data outbid", true)]
+    [InlineData("listFUTItem has-auction-data won expired", false)]
+    [InlineData("listFUTItem has-auction-data highest-bid", false)]
+    [InlineData("listFUTItem has-auction-data", false)]
+    public void IsLostMarksExpiredAndOutbidRowsThatWereNotWon(string classes, bool expected)
+    {
+        Assert.Equal(expected, BidRow.IsLost(classes));
+    }
 }
