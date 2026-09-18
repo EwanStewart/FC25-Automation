@@ -63,7 +63,14 @@ public static class Fc25Definitions
         MAX_BUY_NOW_PRICE_INPUT,
         COIN_TOTAL,
         ITEM_NAME,
-        ITEM_TIME_REMAINING
+        ITEM_TIME_REMAINING,
+        SELECTED_ITEM,
+        NAVIGATION_BAR,
+        SCREEN_TITLE,
+        CLICK_SHIELD,
+        DIALOG,
+        DIALOG_BUTTONS,
+        UNSUPPORTED_BROWSER
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
@@ -207,6 +214,16 @@ public static class Fc25Definitions
         },
         { ElementKeys.COIN_TOTAL, ("//div[contains(@class, 'view-navbar-currency-coins')]", "Coin Total Text") },
         { ElementKeys.ITEM_NAME, ("div.entityContainer > div.name", "Item Name") },
-        { ElementKeys.ITEM_TIME_REMAINING, ("div.auction-state span.time", "Item Time Remaining") }
+        { ElementKeys.ITEM_TIME_REMAINING, ("div.auction-state span.time", "Item Time Remaining") },
+        {
+            ElementKeys.SELECTED_ITEM,
+            ("//li[contains(@class, 'listFUTItem') and contains(@class, 'selected')]", "Selected Item")
+        },
+        { ElementKeys.NAVIGATION_BAR, ("nav.ut-tab-bar", "Navigation Bar") },
+        { ElementKeys.SCREEN_TITLE, ("h1.title", "Screen Title") },
+        { ElementKeys.CLICK_SHIELD, (".ut-click-shield.showing", "Click Shield") },
+        { ElementKeys.DIALOG, (".ea-dialog-view", "Dialog") },
+        { ElementKeys.DIALOG_BUTTONS, (".ea-dialog-view button", "Dialog Buttons") },
+        { ElementKeys.UNSUPPORTED_BROWSER, ("#unsupported-browser-shield", "Unsupported Browser") }
     };
 }
