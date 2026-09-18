@@ -21,6 +21,15 @@ public class SnipeFiltersTests
     }
 
     [Fact]
+    public void RingRunsOmThenScotlandThenPsgAndWraps()
+    {
+        Assert.Equal("OM silvers", SnipeFilters.Next(SnipeFilters.RING, null).Name);
+        Assert.Equal("Scotland silvers", SnipeFilters.Next(SnipeFilters.RING, "OM silvers").Name);
+        Assert.Equal("PSG silvers", SnipeFilters.Next(SnipeFilters.RING, "Scotland silvers").Name);
+        Assert.Equal("OM silvers", SnipeFilters.Next(SnipeFilters.RING, "PSG silvers").Name);
+    }
+
+    [Fact]
     public void RingFiltersAreNamedDistinctlyAndChooseALeagueBeforeAClub()
     {
         Assert.NotEmpty(SnipeFilters.RING);

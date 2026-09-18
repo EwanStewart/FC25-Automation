@@ -10,6 +10,7 @@ public static class SnipeFilters
     public static readonly IReadOnlyList<SnipeFilter> RING = new[]
     {
         new SnipeFilter("OM silvers", "Silver", League: LIGUE_1, Club: "OM"),
+        new SnipeFilter("Scotland silvers", "Silver", Nationality: "Scotland"),
         new SnipeFilter("PSG silvers", "Silver", League: LIGUE_1, Club: "PSG")
     };
 
