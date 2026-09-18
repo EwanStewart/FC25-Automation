@@ -144,6 +144,14 @@ public static class Pricing
         return isEven ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
     }
 
+    public static bool NeedsCompareRead(DateTime? latestSighting, DateTime now, bool knownCheap, uint maxAgeHours,
+        uint cheapMaxAgeHours)
+    {
+        var limit = knownCheap ? cheapMaxAgeHours : maxAgeHours;
+
+        return !latestSighting.HasValue || IsStale(latestSighting.Value, now, limit);
+    }
+
     public static bool IsStale(DateTime latestSighting, DateTime now, uint maxAgeHours)
     {
         return now - latestSighting > TimeSpan.FromHours(maxAgeHours);

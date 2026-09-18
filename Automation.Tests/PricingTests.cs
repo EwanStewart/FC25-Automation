@@ -60,6 +60,26 @@ public class PricingTests
     }
 
     [Fact]
+    public void AnItemIsRepricedWhenItsSightingAgesOut()
+    {
+        var now = new DateTime(2026, 9, 19, 12, 0, 0, DateTimeKind.Utc);
+
+        Assert.True(Pricing.NeedsCompareRead(null, now, false, 6, 24));
+        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-5), now, false, 6, 24));
+        Assert.True(Pricing.NeedsCompareRead(now.AddHours(-7), now, false, 6, 24));
+    }
+
+    [Fact]
+    public void ACheapItemWaitsADayBeforeItIsRepriced()
+    {
+        var now = new DateTime(2026, 9, 19, 12, 0, 0, DateTimeKind.Utc);
+
+        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-7), now, true, 6, 24));
+        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-23), now, true, 6, 24));
+        Assert.True(Pricing.NeedsCompareRead(now.AddHours(-25), now, true, 6, 24));
+    }
+
+    [Fact]
     public void ParseMinutesRemainingReturnsNullForUnknownText()
     {
         Assert.Null(Pricing.ParseMinutesRemaining(""));

@@ -43,6 +43,13 @@ public class RowTriageTests
     }
 
     [Fact]
+    public void ACheapCachedPriceStopsRulingTheRowOutOnceItHasAgedOut()
+    {
+        Assert.False(IsCandidate(new RowFacts(PLAIN, 5, false, 300, 1300, false)));
+        Assert.True(IsCandidate(new RowFacts(PLAIN, 5, false, 300, 1300, false, true)));
+    }
+
+    [Fact]
     public void CachedPriceBelowTheRequiredResaleRulesTheRowOutUnlessItHasSales()
     {
         Assert.False(IsCandidate(new RowFacts(PLAIN, 5, false, 300, 1300, false)));

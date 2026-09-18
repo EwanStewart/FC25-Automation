@@ -543,9 +543,11 @@ public class Fc25 : IDisposable
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
         uint? cached = sightings.Count > 0 ? SalesFeedback.Calibrate(sightings[0].price, _calibrationRatio) : null;
         var hasSales = Database.GetRecentSales(info, RESALE_WINDOW_DAYS).Count > 0;
+        var expired = sightings.Count > 0 &&
+                      Pricing.IsStale(sightings[0].timestamp, DateTime.UtcNow, CHEAP_MAX_AGE_HOURS);
 
         return new RowFacts(row.Classes, row.MinutesLeft, _bidNamesThisRun.Contains(info), row.BidValue, cached,
-            hasSales);
+            hasSales, expired);
     }
 
     private bool PageIsBeyondWindow()
@@ -752,10 +754,10 @@ public class Fc25 : IDisposable
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
         var knownCheap = sightings.Count > 0 &&
                          SalesFeedback.Calibrate(sightings[0].price, _calibrationRatio) < requiredResale;
-        var stale = sightings.Count == 0 ||
-                    Pricing.IsStale(sightings[0].timestamp, DateTime.UtcNow, RESALE_MAX_AGE_HOURS);
+        var needsRead = Pricing.NeedsCompareRead(sightings.Count > 0 ? sightings[0].timestamp : null, DateTime.UtcNow,
+            knownCheap, RESALE_MAX_AGE_HOURS, CHEAP_MAX_AGE_HOURS);
 
-        if (stale && !knownCheap && TryRecordLowestPrice(info))
+        if (needsRead && TryRecordLowestPrice(info))
             sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
 
         var askEstimate = Pricing.EstimateResale(sightings.Select(sighting => sighting.price), RESALE_SAMPLE_SIZE);

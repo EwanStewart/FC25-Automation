@@ -8,7 +8,8 @@ public readonly record struct RowFacts(
     bool AlreadyBid,
     uint? RowBid,
     uint? CachedResale,
-    bool HasSales);
+    bool HasSales,
+    bool CachedExpired = false);
 
 public static class RowTriage
 {
@@ -18,7 +19,7 @@ public static class RowTriage
                        Pricing.IsWithinBidWindow(facts.MinutesLeft.Value, minMinutes, maxMinutes);
         var result = inWindow && Snipe.IsLive(facts.Classes) && !BidRow.IsOurs(facts.Classes) && !facts.AlreadyBid;
 
-        if (result && facts.CachedResale.HasValue && !facts.HasSales)
+        if (result && facts.CachedResale.HasValue && !facts.HasSales && !facts.CachedExpired)
             result = facts.CachedResale.Value >= Pricing.RequiredResale(facts.RowBid ?? 0, marginCoins);
 
         return result;

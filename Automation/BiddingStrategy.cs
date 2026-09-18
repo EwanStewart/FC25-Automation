@@ -9,6 +9,7 @@ public static class BiddingStrategy
     public const uint RESALE_WINDOW_DAYS = 7;
     public const int RESALE_SAMPLE_SIZE = 3;
     public const uint RESALE_MAX_AGE_HOURS = 6;
+    public const uint CHEAP_MAX_AGE_HOURS = 24;
     public const uint OPEN_BID_TIMEOUT_HOURS = 2;
     public const int MIN_COMPARE_LISTINGS = 2;
     public const int MAX_COMPARE_PAGES = 2;
