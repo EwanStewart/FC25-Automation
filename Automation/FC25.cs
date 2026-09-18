@@ -589,7 +589,7 @@ public class Fc25 : IDisposable
         RequireClick(dropdown);
         Thread.Sleep(150);
 
-        if (!_screen.Click(By.XPath($"//li[text()='{optionText}']"), StandardWait))
+        if (!_screen.Click(By.XPath($"//li[normalize-space(text())={XPath.Literal(optionText)}]"), StandardWait))
             throw new InvalidOperationException($"Dropdown option '{optionText}' was not found.");
 
         Thread.Sleep(150);
