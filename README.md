@@ -42,6 +42,8 @@ A segment is badges, kits, or one snipe filter such as players:om-silvers. Befor
 
 ### Player sniping
 
+The filter ring in Automation/SnipeFilters.cs is empty, so no player pass runs and a cycle is badges and kits only. Add a filter to the ring to turn sniping back on, for example a SnipeFilter named Scotland cards with the nationality Scotland. The rest of this section describes the pass when a filter is configured.
+
 The player snipe pass does not bid from the search results. It watches candidates and bids in the last minute of each auction from the Transfer Targets screen, where the web app updates every row in place.
 
 1. Search players with the next filter in the snipe ring (RING in Automation/SnipeFilters.cs), max bid 500 and min buy now 1000. A filter has a name, a quality and any of nationality, league, club and position. The web app only enables the Club dropdown once a league is chosen, so a club filter carries its league. Each search is recorded under the filter's name and the ring resumes after the last recorded name, so the filters take turns across runs.

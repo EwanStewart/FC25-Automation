@@ -1014,6 +1014,12 @@ public class Fc25 : IDisposable
     {
         var snipeFilter = SnipeFilters.Next(SnipeFilters.RING, Database.GetLastSnipeFilterName());
 
+        if (snipeFilter == null) Console.WriteLine("No snipe filter is configured, so the player pass is skipped.");
+        else RunConfiguredSnipePass(snipeFilter);
+    }
+
+    private void RunConfiguredSnipePass(SnipeFilter snipeFilter)
+    {
         RunTimedPass(Segments.Snipe(snipeFilter.Name), Segments.ROLE_SNIPE, () => SnipePlayers(snipeFilter));
         ListWonItemsNow();
     }

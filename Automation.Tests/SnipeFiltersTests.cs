@@ -14,33 +14,23 @@ public class SnipeFiltersTests
     [Fact]
     public void NextWalksTheRingFromTheLastFilterName()
     {
-        Assert.Equal("first", SnipeFilters.Next(Ring, null).Name);
-        Assert.Equal("second", SnipeFilters.Next(Ring, "first").Name);
-        Assert.Equal("first", SnipeFilters.Next(Ring, "third").Name);
-        Assert.Equal("first", SnipeFilters.Next(Ring, "England").Name);
+        Assert.Equal("first", SnipeFilters.Next(Ring, null)?.Name);
+        Assert.Equal("second", SnipeFilters.Next(Ring, "first")?.Name);
+        Assert.Equal("first", SnipeFilters.Next(Ring, "third")?.Name);
+        Assert.Equal("first", SnipeFilters.Next(Ring, "England")?.Name);
     }
 
     [Fact]
-    public void RingRunsTheScottishFilterWithNoQualityLimit()
+    public void AnEmptyRingMeansNoSnipePass()
     {
-        var scotland = Assert.Single(SnipeFilters.RING);
-
-        Assert.Equal("Scotland cards", SnipeFilters.Next(SnipeFilters.RING, null).Name);
-        Assert.Equal("Scotland cards", SnipeFilters.Next(SnipeFilters.RING, "Scotland cards").Name);
-        Assert.Equal("Scotland", scotland.Nationality);
-        Assert.Null(scotland.Quality);
-    }
-
-    [Fact]
-    public void RingRestartsWhenTheLastFilterHasLeftTheRing()
-    {
-        Assert.Equal("Scotland cards", SnipeFilters.Next(SnipeFilters.RING, "PSG silvers").Name);
+        Assert.Empty(SnipeFilters.RING);
+        Assert.Null(SnipeFilters.Next(SnipeFilters.RING, null));
+        Assert.Null(SnipeFilters.Next(SnipeFilters.RING, "Scotland cards"));
     }
 
     [Fact]
     public void RingFiltersAreNamedDistinctlyAndChooseALeagueBeforeAClub()
     {
-        Assert.NotEmpty(SnipeFilters.RING);
         Assert.Equal(SnipeFilters.RING.Count, SnipeFilters.RING.Select(filter => filter.Name).Distinct().Count());
         Assert.All(SnipeFilters.RING.Where(filter => filter.Club != null), filter => Assert.NotNull(filter.League));
     }
