@@ -98,32 +98,139 @@ public static class Database
         }
     }
 
-    /// <summary>
-    /// Check if the name has been seen at least twice today and price is less than 1000.
-    /// </summary>
-    /// <param name="name"></param>
-    /// <param name="price"></param>
-    /// <returns>True if the name has been seen at least twice today and price is less than 1000, otherwise false</returns>
-    public static bool HasBeenSeenTodayAndLessThanBidThreshold(string name, uint price)
+    public static List<(uint price, DateTime timestamp)> GetRecentSightings(string name, uint days)
+    {
+        List<(uint, DateTime)> result = [];
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "SELECT price, timestamp FROM ItemSeenPrice WHERE name = @name AND timestamp >= DATE_SUB(NOW(), INTERVAL @days DAY) ORDER BY timestamp DESC";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@days", days);
+
+            connection.Open();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) result.Add(((uint)reader.GetInt32(0), reader.GetDateTime(1)));
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    public static void AddBid(string name, uint bid, uint resaleEstimate)
     {
         using MySqlConnection connection = new(ConnectionString);
         try
         {
-            var query =
-                $@"WITH RankedItems AS (SELECT name, price, timestamp, ROW_NUMBER() OVER (PARTITION BY name ORDER BY timestamp) AS row_num FROM ItemSeenPrice WHERE name = @name AND timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND price < {price}) SELECT COUNT(*) FROM RankedItems AS currentItem WHERE NOT EXISTS (SELECT 1 FROM RankedItems AS previousItem WHERE currentItem.row_num = previousItem.row_num + 1 AND previousItem.timestamp >= DATE_SUB(currentItem.timestamp, INTERVAL 6 HOUR));";
+            const string query = "INSERT INTO Bids (name, bid, resale_estimate) VALUES (@name, @bid, @resale)";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@bid", bid);
+            cmd.Parameters.AddWithValue("@resale", resaleEstimate);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static void MarkLatestOpenBidWon(string name)
+    {
+        const string query =
+            "UPDATE Bids SET outcome = 'won', resolved_at = NOW() WHERE name = @name AND outcome = 'open' ORDER BY timestamp DESC LIMIT 1";
+
+        ExecuteWithName(query, name);
+    }
+
+    public static void MarkLatestWonBidSold(string name, uint soldPrice)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "UPDATE Bids SET outcome = 'sold', sold_price = @price, resolved_at = NOW() WHERE name = @name AND outcome = 'won' ORDER BY resolved_at DESC LIMIT 1";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+            cmd.Parameters.AddWithValue("@price", soldPrice);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static void MarkStaleOpenBidsLost(uint olderThanHours)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "UPDATE Bids SET outcome = 'lost', resolved_at = NOW() WHERE outcome = 'open' AND timestamp < DATE_SUB(NOW(), INTERVAL @hours HOUR)";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@hours", olderThanHours);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static uint? GetLatestWonBidPrice(string name)
+    {
+        uint? result = null;
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "SELECT bid FROM Bids WHERE name = @name AND outcome = 'won' ORDER BY resolved_at DESC LIMIT 1";
 
             using MySqlCommand cmd = new(query, connection);
             cmd.Parameters.AddWithValue("@name", name);
 
             connection.Open();
-            var count = Convert.ToInt32(cmd.ExecuteScalar());
-
-            return count > 3;
+            var value = cmd.ExecuteScalar();
+            if (value != null) result = Convert.ToUInt32(value);
         }
         catch (MySqlException ex)
         {
             Console.WriteLine($"MySQL Error: {ex.Message}");
-            return false;
+        }
+
+        return result;
+    }
+
+    private static void ExecuteWithName(string query, string name)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@name", name);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
         }
     }
 }

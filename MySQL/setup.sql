@@ -23,3 +23,13 @@ CREATE TABLE IF NOT EXISTS ItemSeenPrice (
     price INT NOT NULL,        
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS Bids (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    bid INT NOT NULL,
+    resale_estimate INT NOT NULL,
+    outcome VARCHAR(16) NOT NULL DEFAULT 'open',
+    sold_price INT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP NULL
+);

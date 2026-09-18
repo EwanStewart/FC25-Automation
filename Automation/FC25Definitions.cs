@@ -16,8 +16,6 @@ public static class Fc25Definitions
         public uint MinBuyPrice { get; set; }
     }
 
-    public const ushort MinBuyNowForBid = 700;
-
     public enum ElementKeys
     {
         INITIAL_LOGIN,
