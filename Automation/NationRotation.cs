@@ -7,8 +7,6 @@ public static class NationRotation
         "England", "Germany", "France", "Spain", "Italy", "Brazil", "Argentina", "Netherlands", "Portugal", "Belgium"
     };
 
-    public static readonly string[] SNIPE_NATIONS = { "England" };
-
     public static string? NextExploratory(IReadOnlyList<string> ring, string? last, ISet<string> cooling)
     {
         var start = last == null ? 0 : (ring.ToList().IndexOf(last) + 1) % ring.Count;

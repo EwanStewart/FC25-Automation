@@ -1009,11 +1009,10 @@ public class Fc25 : IDisposable
 
     private void RunSnipePass()
     {
-        var nation = NationRotation.NextExploratory(NationRotation.SNIPE_NATIONS, Database.GetLastSnipeNation(),
-            new HashSet<string>());
+        var snipeFilter = SnipeFilters.Next(SnipeFilters.RING, Database.GetLastSnipeFilterName());
 
-        if (nation != null) RunTimedPass(Segments.SNIPE, Segments.ROLE_SNIPE, () => SnipeSilverPlayers(nation));
-        if (nation != null) ListWonItemsNow();
+        RunTimedPass(Segments.SNIPE, Segments.ROLE_SNIPE, () => SnipePlayers(snipeFilter));
+        ListWonItemsNow();
     }
 
     private void ListWonItemsNow()
@@ -1026,23 +1025,26 @@ public class Fc25 : IDisposable
         Console.WriteLine($"Listing after the snipe pass took {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
     }
 
-    private void SnipeSilverPlayers(string nation)
+    private void SnipePlayers(SnipeFilter snipeFilter)
     {
         Dictionary<string, uint> estimates = new();
         Filter filter = new()
         {
-            Quality = PLAYER_QUALITY,
-            Nationality = nation,
+            Quality = snipeFilter.Quality,
+            Nationality = snipeFilter.Nationality,
+            League = snipeFilter.League,
+            Club = snipeFilter.Club,
+            Position = snipeFilter.Position,
             MaxBidPrice = PLAYER_MAX_BID,
             MinBuyPrice = PLAYER_MIN_BUY_NOW
         };
 
         _snipeEstimates = estimates;
-        Database.AddSnipeEvent(nation, "search", null, null, null, null, _segment);
-        Console.WriteLine($"Snipe {nation}: searching silver players.");
+        Database.AddSnipeEvent(snipeFilter.Name, "search", null, null, null, null, _segment);
+        Console.WriteLine($"Snipe {snipeFilter.Name}: searching players.");
         SearchWithFilter(filter, ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
         WatchAcrossResultPages(estimates);
-        Console.WriteLine($"Snipe {nation}: watching {estimates.Count} item(s).");
+        Console.WriteLine($"Snipe {snipeFilter.Name}: watching {estimates.Count} item(s).");
 
         if (estimates.Count > 0) SnipeWatchedTargets(estimates);
     }

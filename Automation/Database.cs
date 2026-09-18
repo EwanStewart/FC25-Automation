@@ -411,7 +411,7 @@ public static class Database
         return segments.Count > 0 ? Segments.Nation(segments[0]) : null;
     }
 
-    public static string? GetLastSnipeNation()
+    public static string? GetLastSnipeFilterName()
     {
         const string query = "SELECT name FROM SnipeEvents WHERE event = 'search' ORDER BY id DESC LIMIT 1";
         var names = ReadRows(query, new(), reader => reader.GetString(0));
