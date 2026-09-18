@@ -91,6 +91,51 @@ public static class Utility
         Process.Start(processInfo);
     }
 
+    public static string GetSecret(string key)
+    {
+        LoadDotEnv();
+        var value = Environment.GetEnvironmentVariable(key);
+
+        return value ?? string.Empty;
+    }
+
+    private static void LoadDotEnv()
+    {
+        var envPath = FindDotEnv();
+
+        if (envPath != null)
+            foreach (var line in File.ReadAllLines(envPath))
+                ApplyDotEnvLine(line);
+    }
+
+    private static string? FindDotEnv()
+    {
+        string? result = null;
+        var directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+
+        while (directory != null && result == null)
+        {
+            var candidate = Path.Combine(directory.FullName, ".env");
+            if (File.Exists(candidate)) result = candidate;
+            directory = directory.Parent;
+        }
+
+        return result;
+    }
+
+    private static void ApplyDotEnvLine(string line)
+    {
+        var trimmed = line.Trim();
+        var separator = trimmed.IndexOf('=');
+
+        if (separator > 0 && !trimmed.StartsWith('#'))
+        {
+            var key = trimmed[..separator].Trim();
+            var value = trimmed[(separator + 1)..].Trim().Trim('"');
+            if (Environment.GetEnvironmentVariable(key) == null) Environment.SetEnvironmentVariable(key, value);
+        }
+    }
+
     public static void RetryAction(Action action, int maxRetries = 3, int delayMilliseconds = 5000)
     {
         var retryCount = 0;

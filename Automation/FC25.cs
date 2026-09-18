@@ -53,6 +53,8 @@ public class Fc25
             Elements[ElementKeys.INITIAL_LOGIN]
         );
 
+        EnterPasswordIfPrompted();
+
         Browser.WaitAndClickElementByXPath(
             _driver,
             StandardWait,
@@ -64,6 +66,35 @@ public class Fc25
             StandardWait,
             Elements[ElementKeys.CONTINUE]
         );
+    }
+
+    private void EnterPasswordIfPrompted()
+    {
+        var password = Utility.Utility.GetSecret("FC_PASSWORD");
+        var passwordInput = WaitForPasswordInput();
+
+        if (password.Length > 0 && passwordInput != null)
+        {
+            passwordInput.Clear();
+            passwordInput.SendKeys(password);
+        }
+    }
+
+    private IWebElement? WaitForPasswordInput()
+    {
+        IWebElement? result = null;
+
+        try
+        {
+            result = _wait.Until(
+                ExpectedConditions.ElementIsVisible(By.CssSelector(Elements[ElementKeys.PASSWORD_INPUT].Item1)));
+        }
+        catch (WebDriverTimeoutException)
+        {
+            Console.WriteLine("Password prompt did not appear.");
+        }
+
+        return result;
     }
 
     private void ListAndBidRoutine()
@@ -166,10 +197,8 @@ public class Fc25
                         Console.WriteLine($"Input[{i}]: Error getting attributes - {ex.Message}");
                     }
 
-                UpdateInputElementText(filterData.MaxBidPrice,
-                    "/html/body/main/section/section/div[2]/div/div[2]/div/div[1]/div[2]/div[3]/div[2]/input");
-                UpdateInputElementText(filterData.MinBuyPrice,
-                    "/html/body/main/section/section/div[2]/div/div[2]/div/div[1]/div[2]/div[5]/div[2]/input");
+                UpdateInputElementText(filterData.MaxBidPrice, Elements[ElementKeys.MAX_BID_PRICE_INPUT].Item1);
+                UpdateInputElementText(filterData.MinBuyPrice, Elements[ElementKeys.MIN_BUY_NOW_PRICE_INPUT].Item1);
                 SendXPathClickCommandStandardWait(ElementKeys.SEARCH);
                 Thread.Sleep(1000);
 
@@ -224,10 +253,8 @@ public class Fc25
             ? ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN_BADGES
             : ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN_KITS);
 
-        IList<IWebElement> inputs = _driver.FindElements(By.XPath(Elements[ElementKeys.FIND_ALL_PRICE_INPUTS].Item1));
-
-        UpdateInputElementText(500, inputs[3]);
-        UpdateInputElementText(1000, inputs[4]);
+        UpdateInputElementText(500, Elements[ElementKeys.MIN_BUY_NOW_PRICE_INPUT].Item1);
+        UpdateInputElementText(1000, Elements[ElementKeys.MAX_BUY_NOW_PRICE_INPUT].Item1);
         SendXPathClickCommandStandardWait(ElementKeys.SEARCH);
 
         Thread.Sleep(1000);
@@ -276,7 +303,7 @@ public class Fc25
             if (!bidItems.TryGetValue(info, out var bidPrice))
             {
                 var comparePriceList = _wait.Until(ExpectedConditions.ElementIsVisible(
-                    By.XPath("/html/body/main/section/section/div[2]/div/div/section/div[2]/section/div[2]")));
+                    By.XPath(Elements[ElementKeys.COMPARE_PRICE_LIST].Item1)));
 
                 if (comparePriceList != null)
                 {
@@ -363,7 +390,7 @@ public class Fc25
 
     private string GetItemInfo(IWebElement item)
     {
-        var soldName = item.FindElement(By.CssSelector("div.name")).Text;
+        var soldName = item.FindElement(By.CssSelector(Elements[ElementKeys.ITEM_NAME].Item1)).Text;
         var soldType = string.Empty;
 
         try
@@ -423,7 +450,7 @@ public class Fc25
                 Thread.Sleep(1000);
 
                 var comparePriceList = wait.Until(ExpectedConditions.ElementIsVisible(
-                    By.XPath("/html/body/main/section/section/div[2]/div/div/section/div[2]/section/div[2]")));
+                    By.XPath(Elements[ElementKeys.COMPARE_PRICE_LIST].Item1)));
                 if (comparePriceList != null)
                 {
                     var lowestPrice = (uint)FindLowestPrice(comparePriceList);
@@ -576,7 +603,7 @@ public class Fc25
                 }
 
                 IList<IWebElement> priceElements = item.FindElements(By.CssSelector("span.currency-coins.value"));
-                var soldName = item.FindElement(By.CssSelector("div.name")).Text;
+                var soldName = item.FindElement(By.CssSelector(Elements[ElementKeys.ITEM_NAME].Item1)).Text;
                 var soldType = string.Empty;
 
                 var soldPriceString = priceElements.Count > 0 ? priceElements[^1].Text : "0";
@@ -604,7 +631,7 @@ public class Fc25
     {
         var coinTotalAsString = Browser.WaitAndGetElementTextByXPath(_driver,
             StandardWait,
-            ("/html/body/main/section/section/div[1]/div[1]/div[1]", "Coin Total Text")
+            Elements[ElementKeys.COIN_TOTAL]
         );
 
         var coinTotal = Utility.Utility.CommaSeperatedNumberToUInt(coinTotalAsString);

@@ -22,6 +22,7 @@ public static class Fc25Definitions
     {
         INITIAL_LOGIN,
         SECOND_LOGIN,
+        PASSWORD_INPUT,
         LEFT_HAND_PANE_TRANSFERS,
         TRANSFER_TARGETS,
         CLEAR_NOT_WON_TRANSFER_TARGETS,
@@ -56,23 +57,30 @@ public static class Fc25Definitions
         TRANSFER_TARGETS_TOTAL,
         RARITY_DROPDOWN,
         MANAGER_ITEMS_TRANSFER_MARKET,
-        CONTINUE
+        CONTINUE,
+        COMPARE_PRICE_LIST,
+        MAX_BID_PRICE_INPUT,
+        MIN_BUY_NOW_PRICE_INPUT,
+        MAX_BUY_NOW_PRICE_INPUT,
+        COIN_TOTAL,
+        ITEM_NAME
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
     {
         {
             ElementKeys.INITIAL_LOGIN,
-            ("#Login > div > div > button.btn-standard.call-to-action", "Initial Login Button")
+            ("#Login button.btn-standard.primary", "Initial Login Button")
         },
+        { ElementKeys.PASSWORD_INPUT, ("#password", "Password Input") },
         { ElementKeys.SECOND_LOGIN, ("//*[@id=\"logInBtn\"]", "Second Login Button") },
         {
             ElementKeys.LEFT_HAND_PANE_TRANSFERS,
-            ("/html/body/main/section/nav/button[3]", "Transfers Button (Left-Hand Pane)")
+            ("//nav//button[contains(@class, 'icon-transfer')]", "Transfers Button (Left-Hand Pane)")
         },
         {
             ElementKeys.TRANSFER_TARGETS,
-            ("/html/body/main/section/section/div[2]/div/div/div[4]", "Transfer Targets Button")
+            ("//div[contains(@class, 'ut-tile-transfer-targets')]", "Transfer Targets Button")
         },
         {
             ElementKeys.CLEAR_NOT_WON_TRANSFER_TARGETS,
@@ -87,7 +95,7 @@ public static class Fc25Definitions
             ElementKeys.SEND_TO_TRANSFER_LIST,
             ("//button[.//span[@class='btn-text' and text()='Send to Transfer List']]", "Send To Transfer List")
         },
-        { ElementKeys.TRANSFER_LIST, ("/html/body/main/section/section/div[2]/div/div/div[3]", "Go To Transfer List") },
+        { ElementKeys.TRANSFER_LIST, ("//div[contains(@class, 'ut-tile-transfer-list')]", "Go To Transfer List") },
         {
             ElementKeys.CLEAR_SOLD_TRANSFERS,
             ("//button[contains(text(), 'Clear Sold')]", "Clear Sold Transfers Button")
@@ -115,12 +123,12 @@ public static class Fc25Definitions
         },
         {
             ElementKeys.MIN_PRICE_LIST_ITEM,
-            ("/html/body/main/section/section/div[2]/div/div/section/div/div/div[2]/div[2]/div[2]/div[2]/div[2]/input",
+            ("(//div[contains(@class, 'panelActions')]//input[contains(@class, 'ut-number-input-control')])[1]",
                 "Min Price Input List Item")
         },
         {
             ElementKeys.MAX_PRICE_LIST_ITEM,
-            ("/html/body/main/section/section/div[2]/div/div/section/div/div/div[2]/div[2]/div[2]/div[3]/div[2]/input",
+            ("(//div[contains(@class, 'panelActions')]//input[contains(@class, 'ut-number-input-control')])[2]",
                 "Max Price Input List Item")
         },
         { ElementKeys.LIST_ITEM, ("//button[contains(text(), 'List for Transfer')]", "List For Transfer") },
@@ -138,11 +146,12 @@ public static class Fc25Definitions
             ("//button[contains(text(), 'Players')]", "Players Transfer Market")
         },
         { ElementKeys.QUALITY_DROPDOWN, ("//span[text()='Quality']/ancestor::div[3]", "Quality Dropdown") },
-        { ElementKeys.NATIONALITY_DROPDOWN, ("//span[text()='Nationality']/ancestor::div[3]", "Nationality Dropdown") },
+        { ElementKeys.NATIONALITY_DROPDOWN, ("//span[text()='Country/Region']/ancestor::div[3]", "Nationality Dropdown") },
         { ElementKeys.QUALITY_DROPDOWN_SILVER, ("//li[text()='Silver']", "Silver") },
         {
             ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN,
-            ("/html/body/main/section/section/div[2]/div/div[2]/div/div[1]/div[1]/div[6]/div/div", "Club Items Choice")
+            ("(//div[contains(@class, 'ut-item-search-view')]/div[contains(@class, 'inline-list-select')])[5]",
+                "Club Items Choice")
         },
         { ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN_BADGES, ("//li[text()='Badge']", "Club Items Choice Badges") },
         { ElementKeys.CLUB_ITEMS_TYPE_DROPDOWN_KITS, ("//li[text()='Kits']", "Club Items Choice Kits") },
@@ -155,24 +164,47 @@ public static class Fc25Definitions
         },
         {
             ElementKeys.COMPARE_PRICE_BACK_BUTTON,
-            ("/html/body/main/section/section/div[2]/div/div/section/div[1]/button", "Compare Price Back")
+            ("//section[contains(@class, 'ui-layout-right')]//button[contains(@class, 'ut-navigation-button-control')]",
+                "Compare Price Back")
         },
         { ElementKeys.RESET, ("//button[contains(text(), 'Reset')]", "Reset") },
         { ElementKeys.MAKE_BID, ("//button[contains(text(), 'Make Bid')]", "Make Bid") },
         { ElementKeys.NEXT, ("//button[contains(text(), 'Next')]", "Next") },
         {
             ElementKeys.TRANSFER_TARGETS_TOTAL,
-            ("/html/body/main/section/section/div[2]/div/div/div[3]/div[2]/div/div[1]/div[1]/span[1]",
+            ("//div[contains(@class, 'ut-tile-transfer-targets')]//div[contains(@class, 'total-transfers-data')]/span[contains(@class, 'value')]",
                 "Transfer Target Total")
         },
         {
             ElementKeys.RARITY_DROPDOWN,
-            ("/html/body/main/section/section/div[2]/div/div[2]/div/div[1]/div[1]/div[3]/div/div", "Rarity Dropdown")
+            ("//span[text()='Rarity']/ancestor::div[3]", "Rarity Dropdown")
         },
         {
             ElementKeys.MANAGER_ITEMS_TRANSFER_MARKET,
             ("//button[contains(text(), 'Managers')]", "Manager Transfer Market")
         },
-        { ElementKeys.CONTINUE, ("//button[contains(text(), 'Continue')]", "Continue") }
+        { ElementKeys.CONTINUE, ("//button[contains(text(), 'Continue')]", "Continue") },
+        {
+            ElementKeys.COMPARE_PRICE_LIST,
+            ("//section[contains(@class, 'ui-layout-right')]//div[contains(@class, 'paginated-item-list')]",
+                "Compare Price List")
+        },
+        {
+            ElementKeys.MAX_BID_PRICE_INPUT,
+            ("(//div[contains(@class, 'search-prices')]//input[contains(@class, 'ut-number-input-control')])[2]",
+                "Max Bid Price Input")
+        },
+        {
+            ElementKeys.MIN_BUY_NOW_PRICE_INPUT,
+            ("(//div[contains(@class, 'search-prices')]//input[contains(@class, 'ut-number-input-control')])[3]",
+                "Min Buy Now Price Input")
+        },
+        {
+            ElementKeys.MAX_BUY_NOW_PRICE_INPUT,
+            ("(//div[contains(@class, 'search-prices')]//input[contains(@class, 'ut-number-input-control')])[4]",
+                "Max Buy Now Price Input")
+        },
+        { ElementKeys.COIN_TOTAL, ("//div[contains(@class, 'view-navbar-currency-coins')]", "Coin Total Text") },
+        { ElementKeys.ITEM_NAME, ("div.entityContainer > div.name", "Item Name") }
     };
 }
