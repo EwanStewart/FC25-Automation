@@ -17,6 +17,7 @@ public class Browser
     private readonly string _configurationToUse;
 
     private const int DEBUGGING_PORT = 9222;
+    public static readonly string DebuggerHttp = $"http://127.0.0.1:{DEBUGGING_PORT}";
 
     private static readonly string[] AuthenticationFiles =
         { "Cookies", "Login Data", "Preferences", "Secure Preferences", "Web Data" };

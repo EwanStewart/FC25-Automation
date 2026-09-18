@@ -1,38 +1,55 @@
 using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using Automation.Trading;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.DevTools;
 
 namespace Automation.Setup;
 
 public sealed record Capture(DateTime Time, CaptureKind Kind, string Method, string Url, int Status, string Body);
 
-public sealed class NetworkObserver
+public sealed class NetworkObserver : IDisposable
 {
     private const int BUFFER_SIZE = 200;
-    private const string NETWORK_DOMAIN = "Network";
+    private const string PAGE_URL_FRAGMENT = "ea.com";
 
     private readonly ConcurrentDictionary<string, (CaptureKind kind, string method, string url, int status)> _requests = new();
     private readonly ConcurrentQueue<Capture> _captures = new();
-    private DevToolsSession? _session;
+    private CdpClient? _client;
+    private int _events;
 
-    public bool Enabled => _session != null;
+    public bool Enabled => _client != null;
 
-    public void Start(ChromeDriver driver)
+    public void Start(string debuggerHttp)
     {
+        var socketUrl = CdpClient.FindPageSocket(debuggerHttp, PAGE_URL_FRAGMENT);
+
         try
         {
-            _session = driver.GetDevToolsSession();
-            _session.DevToolsEventReceived += OnEvent;
-            _session.SendCommand("Network.enable", new JsonObject()).GetAwaiter().GetResult();
+            if (socketUrl == null) throw new InvalidOperationException("no web app page target");
+
+            _client = new CdpClient();
+            _client.EventReceived += OnEvent;
+            _client.Connect(socketUrl);
+            _client.SendAsync("Network.enable", new JsonObject()).GetAwaiter().GetResult();
             Console.WriteLine("Network observer started.");
         }
         catch (Exception exception)
         {
-            _session = null;
+            _client?.Dispose();
+            _client = null;
             Console.WriteLine($"Network observer unavailable: {exception.Message}");
         }
+    }
+
+    public string Summary()
+    {
+        var kinds = _captures.GroupBy(capture => capture.Kind).Select(group => $"{group.Key} {group.Count()}");
+
+        return $"Network observer saw {_events} events and captured [{string.Join(", ", kinds)}].";
+    }
+
+    public void Dispose()
+    {
+        _client?.Dispose();
     }
 
     public IReadOnlyList<Capture> Since(DateTime time, CaptureKind kind)
@@ -40,14 +57,13 @@ public sealed class NetworkObserver
         return _captures.Where(capture => capture.Time >= time && capture.Kind == kind).ToList();
     }
 
-    private void OnEvent(object? sender, DevToolsEventReceivedEventArgs arguments)
+    private void OnEvent(string method, JsonNode data)
     {
-        if (arguments.DomainName == NETWORK_DOMAIN && arguments.EventName == "requestWillBeSent")
-            RecordRequest(arguments.EventData);
-        else if (arguments.DomainName == NETWORK_DOMAIN && arguments.EventName == "responseReceived")
-            RecordStatus(arguments.EventData);
-        else if (arguments.DomainName == NETWORK_DOMAIN && arguments.EventName == "loadingFinished")
-            FetchBody(arguments.EventData);
+        Interlocked.Increment(ref _events);
+
+        if (method == "Network.requestWillBeSent") RecordRequest(data);
+        else if (method == "Network.responseReceived") RecordStatus(data);
+        else if (method == "Network.loadingFinished") FetchBody(data);
     }
 
     private void RecordRequest(JsonNode data)
@@ -78,7 +94,7 @@ public sealed class NetworkObserver
     {
         try
         {
-            var response = _session?.SendCommand("Network.getResponseBody", new JsonObject { ["requestId"] = id })
+            var response = _client?.SendAsync("Network.getResponseBody", new JsonObject { ["requestId"] = id })
                 .GetAwaiter().GetResult();
             var body = response?["body"]?.GetValue<string>() ?? string.Empty;
 

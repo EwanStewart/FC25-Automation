@@ -53,7 +53,7 @@ public class Fc25 : IDisposable
         _driver = browser.Chrome;
         _screen = new Screen(_driver);
 
-        if (NETWORK_OBSERVER) _network.Start(_driver);
+        if (NETWORK_OBSERVER) _network.Start(Browser.DebuggerHttp);
 
         try
         {
@@ -75,6 +75,9 @@ public class Fc25 : IDisposable
 
     public void Dispose()
     {
+        Console.WriteLine(_network.Summary());
+        _network.Dispose();
+
         try
         {
             _driver.Quit();
