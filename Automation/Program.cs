@@ -47,7 +47,7 @@ internal class Program
 
     private static void RunConfiguration(string run, bool smokeTest, string smokeTarget, uint loopMinutes)
     {
-        var bot = new Fc25(run, smokeTest, smokeTarget);
+        using var bot = new Fc25(run, smokeTest, smokeTarget);
 
         while (loopMinutes > 0)
         {

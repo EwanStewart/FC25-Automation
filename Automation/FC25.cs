@@ -9,7 +9,7 @@ using static Automation.Trading.BiddingStrategy;
 
 namespace Automation;
 
-public class Fc25
+public class Fc25 : IDisposable
 {
     private const string FcUrl = @"https://www.ea.com/fifa/ultimate-team/web-app/";
     private const uint MAX_TRANSFER_TARGETS = 49;
@@ -65,6 +65,18 @@ public class Fc25
     }
 
     #endregion
+
+    public void Dispose()
+    {
+        try
+        {
+            _driver.Quit();
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine($"Driver shutdown failed: {exception.Message}");
+        }
+    }
 
     #region Login
 
