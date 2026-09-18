@@ -278,7 +278,7 @@ public class Fc25 : IDisposable
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, filterData.MaxBidPrice);
         SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, filterData.MinBuyPrice);
         Search();
-        BidAcrossResultPages(filterData.MaxBidPrice);
+        BidAcrossResultPages(filterData.MaxBidPrice, DEEP_RESULT_PAGES_TO_SCAN);
     }
 
     private void BidOnPlayerItems()
@@ -303,20 +303,34 @@ public class Fc25 : IDisposable
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, CLUB_ITEM_MAX_BID);
         SetSearchPrice(ElementKeys.MIN_BUY_NOW_PRICE_INPUT, CLUB_ITEM_MIN_BUY_NOW);
         Search();
-        BidAcrossResultPages(CLUB_ITEM_MAX_BID);
+        BidAcrossResultPages(CLUB_ITEM_MAX_BID, badges ? RESULT_PAGES_TO_SCAN : DEEP_RESULT_PAGES_TO_SCAN);
     }
 
-    private void BidAcrossResultPages(uint maxBidCap)
+    private void BidAcrossResultPages(uint maxBidCap, byte pagesToScan)
     {
         var page = 0;
         var morePages = true;
 
-        while (morePages && page < RESULT_PAGES_TO_SCAN && CanPlaceMoreBids())
+        while (morePages && page < pagesToScan && CanPlaceMoreBids())
         {
             page++;
             BidOnAuctionItems(maxBidCap);
-            morePages = CanPlaceMoreBids() && page < RESULT_PAGES_TO_SCAN && GoToNextResultsPage();
+            morePages = CanPlaceMoreBids() && page < pagesToScan && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
+    }
+
+    private bool PageIsBeyondWindow()
+    {
+        var rows = _screen.FindAll(ElementKeys.AUCTION_ITEMS);
+        var result = false;
+
+        if (rows.Count > 0)
+        {
+            var minutes = ReadRowMinutes(rows[^1]);
+            result = minutes.HasValue && minutes.Value > MAX_AUCTION_MINUTES;
+        }
+
+        return result;
     }
 
     private bool GoToNextResultsPage()

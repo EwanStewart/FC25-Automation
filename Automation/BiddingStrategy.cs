@@ -15,6 +15,7 @@ public static class BiddingStrategy
     public const int MAX_COMPARE_PAGES_FOR_LISTING = 1;
     public const uint LOOP_MINUTES_DEFAULT = 10;
     public const byte RESULT_PAGES_TO_SCAN = 3;
+    public const byte DEEP_RESULT_PAGES_TO_SCAN = 12;
     public const uint CLUB_ITEM_MAX_BID = 500;
     public const uint CLUB_ITEM_MIN_BUY_NOW = 1000;
 }
