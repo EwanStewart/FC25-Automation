@@ -876,7 +876,7 @@ public class Fc25 : IDisposable
 
     private void RunSnipePass()
     {
-        var nation = NationRotation.NextExploratory(NationRotation.NATIONS, Database.GetLastSnipeNation(),
+        var nation = NationRotation.NextExploratory(NationRotation.SNIPE_NATIONS, Database.GetLastSnipeNation(),
             new HashSet<string>());
 
         if (nation != null) RunTimedPass(Segments.SNIPE, Segments.ROLE_SNIPE, () => SnipeSilverPlayers(nation));
