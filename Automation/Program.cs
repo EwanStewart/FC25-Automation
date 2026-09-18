@@ -9,6 +9,7 @@ internal class Program
     private static void Main(string[] args)
     {
         var smokeTest = args.Contains("--smoke");
+        var noShutdown = args.Contains("--no-shutdown");
         var smokeTarget = SmokeTarget(args);
         var loopMinutes = LoopMinutes(args);
 
@@ -19,7 +20,7 @@ internal class Program
 
         foreach (var run in toRun) RunConfiguration(run, smokeTest, smokeTarget, loopMinutes);
 
-        if (!smokeTest && loopMinutes == 0) Utility.Utility.ShutdownPc();
+        if (!smokeTest && !noShutdown && loopMinutes == 0) Utility.Utility.ShutdownPc();
     }
 
     private static string SmokeTarget(string[] args)
