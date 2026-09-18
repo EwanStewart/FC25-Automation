@@ -7,6 +7,6 @@
   "League": null,
   "Club": null,
   "Playstyles": null,
-  "MaxBidPrice": 200,
-  "MinBuyPrice": 500
+  "MaxBidPrice": 500,
+  "MinBuyPrice": 1000
 }

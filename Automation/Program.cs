@@ -9,6 +9,7 @@ internal class Program
     private static void Main(string[] args)
     {
         var smokeTest = args.Contains("--smoke");
+        var smokeTarget = SmokeTarget(args);
         var loopMinutes = LoopMinutes(args);
 
         List<string> toRun = new()
@@ -16,9 +17,18 @@ internal class Program
             ""
         };
 
-        foreach (var run in toRun) RunConfiguration(run, smokeTest, loopMinutes);
+        foreach (var run in toRun) RunConfiguration(run, smokeTest, smokeTarget, loopMinutes);
 
         if (!smokeTest && loopMinutes == 0) Utility.Utility.ShutdownPc();
+    }
+
+    private static string SmokeTarget(string[] args)
+    {
+        var index = Array.IndexOf(args, "--smoke");
+
+        return index >= 0 && index + 1 < args.Length && !args[index + 1].StartsWith("--")
+            ? args[index + 1]
+            : "all";
     }
 
     private static uint LoopMinutes(string[] args)
@@ -34,9 +44,9 @@ internal class Program
         return result;
     }
 
-    private static void RunConfiguration(string run, bool smokeTest, uint loopMinutes)
+    private static void RunConfiguration(string run, bool smokeTest, string smokeTarget, uint loopMinutes)
     {
-        var bot = new Fc25(run, smokeTest);
+        var bot = new Fc25(run, smokeTest, smokeTarget);
 
         while (loopMinutes > 0)
         {

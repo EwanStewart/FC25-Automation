@@ -52,6 +52,8 @@ public class PricingTests
     [InlineData("1 Hour", 60u)]
     [InlineData("2 Hours", 120u)]
     [InlineData("Expired", 0u)]
+    [InlineData("<30 Seconds", 0u)]
+    [InlineData("<5 Seconds", 0u)]
     public void ParseMinutesRemainingReadsAuctionTimeText(string text, uint expected)
     {
         Assert.Equal(expected, Pricing.ParseMinutesRemaining(text));
@@ -62,6 +64,7 @@ public class PricingTests
     {
         Assert.Null(Pricing.ParseMinutesRemaining(""));
         Assert.Null(Pricing.ParseMinutesRemaining("soon"));
+        Assert.Null(Pricing.ParseMinutesRemaining("Processing..."));
     }
 
     [Theory]

@@ -6,7 +6,8 @@ public static class Pricing
 {
     public const double TAX_RATE = 0.05;
 
-    private static readonly Regex TimeRemainingPattern = new(@"^(<)?(\d+)\s+(Minute|Hour)s?$", RegexOptions.IgnoreCase);
+    private static readonly Regex TimeRemainingPattern =
+        new(@"^(<)?(\d+)\s+(Minute|Hour|Second)s?$", RegexOptions.IgnoreCase);
 
     public static uint BidIncrement(uint price)
     {
@@ -69,11 +70,14 @@ public static class Pricing
     private static uint MinutesFromMatch(Match match)
     {
         var value = uint.Parse(match.Groups[2].Value);
-        var isHours = match.Groups[3].Value.StartsWith("Hour", StringComparison.OrdinalIgnoreCase);
+        var unit = match.Groups[3].Value;
         var lessThan = match.Groups[1].Success;
-        var minutes = isHours ? value * 60 : value;
+        var minutes = unit.StartsWith("Hour", StringComparison.OrdinalIgnoreCase) ? value * 60 : value;
 
-        return lessThan ? minutes - 1 : minutes;
+        if (unit.StartsWith("Second", StringComparison.OrdinalIgnoreCase)) minutes = 0;
+        else if (lessThan) minutes -= 1;
+
+        return minutes;
     }
 
     public static bool IsWithinBidWindow(uint minutesRemaining, uint minMinutes, uint maxMinutes)

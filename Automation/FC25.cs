@@ -26,6 +26,7 @@ public class Fc25
     private readonly Screen _screen;
     private readonly string _user;
     private readonly uint _maxBids;
+    private readonly string _smokeTarget;
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly HashSet<string> _bidNamesThisRun = new();
     private int _lastAskCount;
@@ -36,10 +37,11 @@ public class Fc25
 
     #region Constructor
 
-    public Fc25(string configuration, bool smokeTest)
+    public Fc25(string configuration, bool smokeTest, string smokeTarget = "all")
     {
         _user = configuration;
         _maxBids = smokeTest ? 1u : uint.MaxValue;
+        _smokeTarget = smokeTarget;
         Browser browser = new(configuration);
         _driver = browser.Chrome;
         _screen = new Screen(_driver);
@@ -141,10 +143,14 @@ public class Fc25
 
     private void SmokeTestRoutine()
     {
-        MaintainTransfers();
-        RunClubItemBidPass(true);
+        var clubItems = _smokeTarget is "all" or "club";
+        var players = _smokeTarget is "all" or "players";
 
-        if (_bidsPlaced == 0) RunClubItemBidPass(false);
+        MaintainTransfers();
+
+        if (clubItems) RunClubItemBidPass(true);
+        if (clubItems && _bidsPlaced == 0) RunClubItemBidPass(false);
+        if (players && _bidsPlaced == 0) Utility.Utility.RetryAction(() => BidOnPlayerItems(), 2, 3000);
     }
 
     public void RunCycleSafely()
