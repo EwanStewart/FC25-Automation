@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace Automation.Trading;
 
@@ -79,6 +79,22 @@ public static class Pricing
     public static bool IsWithinBidWindow(uint minutesRemaining, uint minMinutes, uint maxMinutes)
     {
         return minutesRemaining >= minMinutes && minutesRemaining <= maxMinutes;
+    }
+
+    public static uint LowestBuyNow(IEnumerable<uint> listings, int minListings)
+    {
+        var prices = listings.Select(price => (double)price).ToList();
+        uint result = 0;
+
+        if (prices.Count >= minListings)
+        {
+            var mean = prices.Average();
+            var standardDeviation = Math.Sqrt(prices.Average(price => Math.Pow(price - mean, 2)));
+            var kept = prices.Where(price => Math.Abs(price - mean) <= 2 * standardDeviation).ToList();
+            result = (uint)(kept.Count > 0 ? kept.Min() : prices.Min());
+        }
+
+        return result;
     }
 
     public static uint? EstimateResale(IEnumerable<uint> sightings, int sampleSize)

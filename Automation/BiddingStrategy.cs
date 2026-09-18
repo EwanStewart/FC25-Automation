@@ -10,6 +10,7 @@ public static class BiddingStrategy
     public const int RESALE_SAMPLE_SIZE = 3;
     public const uint RESALE_MAX_AGE_HOURS = 6;
     public const uint OPEN_BID_TIMEOUT_HOURS = 2;
+    public const int MIN_COMPARE_LISTINGS = 3;
     public const uint CLUB_ITEM_MAX_BID = 500;
     public const uint CLUB_ITEM_MIN_BUY_NOW = 1000;
 }

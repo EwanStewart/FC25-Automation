@@ -1,4 +1,4 @@
-using Automation.Trading;
+﻿using Automation.Trading;
 
 namespace Automation.Tests;
 
@@ -73,6 +73,21 @@ public class PricingTests
     public void IsWithinBidWindowIsInclusive(uint minutes, bool expected)
     {
         Assert.Equal(expected, Pricing.IsWithinBidWindow(minutes, 2, 20));
+    }
+
+    [Fact]
+    public void LowestBuyNowNeedsEnoughListingsToBeTrusted()
+    {
+        Assert.Equal(0u, Pricing.LowestBuyNow(new uint[] { 5000 }, 3));
+        Assert.Equal(0u, Pricing.LowestBuyNow(new uint[] { 5000, 4800 }, 3));
+        Assert.Equal(200u, Pricing.LowestBuyNow(new uint[] { 200, 250, 300 }, 3));
+        Assert.Equal(200u, Pricing.LowestBuyNow(new uint[] { 200, 200, 5000 }, 3));
+    }
+
+    [Fact]
+    public void LowestBuyNowIgnoresOutliersBeyondTwoStandardDeviations()
+    {
+        Assert.Equal(1000u, Pricing.LowestBuyNow(new uint[] { 50, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000 }, 3));
     }
 
     [Fact]

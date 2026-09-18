@@ -392,7 +392,7 @@ public class Fc25
         if (comparePriceList != null)
         {
             Thread.Sleep(1000);
-            var lowestPrice = (uint)FindLowestPrice(comparePriceList);
+            var lowestPrice = FindLowestPrice(comparePriceList);
             recorded = lowestPrice > 0;
 
             if (recorded) Database.AddToSeenTable(lowestPrice, info);
@@ -477,35 +477,15 @@ public class Fc25
         return $"{name} {type}";
     }
 
-    private static int FindLowestPrice(IWebElement list)
+    private static uint FindLowestPrice(IWebElement list)
     {
         IList<IWebElement> buyNowSpans = list.FindElements(By.XPath(".//span[text()='Buy Now:']"));
-        List<int> buyNowPrices = [];
-        var lowestPrice = 0;
+        var buyNowPrices = buyNowSpans
+            .Select(span => span.FindElement(By.XPath("./following-sibling::span")).Text)
+            .Select(Utility.Utility.CommaSeperatedNumberToUInt)
+            .ToList();
 
-        foreach (var span in buyNowSpans)
-        {
-            var priceElement = span.FindElement(By.XPath("./following-sibling::span"));
-            var priceText = priceElement.Text;
-            buyNowPrices.Add((int)Utility.Utility.CommaSeperatedNumberToUInt(priceText));
-        }
-
-        if (buyNowPrices.Count != 0)
-        {
-            var mean = buyNowPrices.Average();
-            var standardDeviation = Math.Sqrt(buyNowPrices.Average(p => Math.Pow(p - mean, 2)));
-
-            var lowerBound = mean - 2 * standardDeviation;
-            var upperBound = mean + 2 * standardDeviation;
-
-            var filteredPrices = buyNowPrices
-                .Where(price => price >= lowerBound && price <= upperBound)
-                .ToList();
-
-            if (filteredPrices.Count != 0) lowestPrice = filteredPrices.Min();
-        }
-
-        return lowestPrice;
+        return Pricing.LowestBuyNow(buyNowPrices, MIN_COMPARE_LISTINGS);
     }
 
     #endregion
@@ -659,13 +639,22 @@ public class Fc25
         {
             Thread.Sleep(500);
             var info = GetItemInfo(row);
-            IList<IWebElement> priceElements = row.FindElements(By.CssSelector("span.currency-coins.value"));
-            var soldPriceString = priceElements.Count > 0 ? priceElements[^1].Text : "0";
-            var soldPrice = Utility.Utility.CommaSeperatedNumberToUInt(soldPriceString);
+            var soldPrice = ReadSoldPrice(row);
 
             Database.AddToSoldTable(soldPrice, info);
             Database.MarkLatestWonBidSold(info, soldPrice);
         }
+    }
+
+    private static uint ReadSoldPrice(IWebElement row)
+    {
+        var soldForValues = row.FindElements(By.XPath(".//span[starts-with(normalize-space(text()), 'Sold For')]/following-sibling::span"));
+        IList<IWebElement> priceElements = row.FindElements(By.CssSelector("span.currency-coins.value"));
+        var soldPriceString = soldForValues.Count > 0
+            ? soldForValues[0].Text
+            : priceElements.Count > 0 ? priceElements[^1].Text : "0";
+
+        return Utility.Utility.CommaSeperatedNumberToUInt(soldPriceString);
     }
 
     #endregion
