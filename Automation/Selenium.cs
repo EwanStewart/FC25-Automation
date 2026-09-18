@@ -3,6 +3,7 @@ using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
 using System.Diagnostics;
+using System.Net.Http;
 
 namespace Automation.Setup;
 
@@ -14,6 +15,8 @@ public class Browser
     public ChromeDriver Chrome;
 
     private readonly string _configurationToUse;
+
+    private const int DEBUGGING_PORT = 9222;
 
     private static readonly string[] AuthenticationFiles =
         { "Cookies", "Login Data", "Preferences", "Secure Preferences", "Web Data" };
@@ -121,17 +124,65 @@ public class Browser
         var profileDirectory = GetSeleniumProfileDirectory();
         KillChromeProcesses(profileDirectory);
         CopyAuthenticationFiles(profileDirectory);
+        LaunchChrome(profileDirectory);
+        WaitForDebuggerPort();
+
         var options = new ChromeOptions();
-
-        // Default Chrome options for stability
-        options.AddArgument("--no-sandbox");
-        options.AddArgument("--disable-dev-shm-usage");
-        options.AddArgument("--disable-extensions");
-
-        options.AddArgument($"--user-data-dir={profileDirectory}");
-        options.AddArgument("--remote-debugging-port=9222");
+        options.DebuggerAddress = $"127.0.0.1:{DEBUGGING_PORT}";
 
         return new ChromeDriver(options);
+    }
+
+    private static string GetChromeExecutable()
+    {
+        return OperatingSystem.IsWindows()
+            ? @"C:\Program Files\Google\Chrome\Application\chrome.exe"
+            : "google-chrome";
+    }
+
+    private static void LaunchChrome(string profileDirectory)
+    {
+        ProcessStartInfo startInfo = new()
+        {
+            FileName = GetChromeExecutable(),
+            Arguments =
+                $"--remote-debugging-port={DEBUGGING_PORT} --user-data-dir=\"{profileDirectory}\" --no-first-run --window-size=1400,1000",
+            UseShellExecute = false
+        };
+
+        Process.Start(startInfo);
+    }
+
+    private static void WaitForDebuggerPort()
+    {
+        using HttpClient client = new();
+        var ready = false;
+        var attempts = 0;
+
+        while (!ready && attempts < 40)
+        {
+            attempts++;
+            Thread.Sleep(500);
+            ready = DebuggerResponds(client);
+        }
+
+        if (!ready) throw new TimeoutException("Chrome did not open its debugging port.");
+    }
+
+    private static bool DebuggerResponds(HttpClient client)
+    {
+        var result = false;
+
+        try
+        {
+            using var response = client.GetAsync($"http://127.0.0.1:{DEBUGGING_PORT}/json/version").Result;
+            result = response.IsSuccessStatusCode;
+        }
+        catch (Exception)
+        {
+        }
+
+        return result;
     }
 
     /// <summary>
