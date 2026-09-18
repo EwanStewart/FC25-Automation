@@ -77,6 +77,11 @@ public class Fc25 : IDisposable
     public void Dispose()
     {
         Console.WriteLine(_network.Summary());
+
+        foreach (var failure in _network.Failures())
+            Database.AddSnipeEvent(failure.Kind.ToString(), "http", (uint)failure.Status, null, null, null,
+                failure.Url.Length > 200 ? failure.Url[..200] : failure.Url);
+
         _network.Dispose();
 
         try

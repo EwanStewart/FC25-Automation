@@ -87,15 +87,14 @@ public static class UtasPayloads
 
     private static string FailureReason(int status, string json)
     {
-        var reason = string.Empty;
+        var reason = json.Length > 120 ? json[..120] : json;
 
         try
         {
             using var document = JsonDocument.Parse(json);
 
-            if (document.RootElement.ValueKind == JsonValueKind.Object &&
-                document.RootElement.TryGetProperty("reason", out var element))
-                reason = element.GetString() ?? string.Empty;
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
+                reason = $"{Text(document.RootElement, "string")} {Text(document.RootElement, "reason")}".Trim();
         }
         catch (JsonException)
         {

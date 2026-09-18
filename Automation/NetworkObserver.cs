@@ -43,8 +43,15 @@ public sealed class NetworkObserver : IDisposable
     public string Summary()
     {
         var kinds = _captures.GroupBy(capture => capture.Kind).Select(group => $"{group.Key} {group.Count()}");
+        var statuses = _captures.Where(capture => capture.Status != 200).GroupBy(capture => capture.Status)
+            .Select(group => $"{group.Key} x{group.Count()}");
 
-        return $"Network observer saw {_events} events and captured [{string.Join(", ", kinds)}].";
+        return $"Network observer saw {_events} events and captured [{string.Join(", ", kinds)}], non-200 statuses [{string.Join(", ", statuses)}].";
+    }
+
+    public IReadOnlyList<Capture> Failures()
+    {
+        return _captures.Where(capture => capture.Status != 200).ToList();
     }
 
     public void Dispose()

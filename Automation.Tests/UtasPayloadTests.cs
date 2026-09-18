@@ -67,6 +67,7 @@ public class UtasPayloadTests
         var result = UtasPayloads.BidResult(470, """{"code":"470","reason":"Bid too low","string":"Permission Denied"}""", "1");
 
         Assert.Equal(BidOutcome.Failed, result?.Outcome);
-        Assert.Equal("470 Bid too low", result?.Reason);
+        Assert.Equal("470 Permission Denied Bid too low", result?.Reason);
+        Assert.Equal("461 <html>oops", UtasPayloads.BidResult(461, "<html>oops", "1")?.Reason);
     }
 }
