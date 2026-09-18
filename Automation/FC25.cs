@@ -959,7 +959,7 @@ public class Fc25 : IDisposable
 
             liveCount = live.Count;
 
-            foreach (var (row, info, facts) in live) SnipeRowIfDue(row, info, facts, standing);
+            foreach (var (row, info, facts) in live.Where(_ => CanPlaceMoreBids())) SnipeRowIfDue(row, info, facts, standing);
         }
         catch (StaleElementReferenceException)
         {
