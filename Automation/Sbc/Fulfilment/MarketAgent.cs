@@ -17,7 +17,6 @@ public sealed class MarketAgent : IMarketAgent
 {
     private const int RESPONSE_POLL_MS = 250;
     private const int SETTLE_MS = 800;
-    private const uint NO_MINIMUM_BUY_NOW = 0;
 
     private static readonly TimeSpan ResponseWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ShortWait = TimeSpan.FromSeconds(3);
@@ -25,24 +24,27 @@ public sealed class MarketAgent : IMarketAgent
     private readonly Screen screen_;
     private readonly NetworkObserver network_;
     private readonly MarketPorts ports_;
+    private readonly MarketPinner pinner_;
 
-    public MarketAgent(Screen screen, NetworkObserver network, MarketPorts ports)
+    public MarketAgent(Screen screen, NetworkObserver network, MarketPorts ports, MarketPinner? pinner = null)
     {
         screen_ = screen;
         network_ = network;
         ports_ = ports;
+        pinner_ = pinner ?? MarketPinner.Ea;
     }
 
     public MarketSearch Search(MarketSpecification specification, uint ceiling)
     {
         var since = DateTime.UtcNow;
+        var pins = pinner_.For(specification);
 
-        ports_.Search(Filter(specification, ceiling));
+        ports_.Search(MarketFilter.For(specification, ceiling, pins));
         ports_.Pause(SETTLE_MS);
 
         var body = Settled(since);
 
-        return new MarketSearch($"{specification.Quality} {specification.Position} at or under {ceiling}",
+        return new MarketSearch(MarketFilter.Describe(specification, ceiling, pins),
             UtasPayloads.ParseAuctions(body));
     }
 
@@ -131,16 +133,5 @@ public sealed class MarketAgent : IMarketAgent
     private static BidReceipt Withheld(string detail)
     {
         return new BidReceipt(BidOutcome.Failed, 0, detail, false);
-    }
-
-    private static Filter Filter(MarketSpecification specification, uint ceiling)
-    {
-        return new Filter
-        {
-            Quality = specification.Quality.ToString(),
-            Position = specification.Position,
-            MaxBidPrice = ceiling,
-            MinBuyPrice = NO_MINIMUM_BUY_NOW
-        };
     }
 }
