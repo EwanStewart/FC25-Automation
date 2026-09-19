@@ -50,6 +50,7 @@ public class Fc25 : IDisposable
     private Dictionary<string, uint> _snipeEstimates = new();
     private uint _snipeMargin = MARGIN_COINS;
     private uint _snipeMaxBid = SNIPE_MAX_BID;
+    private ResaleBasis _snipeResale = ResaleBasis.SecondLowestAsk;
     private string _segment = string.Empty;
     private double _calibrationRatio = 1.0;
     private uint _segmentBidAllowance = uint.MaxValue;
@@ -995,7 +996,9 @@ public class Fc25 : IDisposable
         {
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
             var requiredResale = Pricing.RequiredResale(minimumBid, MARGIN_COINS);
-            var resaleEstimate = minimumBid > maxBidCap ? null : GetResaleEstimate(info, requiredResale);
+            var resaleEstimate = minimumBid > maxBidCap
+                ? null
+                : GetResaleEstimate(info, requiredResale, ResaleBasis.SecondLowestAsk);
 
             if (minimumBid > maxBidCap) Console.WriteLine($"{info}: minimum {minimumBid} is over the cap {maxBidCap}; no compare read.");
             if (resaleEstimate.HasValue)
@@ -1003,10 +1006,10 @@ public class Fc25 : IDisposable
         }
     }
 
-    private uint? GetResaleEstimate(string info, uint requiredResale)
+    private uint? GetResaleEstimate(string info, uint requiredResale, ResaleBasis basis)
     {
         var sales = Database.GetRecentSales(info, RESALE_WINDOW_DAYS);
-        var askEstimate = GetCalibratedAskEstimate(info, requiredResale);
+        var askEstimate = GetCalibratedAskEstimate(info, requiredResale, basis);
         var result = SalesFeedback.Resale(sales, askEstimate, ITEM_SALES_MIN, SALES_MAX_UPLIFT);
 
         if (sales.Count > 0)
@@ -1016,7 +1019,7 @@ public class Fc25 : IDisposable
         return result;
     }
 
-    private uint? GetCalibratedAskEstimate(string info, uint requiredResale)
+    private uint? GetCalibratedAskEstimate(string info, uint requiredResale, ResaleBasis basis)
     {
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
         var knownCheap = sightings.Count > 0 &&
@@ -1024,7 +1027,7 @@ public class Fc25 : IDisposable
         var needsRead = Pricing.NeedsCompareRead(sightings.Count > 0 ? sightings[0].timestamp : null, DateTime.UtcNow,
             knownCheap, RESALE_MAX_AGE_HOURS, CHEAP_MAX_AGE_HOURS);
 
-        if (needsRead && TryRecordLowestPrice(info))
+        if (needsRead && TryRecordLowestPrice(info, basis))
             sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
 
         var askEstimate = Pricing.EstimateResale(sightings.Select(sighting => sighting.price), RESALE_SAMPLE_SIZE);
@@ -1032,7 +1035,7 @@ public class Fc25 : IDisposable
         return askEstimate.HasValue ? SalesFeedback.Calibrate(askEstimate.Value, _calibrationRatio) : null;
     }
 
-    private bool TryRecordLowestPrice(string info, int maxPages = MAX_COMPARE_PAGES)
+    private bool TryRecordLowestPrice(string info, ResaleBasis basis, int maxPages = MAX_COMPARE_PAGES)
     {
         var recorded = false;
 
@@ -1048,7 +1051,7 @@ public class Fc25 : IDisposable
         {
             var (asks, pages) = CollectComparePrices(maxPages, clicked);
             _compareReads++;
-            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS);
+            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS, basis);
             recorded = resale > 0;
             _lastAskCount = asks.Count;
 
@@ -1310,6 +1313,7 @@ public class Fc25 : IDisposable
         _snipeEstimates = estimates;
         _snipeMargin = snipeFilter.MarginCoins;
         _snipeMaxBid = snipeFilter.MaxBid;
+        _snipeResale = snipeFilter.Resale;
         Database.AddSnipeEvent(snipeFilter.Name, "search", null, null, null, null, _segment);
         Console.WriteLine($"Snipe {snipeFilter.Name}: searching {snipeFilter.Market.ToString().ToLowerInvariant()}.");
         SearchWithFilter(SearchFilter(snipeFilter), MarketElement(snipeFilter.Market));
@@ -1371,7 +1375,7 @@ public class Fc25 : IDisposable
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
             var estimate = minimumBid > _snipeMaxBid
                 ? null
-                : GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, _snipeMargin));
+                : GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, _snipeMargin), _snipeResale);
 
             if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, _snipeMargin, _snipeMaxBid,
                     estimates.Count, SNIPE_BATCH_SIZE))
@@ -1865,7 +1869,7 @@ public class Fc25 : IDisposable
     {
         uint result = 0;
 
-        if (TryRecordLowestPrice(info, MAX_COMPARE_PAGES_FOR_LISTING))
+        if (TryRecordLowestPrice(info, ResaleBasis.SecondLowestAsk, MAX_COMPARE_PAGES_FOR_LISTING))
         {
             var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
             result = sightings[0].price;

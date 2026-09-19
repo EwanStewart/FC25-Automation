@@ -109,6 +109,15 @@ public class PricingTests
     }
 
     [Fact]
+    public void LowestAskBasisTakesTheCheapestListing()
+    {
+        Assert.Equal(200u, Pricing.ResaleFromAsks(new uint[] { 300, 200, 250 }, 3, ResaleBasis.LowestAsk));
+        Assert.Equal(50u, Pricing.ResaleFromAsks(new uint[] { 50, 1000, 1000, 5000 }, 3, ResaleBasis.LowestAsk));
+        Assert.Equal(400u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 2, ResaleBasis.LowestAsk));
+        Assert.Equal(0u, Pricing.ResaleFromAsks(new uint[] { 3000 }, 2, ResaleBasis.LowestAsk));
+    }
+
+    [Fact]
     public void ResaleFromAsksTreatsEveryAskAsPartOfTheFloor()
     {
         Assert.Equal(5000u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 2));

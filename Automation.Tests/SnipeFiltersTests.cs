@@ -1,4 +1,4 @@
-using Automation.Trading;
+﻿using Automation.Trading;
 
 namespace Automation.Tests;
 
@@ -48,6 +48,7 @@ public class SnipeFiltersTests
 
         Assert.Equal(300u, managers.MarginCoins);
         Assert.Equal(1000u, managers.MaxBid);
+        Assert.Equal(ResaleBasis.LowestAsk, managers.Resale);
         Assert.Equal(900u, Snipe.Ceiling(1300, managers.MarginCoins, managers.MaxBid));
         Assert.Equal(1000u, Snipe.Ceiling(1400, managers.MarginCoins, managers.MaxBid));
         Assert.Equal(1000u, Snipe.Ceiling(9000, managers.MarginCoins, managers.MaxBid));
@@ -62,6 +63,7 @@ public class SnipeFiltersTests
         Assert.Equal(SnipeMarket.Players, plain.Market);
         Assert.Equal(BiddingStrategy.MARGIN_COINS, plain.MarginCoins);
         Assert.Equal(BiddingStrategy.SNIPE_MAX_BID, plain.MaxBid);
+        Assert.Equal(ResaleBasis.SecondLowestAsk, plain.Resale);
     }
 
     [Fact]

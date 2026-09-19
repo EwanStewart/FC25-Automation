@@ -2,6 +2,12 @@
 
 namespace Automation.Trading;
 
+public enum ResaleBasis
+{
+    SecondLowestAsk,
+    LowestAsk
+}
+
 public static class Pricing
 {
     public const double TAX_RATE = 0.05;
@@ -85,12 +91,14 @@ public static class Pricing
         return minutesRemaining >= minMinutes && minutesRemaining <= maxMinutes;
     }
 
-    public static uint ResaleFromAsks(IEnumerable<uint> asks, int minListings)
+    public static uint ResaleFromAsks(IEnumerable<uint> asks, int minListings,
+        ResaleBasis basis = ResaleBasis.SecondLowestAsk)
     {
         var sorted = asks.OrderBy(price => price).ToList();
+        var rank = basis == ResaleBasis.LowestAsk ? 0 : 1;
         uint result = 0;
 
-        if (sorted.Count >= minListings && sorted.Count >= 2) result = sorted[1];
+        if (sorted.Count >= minListings && sorted.Count > rank) result = sorted[rank];
 
         return result;
     }
