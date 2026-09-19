@@ -39,15 +39,24 @@ public static class SquadPlan
             .Select(slot => slot.Owned ? FromClub(slot) : FromGap(slot, gaps)).ToList();
     }
 
-    public static bool Ready(IReadOnlyList<SquadTarget> targets)
+    public static IReadOnlyList<SquadTarget> Owned(IReadOnlyList<SquadTarget> targets)
     {
-        return targets.All(target => target.Source != UNREADY);
+        return targets.Where(target => target.Source == FROM_CLUB).ToList();
     }
 
-    public static string Unready(IReadOnlyList<SquadTarget> targets)
+    public static IReadOnlyList<SquadTarget> Bought(IReadOnlyList<SquadTarget> targets)
     {
-        return string.Join(", ", targets.Where(target => target.Source == UNREADY)
-            .Select(target => $"slot {target.SlotIndex}"));
+        return targets.Where(target => target.Source is FROM_MARKET or FROM_DRY_RUN).ToList();
+    }
+
+    public static IReadOnlyList<SquadTarget> Outstanding(IReadOnlyList<SquadTarget> targets)
+    {
+        return targets.Where(target => target.Source == UNREADY).ToList();
+    }
+
+    public static string Names(IReadOnlyList<SquadTarget> targets)
+    {
+        return string.Join(", ", targets.Select(target => $"slot {target.SlotIndex}"));
     }
 
     private static SquadTarget FromClub(ApprovalSlot slot)

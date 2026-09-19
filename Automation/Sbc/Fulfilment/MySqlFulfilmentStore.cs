@@ -42,7 +42,7 @@ public sealed class MySqlFulfilmentStore : IFulfilmentStore
     public IReadOnlyList<FulfilmentRun> Queued()
     {
         const string query =
-            "SELECT f.id, f.approval_id, a.challenge_id, f.state, f.dry_run, f.spend_ceiling, f.estimated_cost, f.detail FROM SbcFulfilments f JOIN SbcApprovals a ON a.id = f.approval_id WHERE f.state IN ('pending', 'buying', 'building') ORDER BY f.id";
+            "SELECT f.id, f.approval_id, a.challenge_id, f.state, f.dry_run, f.spend_ceiling, f.estimated_cost, f.detail FROM SbcFulfilments f JOIN SbcApprovals a ON a.id = f.approval_id WHERE f.state IN ('pending', 'placing', 'buying') ORDER BY f.id";
 
         return access_.Read(query, [], reader => new FulfilmentRun(reader.GetInt32(0), reader.GetInt32(1),
             reader.GetInt32(2), State(reader.GetString(3)), reader.GetBoolean(4), reader.GetInt64(5),

@@ -8,6 +8,11 @@ public static class FulfilmentDefaults
     {
         return !liveRequested;
     }
+
+    public static FulfilmentState Recorded(FulfilmentRun run, FulfilmentState state)
+    {
+        return run.DryRun ? FulfilmentState.Pending : state;
+    }
 }
 
 public static class FulfilmentGaps
