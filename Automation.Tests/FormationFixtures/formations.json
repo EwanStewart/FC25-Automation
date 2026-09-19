@@ -1,0 +1,19 @@
+{
+  "capturedAt": "2026-09-19",
+  "source": "fixture",
+  "squadSize": 11,
+  "formations": [
+    {
+      "code": "f442",
+      "id": 16,
+      "display": "4-4-2",
+      "slots": ["GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"]
+    },
+    {
+      "code": "f5212",
+      "id": 29,
+      "display": "5-2-1-2",
+      "slots": ["GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CAM", "ST", "ST"]
+    }
+  ]
+}
