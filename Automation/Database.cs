@@ -419,6 +419,76 @@ public static class Database
         return names.Count > 0 ? names[0] : null;
     }
 
+    public static void UpsertClubPlayers(IReadOnlyList<ClubPlayer> players)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            connection.Open();
+
+            foreach (var player in players) UpsertClubPlayer(connection, player);
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    private static void UpsertClubPlayer(MySqlConnection connection, ClubPlayer player)
+    {
+        const string query =
+            "INSERT INTO ClubPlayers (id, asset_id, resource_id, rating, preferred_position, possible_positions, team_id, league_id, nation, rare_flag, card_sub_type_id, untradeable, item_state, pile, market_average) VALUES (@id, @asset, @resource, @rating, @preferred, @possible, @team, @league, @nation, @rare, @subtype, @untradeable, @state, @pile, @average) AS incoming ON DUPLICATE KEY UPDATE asset_id = incoming.asset_id, resource_id = incoming.resource_id, rating = incoming.rating, preferred_position = incoming.preferred_position, possible_positions = incoming.possible_positions, team_id = incoming.team_id, league_id = incoming.league_id, nation = incoming.nation, rare_flag = incoming.rare_flag, card_sub_type_id = incoming.card_sub_type_id, untradeable = incoming.untradeable, item_state = incoming.item_state, pile = incoming.pile, market_average = incoming.market_average, captured_at = CURRENT_TIMESTAMP";
+
+        using MySqlCommand cmd = new(query, connection);
+        cmd.Parameters.AddWithValue("@id", player.Id);
+        cmd.Parameters.AddWithValue("@asset", player.AssetId);
+        cmd.Parameters.AddWithValue("@resource", player.ResourceId);
+        cmd.Parameters.AddWithValue("@rating", player.Rating);
+        cmd.Parameters.AddWithValue("@preferred", player.PreferredPosition);
+        cmd.Parameters.AddWithValue("@possible", string.Join(",", player.PossiblePositions));
+        cmd.Parameters.AddWithValue("@team", player.TeamId);
+        cmd.Parameters.AddWithValue("@league", player.LeagueId);
+        cmd.Parameters.AddWithValue("@nation", player.Nation);
+        cmd.Parameters.AddWithValue("@rare", player.RareFlag);
+        cmd.Parameters.AddWithValue("@subtype", player.CardSubTypeId);
+        cmd.Parameters.AddWithValue("@untradeable", player.Untradeable);
+        cmd.Parameters.AddWithValue("@state", player.ItemState);
+        cmd.Parameters.AddWithValue("@pile", player.Pile);
+        cmd.Parameters.AddWithValue("@average", player.MarketAverage);
+
+        cmd.ExecuteNonQuery();
+    }
+
+    public static void AddClubSnapshot(int itemCount, string outcome, string detail)
+    {
+        using MySqlConnection connection = new(ConnectionString);
+        try
+        {
+            const string query =
+                "INSERT INTO ClubSnapshots (item_count, outcome, detail) VALUES (@count, @outcome, @detail)";
+
+            using MySqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@count", itemCount);
+            cmd.Parameters.AddWithValue("@outcome", outcome);
+            cmd.Parameters.AddWithValue("@detail", detail);
+
+            connection.Open();
+            cmd.ExecuteNonQuery();
+        }
+        catch (MySqlException ex)
+        {
+            Console.WriteLine($"MySQL Error: {ex.Message}");
+        }
+    }
+
+    public static int CountClubPlayers()
+    {
+        const string query = "SELECT COUNT(*) FROM ClubPlayers";
+        var counts = ReadRows(query, new(), reader => reader.GetInt32(0));
+
+        return counts.Count > 0 ? counts[0] : 0;
+    }
+
     private static List<T> ReadRows<T>(string query, Dictionary<string, object> parameters,
         Func<MySqlDataReader, T> map)
     {
