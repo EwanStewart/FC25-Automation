@@ -68,8 +68,9 @@ public static class SbcProgram
     {
         var chemistry = drafted.Squad.Assessment?.Chemistry.SlotPoints[slot.Index] ?? 0;
         var source = slot.Player.Owned ? "owned" : $"buy {slot.Gap?.EstimatedCost} coins";
+        var stance = slot.InPosition ? "in position" : "out of position";
 
         Console.WriteLine(
-            $"  {slot.Index,2} {slot.Position,-3} {slot.Player.Rating,3} {slot.Player.Name,-32} chem {chemistry} {source}");
+            $"  {slot.Index,2} {slot.Position,-3} {slot.Player.Rating,3} {slot.Player.Name,-32} chem {chemistry} {stance,-15} {source}");
     }
 }
