@@ -22,6 +22,27 @@ public static class SbcProgram
         return SbcWorkbench.Draft(store.ReadChallenges(), store.ReadClubPlayers(), options);
     }
 
+    public static SolveSummary Summarise(long budget)
+    {
+        return SbcSolveSummary.Summarise(Draft(budget));
+    }
+
+    public static void ReportSummary(long budget)
+    {
+        var summary = Summarise(budget);
+
+        Console.WriteLine($"challenges imported: {summary.Challenges}");
+        Console.WriteLine($"solvable from owned players alone: {summary.SolvedFromOwnedPlayers}");
+        Console.WriteLine(
+            $"solvable after buying: {summary.SolvedWithPurchases} needing {summary.Purchases} cards for about {summary.PurchaseCost} coins");
+        Console.WriteLine($"unsolvable within the budget: {summary.Unsolvable}");
+        Console.WriteLine($"refused for an unsupported requirement: {summary.Refused}");
+
+        foreach (var unsupported in summary.UnsupportedTypes)
+            Console.WriteLine(
+                $"  {unsupported.Type}: {unsupported.Occurrences} occurrences across {unsupported.Challenges} challenges");
+    }
+
     public static void Report(long budget)
     {
         foreach (var drafted in Draft(budget)) ReportOne(drafted);
