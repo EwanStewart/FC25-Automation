@@ -9,7 +9,8 @@ public sealed record MarketSpecification(
     int? LeagueId,
     int? ClubId,
     int? RareFlag,
-    int EstimatedCost)
+    int EstimatedCost,
+    MarketEvidence Evidence = MarketEvidence.Unverified)
 {
     public string Describe()
     {
@@ -19,6 +20,7 @@ public sealed record MarketSpecification(
         if (LeagueId.HasValue) parts.Add($"league {LeagueId}");
         if (ClubId.HasValue) parts.Add($"club {ClubId}");
         if (RareFlag.HasValue) parts.Add($"rarity {RareFlag}");
+        parts.Add(Evidence == MarketEvidence.Observed ? "attributes observed" : "attributes unverified");
 
         return string.Join(", ", parts);
     }
@@ -35,9 +37,10 @@ public static class MarketPricing
     private const double CLUB_PREMIUM = 1.5;
     private const double NAMED_PREMIUM = 1.2;
     private const double RARITY_PREMIUM = 1.3;
+    private const double FOREIGN_PREMIUM = 1.15;
 
     public static int Estimate(PlayerQuality quality, int rating, bool pinnedClub, bool pinnedNationOrLeague,
-        bool pinnedRarity)
+        bool pinnedRarity, bool domestic = true)
     {
         var floor = Floor(quality);
         var basePrice = Base(quality) + Math.Max(0, rating - floor) * Step(quality);
@@ -46,6 +49,7 @@ public static class MarketPricing
         if (pinnedClub) multiplier *= CLUB_PREMIUM;
         if (pinnedNationOrLeague) multiplier *= NAMED_PREMIUM;
         if (pinnedRarity) multiplier *= RARITY_PREMIUM;
+        if (!domestic) multiplier *= FOREIGN_PREMIUM;
 
         return (int)Math.Round(basePrice * multiplier);
     }

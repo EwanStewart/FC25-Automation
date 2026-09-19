@@ -27,6 +27,44 @@ public class SbcSolveSummaryTests
             new SolvedSquad(outcome, "detail", [], cost, purchases, null));
     }
 
+    private static MarketSpecification Gap(MarketEvidence evidence)
+    {
+        return new MarketSpecification("ST", PlayerQuality.Gold, 75, 75, 14, 13, null, null, 1200, evidence);
+    }
+
+    private static SquadSlot Slot(int index, MarketSpecification? gap)
+    {
+        var player = new SquadPlayer(index, index, $"Player {index}", 75, "ST", ["ST"], 8, 13, 14, 0, false, 1200,
+            gap is null);
+
+        return new SquadSlot(index, "ST", player, gap);
+    }
+
+    [Fact]
+    public void CountsThePurchasesNothingProvesExist()
+    {
+        var squad = new SolvedSquad(SolveOutcome.Solved, "detail",
+            [Slot(0, null), Slot(1, Gap(MarketEvidence.Observed)), Slot(2, Gap(MarketEvidence.Unverified)),
+                Slot(3, Gap(MarketEvidence.Unverified))], 3600, 3, null);
+
+        var summary = SbcSolveSummary.Summarise([new DraftedChallenge(Challenge(1, Supported()), squad)]);
+
+        Assert.Equal(3, summary.Purchases);
+        Assert.Equal(2, summary.UnverifiedPurchases);
+        Assert.Equal(1, summary.SolvesRestingOnUnverifiedCards);
+    }
+
+    [Fact]
+    public void CountsNoUnverifiedPurchaseWhenEverythingCameFromTheClub()
+    {
+        var squad = new SolvedSquad(SolveOutcome.Solved, "detail", [Slot(0, null)], 0, 0, null);
+
+        var summary = SbcSolveSummary.Summarise([new DraftedChallenge(Challenge(1, Supported()), squad)]);
+
+        Assert.Equal(0, summary.UnverifiedPurchases);
+        Assert.Equal(0, summary.SolvesRestingOnUnverifiedCards);
+    }
+
     [Fact]
     public void CountsAnEmptyRunAsNothing()
     {

@@ -8,6 +8,8 @@ public sealed record SolveSummary(
     int SolvedWithPurchases,
     int Purchases,
     long PurchaseCost,
+    int UnverifiedPurchases,
+    int SolvesRestingOnUnverifiedCards,
     int Unsolvable,
     int Refused,
     IReadOnlyList<UnsupportedRequirementCount> UnsupportedTypes);
@@ -27,9 +29,17 @@ public static class SbcSolveSummary
             bought.Count,
             bought.Sum(entry => entry.Squad.PurchaseCount),
             bought.Sum(entry => entry.Squad.EstimatedCost),
+            bought.Sum(Unverified),
+            bought.Count(entry => Unverified(entry) > 0),
             drafted.Count(entry => entry.Squad.Outcome is SolveOutcome.Unsatisfiable or SolveOutcome.UnknownFormation),
             drafted.Count(entry => entry.Squad.Outcome == SolveOutcome.UnsupportedRequirement),
             UnsupportedTypes(drafted));
+    }
+
+    private static int Unverified(DraftedChallenge drafted)
+    {
+        return drafted.Squad.Slots.Count(slot => slot.Gap is not null &&
+                                                 slot.Gap.Evidence == MarketEvidence.Unverified);
     }
 
     private static IReadOnlyList<UnsupportedRequirementCount> UnsupportedTypes(
