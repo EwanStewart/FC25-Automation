@@ -1,0 +1,79 @@
+@page "/Challenge/{id:int}"
+@using Automation.Sbc
+@model ChallengeModel
+@{
+    ViewData["Title"] = Model.Drafted!.Challenge.Name;
+    var squad = Model.Drafted!.Squad;
+}
+
+<h1>@Model.Drafted!.Challenge.Name</h1>
+
+<p>
+    Formation @Model.Drafted!.Challenge.Formation, squad rating @squad.Assessment!.Rating,
+    chemistry <span class="estimate">@squad.Assessment!.Chemistry.Total of 33 (estimate)</span>,
+    @squad.PurchaseCount to buy for about @squad.EstimatedCost.ToString("N0") coins.
+</p>
+
+<h2>Drafted squad</h2>
+
+<table>
+    <thead>
+    <tr>
+        <th>Slot</th>
+        <th>Player</th>
+        <th>Rating</th>
+        <th>Preferred</th>
+        <th>Chemistry</th>
+        <th>Source</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var slot in squad.Slots)
+    {
+        <tr>
+            <td>@slot.Position</td>
+            <td>@slot.Player.Name</td>
+            <td>@slot.Player.Rating</td>
+            <td>@slot.Player.PreferredPosition</td>
+            <td>@Model.Chemistry(slot.Index)</td>
+            <td>
+                @if (slot.Gap is null)
+                {
+                    <span>Owned</span>
+                }
+                else
+                {
+                    <span class="buy">Buy: @slot.Gap.Describe() (about @slot.Gap.EstimatedCost.ToString("N0") coins)</span>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<h2>Requirements</h2>
+
+<table>
+    <thead>
+    <tr>
+        <th>Requirement</th>
+        <th>Measured</th>
+        <th>Result</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var outcome in squad.Assessment!.Outcomes)
+    {
+        <tr>
+            <td>@outcome.Requirement.Description</td>
+            <td>@outcome.Actual</td>
+            <td class="@(outcome.Passed ? "pass" : "fail")">@(outcome.Passed ? "Pass" : "Fail")</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<form method="post">
+    <input type="hidden" name="budget" value="@Model.Budget"/>
+    <button type="submit" disabled="@(!squad.Assessment!.IsValid)">Approve this squad</button>
+</form>

@@ -1,0 +1,87 @@
+:root {
+    --ink: #10151c;
+    --paper: #f6f7f9;
+    --line: #d5dae1;
+    --pass: #1a7f37;
+    --fail: #b42318;
+    --buy: #8a5a00;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+}
+
+header, main, footer {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+header nav {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+a {
+    color: #1857b6;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 2rem;
+    background: #fff;
+}
+
+th, td {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.95rem;
+}
+
+th {
+    background: #eceff3;
+}
+
+.pass {
+    color: var(--pass);
+    font-weight: 600;
+}
+
+.fail {
+    color: var(--fail);
+    font-weight: 600;
+}
+
+.buy {
+    color: var(--buy);
+    font-weight: 600;
+}
+
+.estimate {
+    font-style: italic;
+    color: #4a5462;
+}
+
+button {
+    background: #1857b6;
+    color: #fff;
+    border: 0;
+    border-radius: 0.25rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+footer p {
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+    color: #4a5462;
+    font-size: 0.85rem;
+}
