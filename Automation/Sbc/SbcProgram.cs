@@ -1,4 +1,4 @@
-namespace Automation.Sbc;
+﻿namespace Automation.Sbc;
 
 public static class SbcProgram
 {
@@ -18,8 +18,11 @@ public static class SbcProgram
         var store = new SbcStore();
         var options = new SolveOptions(budget, Formations.DEFAULT_SQUAD_SIZE, ChemistryThresholds.Default,
             TeamLinks.None);
+        var drafted = SbcWorkbench.Draft(store.ReadChallenges(), store.ReadClubPlayers(), options);
 
-        return SbcWorkbench.Draft(store.ReadChallenges(), store.ReadClubPlayers(), options);
+        new DraftCache().Write(drafted, DateTime.UtcNow);
+
+        return drafted;
     }
 
     public static SolveSummary Summarise(long budget)

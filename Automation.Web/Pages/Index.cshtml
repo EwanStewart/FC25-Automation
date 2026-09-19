@@ -1,4 +1,4 @@
-@page
+﻿@page
 @using Automation.Sbc
 @model IndexModel
 @{
@@ -8,6 +8,15 @@
 <h1>Squad building challenges</h1>
 
 <p>Budget for purchases: @Model.Budget.ToString("N0") coins.</p>
+
+
+<form method="post" asp-page-handler="Regenerate" class="regen">
+    <input type="hidden" name="budget" value="@Model.Budget" />
+    <span class="estimate">
+        @(Model.SolvedAt.HasValue ? $"Solved {Model.SolvedAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}" : "Not solved yet")
+    </span>
+    <button type="submit">Regenerate</button>
+</form>
 
 <table>
     <thead>

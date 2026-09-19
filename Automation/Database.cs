@@ -429,6 +429,8 @@ public static class Database
             connection.Open();
 
             foreach (var player in players) UpsertClubPlayer(connection, player);
+
+            if (players.Count > 0) new Sbc.DraftCache().Invalidate();
         }
         catch (MySqlException ex)
         {

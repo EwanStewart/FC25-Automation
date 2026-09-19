@@ -8,6 +8,7 @@ builder.WebHost.UseUrls(SolverSite.LOCAL_URL);
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<SbcStore>();
 builder.Services.AddSingleton<MySqlFulfilmentStore>();
+builder.Services.AddSingleton<DraftCache>();
 builder.Services.AddSingleton<DraftService>();
 builder.Services.AddSingleton<FulfilmentLauncher>();
 

@@ -12,6 +12,8 @@ services:
       - ./MySQL/players.sql:/docker-entrypoint-initdb.d/players.sql:ro
       - ./MySQL/sbc.sql:/docker-entrypoint-initdb.d/sbc.sql:ro
       - ./MySQL/fulfilment.sql:/docker-entrypoint-initdb.d/fulfilment.sql:ro
+      - ./MySQL/drafts.sql:/docker-entrypoint-initdb.d/drafts.sql:ro
+      - ./MySQL/exclusions.sql:/docker-entrypoint-initdb.d/exclusions.sql:ro
       - fc25-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
