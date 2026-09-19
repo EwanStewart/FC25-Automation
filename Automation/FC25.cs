@@ -21,6 +21,7 @@ public class Fc25 : IDisposable
     private static readonly TimeSpan StandardWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ShortWait = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan LoginBudget = TimeSpan.FromSeconds(120);
+    private static readonly TimeSpan VerificationBudget = TimeSpan.FromMinutes(5);
 
     private readonly ChromeDriver _driver;
     private readonly Screen _screen;
@@ -30,6 +31,9 @@ public class Fc25 : IDisposable
     private readonly string _smokeTarget;
     private readonly bool _snipeOnly;
     private readonly Dictionary<string, int> _credentialAttempts = new();
+    private readonly IVerificationCodeSource _codeSource = new GmailCodeSource();
+    private LoginProgress _loginProgress;
+    private DateTimeOffset _codeRequestedAt = DateTimeOffset.UtcNow;
     private readonly HashSet<string> _bidNamesThisRun = new();
     private readonly Random _random = new();
     private PassPacing _pacing = new(PAGE_TURN_GAP_MS, COMPARE_READ_GAP_MS);
@@ -110,14 +114,17 @@ public class Fc25 : IDisposable
     private void EnsureLoggedIn()
     {
         var deadline = DateTime.UtcNow + LoginBudget;
-        var step = LoginFlow.NextStep(ReadLoginScreen());
+        var step = LoginFlow.NextStep(ReadLoginScreen(), _loginProgress);
 
         if (step != LoginStep.Done && !_driver.Url.Contains("ea.com")) _driver.Navigate().GoToUrl(FcUrl);
 
         while (step != LoginStep.Done && DateTime.UtcNow < deadline)
         {
             PerformLoginStep(step);
-            step = LoginFlow.NextStep(ReadLoginScreen());
+
+            if (step == LoginStep.SendCode) deadline = DateTime.UtcNow + VerificationBudget;
+
+            step = LoginFlow.NextStep(ReadLoginScreen(), _loginProgress);
         }
 
         if (step != LoginStep.Done) throw new TimeoutException($"Login did not complete. Last step: {step}.");
@@ -132,7 +139,10 @@ public class Fc25 : IDisposable
             _screen.IsVisible(ElementKeys.EMAIL_INPUT),
             _screen.IsVisible(ElementKeys.INITIAL_LOGIN),
             _screen.IsVisible(ElementKeys.UNSUPPORTED_BROWSER),
-            _screen.IsShieldShowing());
+            _screen.IsShieldShowing(),
+            _screen.IsVisible(ElementKeys.RECOGNISED_DEVICE),
+            _screen.IsVisible(ElementKeys.SEND_CODE),
+            _screen.IsVisible(ElementKeys.VERIFICATION_INPUT));
     }
 
     private void PerformLoginStep(LoginStep step)
@@ -151,11 +161,47 @@ public class Fc25 : IDisposable
             case LoginStep.Continue:
                 _screen.TryClick(ElementKeys.CONTINUE, ShortWait);
                 break;
+            case LoginStep.ContinueOnRecognisedDevice:
+                _screen.TryClick(ElementKeys.RECOGNISED_DEVICE, ShortWait);
+                _loginProgress = _loginProgress with { RecognisedDeviceTried = true };
+                break;
+            case LoginStep.SendCode:
+                RequestVerificationCode();
+                break;
+            case LoginStep.EnterVerificationCode:
+                SubmitVerificationCode();
+                break;
             case LoginStep.Unsupported:
                 throw new InvalidOperationException("The web app reports an unsupported browser.");
         }
 
         Thread.Sleep(1500);
+    }
+
+    private void RequestVerificationCode()
+    {
+        _codeRequestedAt = DateTimeOffset.UtcNow;
+        _loginProgress = _loginProgress with { CodeRequested = true };
+        _screen.TryClick(ElementKeys.SEND_CODE, ShortWait);
+        Console.WriteLine($"Requested an EA verification code at {_codeRequestedAt:HH:mm:ss}.");
+    }
+
+    private void SubmitVerificationCode()
+    {
+        var code = _codeSource.WaitForCode(_codeRequestedAt, VerificationBudget);
+
+        if (code.Length == 0)
+            throw new TimeoutException("No EA verification code arrived before the deadline.");
+
+        var input = _screen.WaitVisible(ElementKeys.VERIFICATION_INPUT, ShortWait);
+
+        if (input != null)
+        {
+            input.Clear();
+            input.SendKeys(code);
+            input.SendKeys(Keys.Enter);
+            Console.WriteLine("Entered the EA verification code.");
+        }
     }
 
     private void SubmitCredential(ElementKeys inputKey, string secretName)
