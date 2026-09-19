@@ -67,7 +67,7 @@ public sealed class SquadBuilder
         PlacementRecord result;
 
         if (Holds(view, target)) result = Record(target, PlacementOutcome.Placed, false, "already in the squad");
-        else if (run.DryRun) result = Record(target, PlacementOutcome.Simulated, true, "would place");
+        else if (!Live(run, target)) result = Record(target, PlacementOutcome.Simulated, true, "would place");
         else
         {
             squad_.Place(target.SlotIndex, target);
@@ -78,6 +78,11 @@ public sealed class SquadBuilder
         }
 
         return result;
+    }
+
+    private static bool Live(FulfilmentRun run, SquadTarget target)
+    {
+        return run.PlacesLive && SquadPlan.Held(target.Source);
     }
 
     private static string Summary(int placed, int wanted, string halt)

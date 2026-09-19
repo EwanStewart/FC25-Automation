@@ -41,10 +41,17 @@ public sealed record FulfilmentRun(
     int ApprovalId,
     int ChallengeId,
     FulfilmentState State,
-    bool DryRun,
+    FulfilmentMode Mode,
     long SpendCeiling,
     long EstimatedCost,
-    string Detail);
+    string Detail)
+{
+    public bool DryRun => Mode == FulfilmentMode.Dry;
+
+    public bool BuysLive => Mode == FulfilmentMode.Live;
+
+    public bool PlacesLive => Mode is FulfilmentMode.PlaceLive or FulfilmentMode.Live;
+}
 
 public sealed record GapRecord(
     int SlotIndex,

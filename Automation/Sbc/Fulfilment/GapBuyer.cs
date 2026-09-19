@@ -32,7 +32,9 @@ public sealed class GapBuyer
 
     private static string Reported(FulfilmentRun run, BuyingResult result)
     {
-        return run.DryRun ? $"dry run reached {result.State}. {result.Detail}".Trim() : result.Detail;
+        return run.BuysLive
+            ? result.Detail
+            : $"{FulfilmentModes.Simulation(run.Mode)} reached {result.State}. {result.Detail}".Trim();
     }
 
     private IReadOnlyList<GapRecord> Resolved(FulfilmentRun run, IReadOnlyList<GapRecord> gaps)
@@ -106,10 +108,10 @@ public sealed class GapBuyer
 
         ledger.Commit(gap.SlotIndex, choice.Price);
 
-        return run.DryRun
-            ? new GapStep(marked with { Outcome = GapOutcome.Simulated, Simulated = true,
-                Detail = $"would bid {choice.Price}" }, string.Empty, FulfilmentState.Buying)
-            : Place(run, marked, choice);
+        return run.BuysLive
+            ? Place(run, marked, choice)
+            : new GapStep(marked with { Outcome = GapOutcome.Simulated, Simulated = true,
+                Detail = $"would bid {choice.Price}" }, string.Empty, FulfilmentState.Buying);
     }
 
     private GapStep Place(FulfilmentRun run, GapRecord gap, MarketChoice choice)

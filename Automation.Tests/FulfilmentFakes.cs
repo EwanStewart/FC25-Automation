@@ -121,9 +121,10 @@ public static class FulfilmentFixtures
         return new GapRecord(slot, "CB", Specification(estimate), CardCeiling.For(estimate), outcome);
     }
 
-    public static FulfilmentRun Run(bool dryRun, long ceiling, FulfilmentState state = FulfilmentState.Pending)
+    public static FulfilmentRun Run(FulfilmentMode mode, long ceiling,
+        FulfilmentState state = FulfilmentState.Pending)
     {
-        return new FulfilmentRun(1, 7, 1234, state, dryRun, ceiling, 2000, "");
+        return new FulfilmentRun(1, 7, 1234, state, mode, ceiling, 2000, "");
     }
 }
 
@@ -165,6 +166,32 @@ public sealed class ScriptedSquad : ISquadAgent
     private SquadView View(int challengeId)
     {
         return new SquadView(challengeId, "442", slots_.Values.OrderBy(slot => slot.Index).ToList());
+    }
+}
+
+public sealed class RefusingMarket : IMarketAgent
+{
+    public int Searches { get; private set; }
+
+    public int Bids { get; private set; }
+
+    public MarketSearch Search(MarketSpecification specification, uint ceiling)
+    {
+        Searches++;
+
+        return new MarketSearch("refusing", [FulfilmentFixtures.Listing("t1", 100)]);
+    }
+
+    public BidReceipt Bid(MarketChoice choice, uint amount)
+    {
+        Bids++;
+
+        throw new InvalidOperationException("A bid was sent when no bid should have been reachable.");
+    }
+
+    public IReadOnlyList<TradeState> Standing()
+    {
+        return [];
     }
 }
 

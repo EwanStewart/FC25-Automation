@@ -1,4 +1,4 @@
-﻿using Automation.Flow;
+using Automation.Flow;
 using Automation.Setup;
 using Automation.Sbc;
 using Automation.Sbc.Fulfilment;
@@ -37,6 +37,7 @@ public class Fc25 : IDisposable
     private readonly bool _snipeOnly;
     private readonly bool _fulfilSbc;
     private readonly bool _fulfilLive;
+    private readonly bool _placeLive;
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly IVerificationCodeSource _codeSource = new GmailCodeSource();
     private LoginProgress _loginProgress;
@@ -70,6 +71,7 @@ public class Fc25 : IDisposable
         _snipeOnly = options.SnipeOnly;
         _fulfilSbc = options.FulfilSbc;
         _fulfilLive = options.FulfilLive;
+        _placeLive = options.PlaceLive;
         Browser browser = new(configuration);
         _driver = browser.Chrome;
         _screen = new Screen(_driver);
@@ -373,7 +375,7 @@ public class Fc25 : IDisposable
         MySqlFulfilmentStore store = new();
 
         FulfilmentProgram.Process(store, catalogue.ReadApprovalSlots, _ => MarketSide(),
-            run => SquadSide(catalogue, run), _fulfilLive);
+            run => SquadSide(catalogue, run), FulfilmentModes.Chosen(_fulfilLive, _placeLive));
     }
 
     private MarketAgent MarketSide()

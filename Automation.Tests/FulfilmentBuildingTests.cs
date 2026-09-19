@@ -63,7 +63,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, [Empty(0)]);
 
-        var report = new SquadBuilder(squad, store).PlaceOwned(Run(true, 3000), [Owned(0, 11)]);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(FulfilmentMode.Dry, 3000), [Owned(0, 11)]);
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("place-in-app"));
         Assert.Equal(PlacementOutcome.Simulated, store.Placements(1)[0].Outcome);
@@ -78,7 +78,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, [new SquadSlotView(0, "CB", 11, 0, 70, true)]);
 
-        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11)]);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(FulfilmentMode.Live, 3000), [Owned(0, 11)]);
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("place-in-app"));
         Assert.Equal(PlacementOutcome.Placed, store.Placements(1)[0].Outcome);
@@ -92,7 +92,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]) { Refuse = 0 };
 
-        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11), Owned(1, 12)]);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(FulfilmentMode.Live, 3000), [Owned(0, 11), Owned(1, 12)]);
 
         Assert.True(report.Halted);
         Assert.Contains("slot 0", report.Detail);
@@ -107,7 +107,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
 
-        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11), Owned(1, 12)]);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(FulfilmentMode.Live, 3000), [Owned(0, 11), Owned(1, 12)]);
 
         Assert.False(report.Halted);
         Assert.Equal(2, report.Placed);
@@ -122,7 +122,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
 
-        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11), Bought(1)]);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(FulfilmentMode.Live, 3000), [Owned(0, 11), Bought(1)]);
 
         Assert.Equal(1, report.Placed);
         Assert.Single(store.Placements(1));
@@ -136,7 +136,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, []);
 
-        var report = new SquadBuilder(squad, store).PlaceBought(Run(false, 3000), [Bought(0)], [Gap(0)]);
+        var report = new SquadBuilder(squad, store).PlaceBought(Run(FulfilmentMode.Live, 3000), [Bought(0)], [Gap(0)]);
 
         Assert.Empty(log);
         Assert.False(report.Halted);
@@ -150,7 +150,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, [Empty(0)]);
 
-        var report = new SquadBuilder(squad, store).PlaceBought(Run(false, 3000), [Bought(0)], [Won(0, 99)]);
+        var report = new SquadBuilder(squad, store).PlaceBought(Run(FulfilmentMode.Live, 3000), [Bought(0)], [Won(0, 99)]);
 
         Assert.Equal(1, report.Placed);
         Assert.Contains("place-in-app 0 99", log);
@@ -165,9 +165,9 @@ public class FulfilmentBuildingTests
         ScriptedSquad squad = new(log, [Empty(0)]);
         SquadBuilder builder = new(squad, store);
 
-        builder.PlaceBought(Run(false, 3000), [Bought(0)], [Won(0, 99)]);
+        builder.PlaceBought(Run(FulfilmentMode.Live, 3000), [Bought(0)], [Won(0, 99)]);
 
-        var second = builder.PlaceBought(Run(false, 3000), [Bought(0)], [Won(0, 99)]);
+        var second = builder.PlaceBought(Run(FulfilmentMode.Live, 3000), [Bought(0)], [Won(0, 99)]);
 
         Assert.Single(log, entry => entry.StartsWith("place-in-app"));
         Assert.Equal(0, second.Placed);
@@ -181,7 +181,7 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, []);
 
-        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Bought(0)]);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(FulfilmentMode.Live, 3000), [Bought(0)]);
 
         Assert.Empty(log);
         Assert.False(report.Halted);

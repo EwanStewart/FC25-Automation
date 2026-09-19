@@ -11,7 +11,7 @@ public static class FulfilmentDefaults
 
     public static FulfilmentState Recorded(FulfilmentRun run, FulfilmentState state)
     {
-        return run.DryRun ? FulfilmentState.Pending : state;
+        return run.BuysLive ? state : FulfilmentState.Pending;
     }
 }
 

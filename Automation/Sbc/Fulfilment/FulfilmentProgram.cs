@@ -5,18 +5,19 @@ namespace Automation.Sbc.Fulfilment;
 public static class FulfilmentProgram
 {
     public static void Process(IFulfilmentStore store, Func<int, IReadOnlyList<ApprovalSlot>> slots,
-        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, bool live)
+        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentMode mode)
     {
         var queued = store.Queued();
 
-        Console.WriteLine($"{queued.Count} approval(s) queued for fulfilment, live buying {live}.");
+        Console.WriteLine(
+            $"{queued.Count} approval(s) queued for fulfilment, {FulfilmentModes.Describe(mode)}.");
 
-        foreach (var run in queued) Guarded(store, slots, market, squad, Mode(run, live));
+        foreach (var run in queued) Guarded(store, slots, market, squad, Switched(run, mode));
     }
 
-    private static FulfilmentRun Mode(FulfilmentRun run, bool live)
+    private static FulfilmentRun Switched(FulfilmentRun run, FulfilmentMode mode)
     {
-        return run with { DryRun = FulfilmentDefaults.DryRun(live) };
+        return run with { Mode = mode };
     }
 
     private static void Guarded(IFulfilmentStore store, Func<int, IReadOnlyList<ApprovalSlot>> slots,
@@ -72,7 +73,7 @@ public static class FulfilmentProgram
     private static RunOutcome Shop(IFulfilmentStore store, Func<FulfilmentRun, IMarketAgent> market,
         SquadBuilder builder, FulfilmentRun run, IReadOnlyList<ApprovalSlot> plan)
     {
-        var bought = new GapBuyer(market(run), store).Buy(run, store.Gaps(run.Id));
+        var bought = new GapBuyer(Buying(market, run), store).Buy(run, store.Gaps(run.Id));
 
         Console.WriteLine($"  market: {Lower(bought.State)} {bought.Detail}".TrimEnd());
 
@@ -83,6 +84,13 @@ public static class FulfilmentProgram
         return placed.Halted
             ? new RunOutcome(FulfilmentState.Failed, placed.Detail)
             : new RunOutcome(bought.State, bought.Detail);
+    }
+
+    private static IMarketAgent Buying(Func<FulfilmentRun, IMarketAgent> market, FulfilmentRun run)
+    {
+        var agent = market(run);
+
+        return run.BuysLive ? agent : new SimulatedMarket(agent);
     }
 
     private static void Settle(IFulfilmentStore store, FulfilmentRun run, IReadOnlyList<ApprovalSlot> plan,
@@ -111,7 +119,9 @@ public static class FulfilmentProgram
 
     private static string Reported(FulfilmentRun run, FulfilmentState state, string detail)
     {
-        return run.DryRun ? $"dry run reached {state}. {detail}".Trim() : detail;
+        return run.Mode == FulfilmentMode.Live
+            ? detail
+            : $"{FulfilmentModes.Simulation(run.Mode)} reached {state}. {detail}".Trim();
     }
 
     private static string Lower(FulfilmentState state)
@@ -122,7 +132,7 @@ public static class FulfilmentProgram
     private static void Announce(FulfilmentRun run)
     {
         Console.WriteLine(
-            $"Fulfilment {run.Id} for approval {run.ApprovalId} (challenge {run.ChallengeId}): estimate {run.EstimatedCost}, ceiling {run.SpendCeiling}, dry run {run.DryRun}.");
+            $"Fulfilment {run.Id} for approval {run.ApprovalId} (challenge {run.ChallengeId}): estimate {run.EstimatedCost}, ceiling {run.SpendCeiling}, {FulfilmentModes.Describe(run.Mode)}.");
     }
 
     private sealed record RunOutcome(FulfilmentState State, string Detail);
