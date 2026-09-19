@@ -126,6 +126,8 @@ public sealed class SbcSquadAgent : ISquadAgent
     private readonly MouseInput mouse_;
     private readonly ChallengeRoute route_;
 
+    private SquadView? seen_;
+
     public SbcSquadAgent(ChromeDriver driver, Screen screen, NetworkObserver network, MouseInput mouse,
         ChallengeRoute route)
     {
@@ -142,13 +144,37 @@ public sealed class SbcSquadAgent : ISquadAgent
 
         EnterChallenge();
 
-        var view = Settled(since, challengeId);
+        var answered = Remember(Settled(since, challengeId));
+        var view = answered ?? Remembered(challengeId);
 
         if (view is null)
             throw new InvalidOperationException(
                 $"The squad for challenge {challengeId} ('{route_.ChallengeName}') never came back from the app.");
 
+        Announce(view, answered is null);
+
         return view;
+    }
+
+    private void Announce(SquadView view, bool cached)
+    {
+        var source = cached ? " served from the client cache, so it is the squad this run last read" : string.Empty;
+
+        Console.WriteLine($"  squad for challenge {view.ChallengeId} ('{route_.ChallengeName}'): " +
+                          $"formation {view.Formation}, {view.Slots.Count(slot => slot.Filled)} of " +
+                          $"{view.Slots.Count} slots filled{source}.");
+    }
+
+    private SquadView? Remember(SquadView? view)
+    {
+        if (view is not null) seen_ = view;
+
+        return view;
+    }
+
+    private SquadView? Remembered(int challengeId)
+    {
+        return seen_ is not null && seen_.ChallengeId == challengeId ? seen_ : null;
     }
 
     public void Place(int slotIndex, SquadTarget target)
@@ -172,7 +198,7 @@ public sealed class SbcSquadAgent : ISquadAgent
     {
         var since = DateTime.UtcNow - TimeSpan.FromSeconds(30);
 
-        return Settled(since, challengeId) ??
+        return Remember(Settled(since, challengeId)) ??
                new SquadView(challengeId, string.Empty, []);
     }
 
