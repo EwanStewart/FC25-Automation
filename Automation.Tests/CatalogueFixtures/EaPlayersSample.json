@@ -1,0 +1,44 @@
+{
+  "LegendsPlayers": [
+    {
+      "c": "Iniesta",
+      "f": "Andrés",
+      "id": 41,
+      "l": "Iniesta Luján",
+      "r": 92
+    },
+    {
+      "f": "Alan",
+      "id": 51,
+      "l": "Shearer",
+      "r": 89
+    }
+  ],
+  "Players": [
+    {
+      "f": "Joe",
+      "id": 27,
+      "l": "Cole",
+      "r": 87
+    },
+    {
+      "f": "Manuel",
+      "id": 229237,
+      "l": "Akanji",
+      "r": 83
+    },
+    {
+      "f": "Kylian",
+      "id": 231747,
+      "l": "Mbappé",
+      "r": 91
+    },
+    {
+      "c": "Rui Costa",
+      "f": "Rui Manuel",
+      "id": 1025,
+      "l": "César Costa",
+      "r": 87
+    }
+  ]
+}
