@@ -122,3 +122,44 @@ public static class FulfilmentFixtures
         return new FulfilmentRun(1, 7, 1234, state, dryRun, ceiling, 2000, "");
     }
 }
+
+public sealed class ScriptedSquad : ISquadAgent
+{
+    private readonly List<string> log_;
+    private readonly Dictionary<int, SquadSlotView> slots_;
+
+    public ScriptedSquad(List<string> log, IReadOnlyList<SquadSlotView> slots)
+    {
+        log_ = log;
+        slots_ = slots.ToDictionary(slot => slot.Index);
+    }
+
+    public int? Refuse { get; init; }
+
+    public SquadView Open(int challengeId)
+    {
+        log_.Add($"open {challengeId}");
+
+        return View(challengeId);
+    }
+
+    public void Place(int slotIndex, SquadTarget target)
+    {
+        log_.Add($"place-in-app {slotIndex} {target.ItemId}");
+
+        if (Refuse != slotIndex && slots_.TryGetValue(slotIndex, out var slot))
+            slots_[slotIndex] = slot with { ItemId = target.ItemId, Filled = true };
+    }
+
+    public SquadView Read(int challengeId)
+    {
+        log_.Add($"read {challengeId}");
+
+        return View(challengeId);
+    }
+
+    private SquadView View(int challengeId)
+    {
+        return new SquadView(challengeId, "442", slots_.Values.OrderBy(slot => slot.Index).ToList());
+    }
+}
