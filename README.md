@@ -78,7 +78,7 @@ Build in your IDE, then run Start.bat.
 
 ## Player catalogue
 
-The bot keeps a local copy of the EA Sports FC player catalogue in MySQL. The rest of the system can then look a player up by rating, club, league, nation or position without asking a third party each time.
+The bot keeps a local copy of the EA Sports FC player catalogue in MySQL. The rest of the system can then turn an id into a name without asking anyone, which matters because EA's own club API returns owned items with no name on them, only assetId and resourceId.
 
 MySQL/players.sql creates the two tables. docker-compose only seeds setup.sql, so apply the catalogue schema once by hand:
 
@@ -86,22 +86,36 @@ MySQL/players.sql creates the two tables. docker-compose only seeds setup.sql, s
 docker exec -i fc25-mysql mysql -uroot -proot < MySQL/players.sql
 ```
 
-Players holds three ids, all BIGINT. futdb_id is FUT-DB's own row id and the primary key. asset_id is EA's asset id, which FUT-DB publishes as resourceBaseId, and resource_id is EA's resource id. EA's club API returns owned items with no name on them, only assetId and resourceId, so those two columns are how the rest of the system reaches a name. asset_id is indexed and resource_id is unique, and a null resource id does not block the unique key.
-
-Each row also holds the full and common names, the rating, the preferred position, the alternate positions as one comma separated column, the club, league, nation and rarity ids, and a last_updated stamp. FUT-DB gives club, league, nation and rarity as numbers rather than names, and they line up with EA's own numbering: Manchester City is club 10, the Premier League is league 13 and Belgium is nation 7. Resolve a number to a name through /api/clubs, /api/leagues, /api/nations and /api/rarities. Indexes cover asset_id, rating, club, league, nation, position and name. An import rewrites a player in place, so a refresh leaves one row per card.
-
-CatalogueImports records each run: its source, the number of items written, the last page finished, the page total, the start and finish times and the outcome.
-
-The catalogue comes from FUT-DB, documented at https://api.fut-db.com/api/doc/index.html. Its account portal is app.futdatabase.com. The API wants a key in the X-AUTH-TOKEN header and pages /api/players. Put the key in the .env file at the root of the repository under FUT_DB_KEY. With no key the import stops and names the key rather than crashing. A key the API refuses gives the same message, because a 401 means the key is the problem.
-
-A free key authenticates but carries no daily allowance. The live reply is 429 with x-premium 0, x-ratelimit-limit 0 and an x-ratelimit-retry-after about a day ahead, and the importer prints that moment. Premium is 79 euros a month for 20,000 requests a day. The database holds about 21,000 players, so a full import costs roughly 1,000 requests, or 5 percent of a premium day.
-
-Swap the provider by writing another IPlayerSource. The HTTP call is the only part of Automation/Catalogue that touches the network, so the tests drive the parsing and mapping from saved pages under Automation.Tests/CatalogueFixtures.
-
-The importer waits PAGE_DELAY_MS between pages, 1.5 seconds by default, set in Automation/Catalogue/CatalogueProgram.cs. MAX_PAGES_PER_RUN caps a run and defaults to no cap. A run that stops part way leaves its import row open at the last page it finished, and the next run carries on from the page after it. A run that reaches the end closes its row, so the run after that starts at page one and refreshes the catalogue.
-
 --import-players runs the import and exits. Program.Main does not call it yet, so add the call where options.ImportPlayers is read:
 
 ```
 if (options.ImportPlayers) Environment.Exit(Catalogue.CatalogueProgram.Run());
 ```
+
+### Sources
+
+The default source is the EA web app itself, and it needs no key, no cookie and no token. Two plain GETs do the job. The first reads the web app page for window.fut_guid and window.fut_year. The second reads players.json under those two values. Never hardcode the guid: EA regenerates it on every content push, which is why the import resolves it each run.
+
+That file holds two arrays, Players and LegendsPlayers, and the import reads both. A record is an asset id, a first and last name, an optional common name and a base rating. It carries no club, league, nation, rarity or position, so the import leaves those columns null rather than guessing them. Per-card attributes only exist in FUT-DB.
+
+FUT-DB is the second source, documented at https://api.fut-db.com/api/doc/index.html, with its account portal at app.futdatabase.com. It wants a key in the X-AUTH-TOKEN header, which belongs in the .env file at the root of the repository under FUT_DB_KEY. A free key authenticates but carries no daily allowance at all: the reply is 429 with x-premium 0 and x-ratelimit-limit 0. Premium is 79 euros a month for 20,000 requests a day. Pick this source only when per-card attributes are needed; CatalogueSources.Create names both.
+
+### Refreshing
+
+The EA file is served with an ETag and a Last-Modified stamp, and the import stores the stamp on the import row. The next run sends it back as If-Modified-Since. EA's edge answers 304 to that, and the run ends having saved nothing and recorded the outcome as unchanged. Do not reach for the ETag: EA's edge returns a full 200 to If-None-Match even when the ETag matches exactly. A full import of 20,034 players takes about 20 seconds against a local MySQL. An unchanged refresh takes under a second.
+
+### Schema
+
+Players is keyed on the pair of source and source_id, so both sources can fill the table without fighting over one key. For the EA source, source_id is EA's asset id. For FUT-DB, it is FUT-DB's own row id, which is not an EA id at all.
+
+The ids the rest of the system joins on live in their own columns, both BIGINT. asset_id is EA's asset id, which FUT-DB publishes as resourceBaseId. resource_id is EA's resource id, unique and null for every EA web app row. Join on those numbers, never on a name. Filter by source when both sources have run, because FUT-DB writes one row per card version and the EA file writes one row per player.
+
+Each row also holds the full and common names, the rating, the preferred position, the alternate positions as one comma separated column, the club, league, nation and rarity ids, and a last_updated stamp. FUT-DB gives club, league, nation and rarity as numbers that line up with EA's own numbering: Manchester City is club 10, the Premier League is league 13 and Belgium is nation 7. Resolve a number to a name through /api/clubs, /api/leagues, /api/nations and /api/rarities. Indexes cover asset_id, rating, club, league, nation, position and name. An import rewrites a player in place, so a refresh leaves one row per card.
+
+CatalogueImports records each run: its source, the number of items written, the last page finished, the page total, the content tag, the start and finish times and the outcome.
+
+### Pacing and resuming
+
+The importer waits PAGE_DELAY_MS between pages, 1.5 seconds by default, set in Automation/Catalogue/CatalogueProgram.cs. MAX_PAGES_PER_RUN caps a run and defaults to no cap. A run that stops part way leaves its import row open at the last page it finished, and the next run carries on from the page after it. A run that reaches the end closes its row, so the run after that starts at page one and refreshes the catalogue.
+
+Swap in another provider by writing another IPlayerSource. The HTTP calls are the only part of Automation/Catalogue that touches the network, so the tests drive the parsing and mapping from saved pages under Automation.Tests/CatalogueFixtures.
