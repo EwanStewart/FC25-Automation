@@ -195,9 +195,17 @@ public sealed class SbcSquadAgent : ISquadAgent
 
     private void EnterChallenge()
     {
+        RequireMouse();
         OpenHub();
         OpenTile(SET_TILE_SELECTORS, route_.SetName);
         OpenTile(CHALLENGE_TILE_SELECTORS, route_.ChallengeName);
+    }
+
+    private void RequireMouse()
+    {
+        if (!mouse_.Enabled)
+            throw new InvalidOperationException(
+                "Real mouse input is not running, so no SBC tile can be clicked and the challenge cannot be opened.");
     }
 
     private void OpenHub()
