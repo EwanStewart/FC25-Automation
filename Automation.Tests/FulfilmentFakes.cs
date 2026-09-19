@@ -97,6 +97,17 @@ public sealed class ScriptedMarket : IMarketAgent
             Actual ?? amount, "scripted", !Withhold);
     }
 
+    public bool BuyRefused { get; init; }
+
+    public BuyReceipt BuyNow(AuctionListing listing, uint ceiling)
+    {
+        log_.Add($"buy {listing.TradeId} {ceiling}");
+
+        return BuyRefused
+            ? new BuyReceipt(false, 0, "the market would not sell it")
+            : new BuyReceipt(true, Actual ?? ceiling, "scripted");
+    }
+
     public IReadOnlyList<TradeState> Standing()
     {
         return Targets();
@@ -229,6 +240,13 @@ public sealed class RefusingMarket : IMarketAgent
         Bids++;
 
         throw new InvalidOperationException("A bid was sent when no bid should have been reachable.");
+    }
+
+    public BuyReceipt BuyNow(AuctionListing listing, uint ceiling)
+    {
+        Bids++;
+
+        throw new InvalidOperationException("A card was bought when no purchase should have been reachable.");
     }
 
     public IReadOnlyList<TradeState> Standing()

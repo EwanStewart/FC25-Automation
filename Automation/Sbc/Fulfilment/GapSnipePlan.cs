@@ -10,8 +10,7 @@ public static class GapSnipePlan
     public const int BID_AIM_SECONDS = 15;
     public const int BATCH_SIZE = 15;
 
-    private const string ACTIVE_STATE = "active";
-    private const string HIGHEST_STATE = "highest";
+    private const string ACTIVE_STATE = BidStates.ACTIVE;
 
     public static IReadOnlyList<TradeState> Watched(IReadOnlyList<TradeState> targets,
         IReadOnlyList<string> tradeIds)
@@ -51,7 +50,7 @@ public static class GapSnipePlan
 
     public static TradeState? Won(IReadOnlyList<TradeState> targets)
     {
-        return targets.FirstOrDefault(trade => trade.State != ACTIVE_STATE && trade.BidState == HIGHEST_STATE);
+        return targets.FirstOrDefault(trade => trade.State != ACTIVE_STATE && BidStates.Held(trade.BidState));
     }
 
     public static bool Finished(IReadOnlyList<TradeState> targets)
@@ -71,7 +70,7 @@ public static class GapSnipePlan
 
     private static bool Unheld(TradeState trade)
     {
-        return trade.BidState != HIGHEST_STATE;
+        return !BidStates.Held(trade.BidState);
     }
 
     private static bool Imminent(TradeState trade)

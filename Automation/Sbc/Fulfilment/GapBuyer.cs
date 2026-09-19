@@ -10,6 +10,7 @@ public sealed class GapBuyer
     private const string UNWATCHED_DETAIL = "no card on the page could be watched";
     private const int POLL_MS = 1000;
     private const int MAX_POLLS = 240;
+    private const int CLAIM_POLLS = 20;
 
     private readonly IMarketAgent market_;
     private readonly IFulfilmentStore store_;
@@ -164,19 +165,102 @@ public sealed class GapBuyer
     {
         var search = market_.Search(gap.Specification, ceiling);
         var searched = gap with { Searched = search.Description, CandidatesSeen = search.Listings.Count };
+        var outright = GapBuyNowPlan.Cheapest(gap.Specification, search.Listings, ceiling);
+
+        Remember(search.Listings);
+
+        return outright is null
+            ? ByBidding(run, searched, search, ceiling, ledger)
+            : ByBuying(run, searched, outright, ledger);
+    }
+
+    private GapStep ByBidding(FulfilmentRun run, GapRecord gap, MarketSearch search, uint ceiling,
+        SpendLedger ledger)
+    {
         var shortlist = GapSnipePlan.Shortlist(gap.Specification, search.Listings, ceiling);
         GapStep result;
 
-        Remember(shortlist);
-
-        if (shortlist.Count == 0) result = new GapStep(Missed(searched, search, ceiling), string.Empty,
+        if (shortlist.Count == 0) result = new GapStep(Missed(gap, search, ceiling), string.Empty,
             FulfilmentState.Buying);
         else if (!ledger.Allows(gap.SlotIndex, MarketCandidateChoice.Price(shortlist[0])))
-            result = new GapStep(searched with { Detail = CEILING_DETAIL }, CEILING_DETAIL,
-                FulfilmentState.Aborted);
-        else result = Take(run, searched, shortlist, ceiling, ledger);
+            result = new GapStep(gap with { Detail = CEILING_DETAIL }, CEILING_DETAIL, FulfilmentState.Aborted);
+        else result = Take(run, gap, shortlist, ceiling, ledger);
 
         return result;
+    }
+
+    private GapStep ByBuying(FulfilmentRun run, GapRecord gap, MarketChoice choice, SpendLedger ledger)
+    {
+        GapStep result;
+
+        if (!ledger.Allows(gap.SlotIndex, choice.Price))
+            result = new GapStep(gap with { Detail = CEILING_DETAIL }, CEILING_DETAIL, FulfilmentState.Aborted);
+        else
+        {
+            ledger.Commit(gap.SlotIndex, choice.Price);
+            result = run.BuysLive ? Purchase(run, gap, choice) : Pretend(gap, choice);
+        }
+
+        return result;
+    }
+
+    private static GapStep Pretend(GapRecord gap, MarketChoice choice)
+    {
+        return new GapStep(Marked(gap, choice) with
+        {
+            Outcome = GapOutcome.Simulated, Simulated = true,
+            Detail = $"would buy {choice.Listing.TradeId} outright for {choice.Price}"
+        }, string.Empty, FulfilmentState.Buying);
+    }
+
+    private GapStep Purchase(FulfilmentRun run, GapRecord gap, MarketChoice choice)
+    {
+        var attempting = Marked(gap, choice) with
+        {
+            Outcome = GapOutcome.Attempting, Simulated = false,
+            Detail = $"buying {choice.Listing.TradeId} outright for {choice.Price}"
+        };
+
+        store_.SaveGap(run.Id, attempting);
+
+        return new GapStep(Paid(attempting, market_.BuyNow(choice.Listing, choice.Price)), string.Empty,
+            FulfilmentState.Buying);
+    }
+
+    private GapRecord Paid(GapRecord gap, BuyReceipt receipt)
+    {
+        return receipt.Bought
+            ? Collected(gap with { BidAmount = (int)receipt.Amount }, receipt)
+            : gap with { Outcome = GapOutcome.OutOfReach, Detail = receipt.Detail };
+    }
+
+    private GapRecord Collected(GapRecord gap, BuyReceipt receipt)
+    {
+        var won = Arrived(gap.TradeId ?? string.Empty);
+
+        return won is null
+            ? gap with
+            {
+                Outcome = GapOutcome.Won, FinalPrice = (int)receipt.Amount,
+                Detail = $"bought outright for {receipt.Amount} but it is still on the transfer targets"
+            }
+            : Bought(gap, won);
+    }
+
+    private TradeState? Arrived(string tradeId)
+    {
+        IReadOnlyList<string> mine = [tradeId];
+        var won = GapSnipePlan.Won(GapSnipePlan.Watched(market_.Standing(), mine));
+        var polls = 0;
+
+        while (won is null && polls < CLAIM_POLLS)
+        {
+            market_.Pause(POLL_MS);
+            won = GapSnipePlan.Won(GapSnipePlan.Watched(market_.Targets(), mine));
+            polls++;
+        }
+
+        return won;
     }
 
     private GapStep Take(FulfilmentRun run, GapRecord gap, IReadOnlyList<AuctionListing> shortlist, uint ceiling,
@@ -254,25 +338,36 @@ public sealed class GapBuyer
 
     private GapRecord Claimed(GapRecord gap, TradeState won)
     {
+        return Secured(gap, won, "won at");
+    }
+
+    private GapRecord Bought(GapRecord gap, TradeState won)
+    {
+        return Secured(gap, won, "bought outright for");
+    }
+
+    private GapRecord Secured(GapRecord gap, TradeState won, string verb)
+    {
         var claimed = market_.Claim(won);
+        var spent = Spent(gap, won);
 
         return gap with
         {
             Outcome = GapOutcome.Won, TradeId = won.TradeId, ItemId = won.ItemId > 0 ? won.ItemId : gap.ItemId,
-            AssetId = Bought(won.TradeId) ?? gap.AssetId, Simulated = false,
-            FinalPrice = Paid(gap, won),
+            AssetId = Catalogued(won.TradeId) ?? gap.AssetId, Simulated = false,
+            FinalPrice = spent,
             Detail = claimed
-                ? $"won at {Paid(gap, won)} and sent to the club"
-                : $"won at {Paid(gap, won)} but it is still on the transfer targets"
+                ? $"{verb} {spent} and sent to the club"
+                : $"{verb} {spent} but it is still on the transfer targets"
         };
     }
 
-    private int? Bought(string tradeId)
+    private int? Catalogued(string tradeId)
     {
         return seen_.TryGetValue(tradeId, out var listing) && listing.AssetId > 0 ? listing.AssetId : null;
     }
 
-    private static int Paid(GapRecord gap, TradeState won)
+    private static int Spent(GapRecord gap, TradeState won)
     {
         return won.CurrentBid > 0 ? (int)won.CurrentBid : gap.BidAmount.GetValueOrDefault();
     }

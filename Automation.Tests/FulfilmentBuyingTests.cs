@@ -32,6 +32,135 @@ public class FulfilmentBuyingTests
         return new TradeState(tradeId, "closed", bidState, finalBid, 0, 0, 77);
     }
 
+    private static AuctionListing Asking(string tradeId, uint buyNowPrice)
+    {
+        return Listing(tradeId, 300) with { BuyNowPrice = buyNowPrice, Expires = 900 };
+    }
+
+    [Fact]
+    public void ACardThatCanBeBoughtOutrightIsBoughtRatherThanWatched()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Asking("t1", 800)] },
+            polls: [[Ended("t1", 800, "buyNow")]]);
+
+        Assert.Contains("buy t1 800", log);
+        Assert.DoesNotContain(log, entry => entry.StartsWith("watch"));
+        Assert.DoesNotContain(log, entry => entry.StartsWith("bid"));
+        Assert.Contains("claim t1", log);
+        Assert.Equal(GapOutcome.Won, store.Gaps(1)[0].Outcome);
+        Assert.Equal(800, store.Gaps(1)[0].FinalPrice);
+        Assert.Contains("bought outright for 800 and sent to the club", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
+    public void TheCheapestCardOnThePageIsTheOneBoughtOutright()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Asking("dear", 900), Asking("cheap", 500)]
+            },
+            polls: [[Ended("cheap", 500, "buyNow")]]);
+
+        Assert.Contains("buy cheap 500", log);
+        Assert.DoesNotContain(log, entry => entry.StartsWith("buy dear"));
+        Assert.Equal("cheap", store.Gaps(1)[0].TradeId);
+    }
+
+    [Fact]
+    public void APurchaseIsWrittenDownBeforeItIsMade()
+    {
+        var (_, _, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Asking("t1", 800)] },
+            polls: [[Ended("t1", 800, "buyNow")]]);
+
+        var written = log.FindIndex(entry => entry == "gap 0 Attempting 800");
+        var made = log.FindIndex(entry => entry.StartsWith("buy"));
+
+        Assert.True(written >= 0);
+        Assert.True(written < made);
+    }
+
+    [Fact]
+    public void ACardAskingMoreThanTheCardCeilingIsNeverBoughtOutright()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Asking("t1", 4000)] });
+
+        Assert.DoesNotContain(log, entry => entry.StartsWith("buy"));
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+    }
+
+    [Fact]
+    public void TheRunCeilingStopsASecondPurchase()
+    {
+        var (result, _, log) = Buy(Run(FulfilmentMode.Live, 1000), [Gap(0), Gap(1)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Asking("t1", 900)],
+                [1] = [Asking("t2", 900)]
+            }, polls: [[Ended("t1", 900, "buyNow")]]);
+
+        Assert.Single(log.Where(entry => entry.StartsWith("buy")));
+        Assert.Equal(FulfilmentState.Aborted, result.State);
+        Assert.Contains("ceiling", result.Detail);
+    }
+
+    [Fact]
+    public void ADryRunSaysWhatItWouldBuyOutrightAndBuysNothing()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Dry, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Asking("t1", 800)] });
+
+        Assert.DoesNotContain(log, entry => entry.StartsWith("buy"));
+        Assert.Equal(GapOutcome.Simulated, store.Gaps(1)[0].Outcome);
+        Assert.Equal(800, store.Gaps(1)[0].BidAmount);
+        Assert.Contains("would buy t1 outright for 800", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
+    public void ACardBoughtButNotYetOnTheTargetsIsStillRecordedAsWon()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Asking("t1", 800)] });
+
+        Assert.DoesNotContain(log, entry => entry.StartsWith("claim"));
+        Assert.Equal(GapOutcome.Won, store.Gaps(1)[0].Outcome);
+        Assert.Equal(800, store.Gaps(1)[0].FinalPrice);
+        Assert.Contains("still on the transfer targets", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
+    public void APurchaseTheMarketRefusedLeavesTheGapForTheNextRun()
+    {
+        List<string> log = [];
+        RecordingStore store = new(log);
+        ScriptedMarket market = new(log,
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Asking("t1", 800)] })
+        {
+            BuyRefused = true
+        };
+
+        var result = new GapBuyer(market, store).Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)]);
+
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+        Assert.Contains("would not sell", store.Gaps(1)[0].Detail);
+        Assert.Equal(FulfilmentState.Buying, result.State);
+    }
+
+    [Fact]
+    public void AGapWithNothingToBuyOutrightStillWatchesTheCardsThatAreEnding()
+    {
+        var (_, _, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 300)] },
+            polls: [[Due("t1", 300)]]);
+
+        Assert.Contains("watch t1", log);
+        Assert.Contains("bid t1 300", log);
+        Assert.DoesNotContain(log, entry => entry.StartsWith("buy"));
+    }
+
     [Fact]
     public void ADryRunRecordsWhatItWouldBuyAndPlacesNoBid()
     {

@@ -70,6 +70,19 @@ public class UtasPayloadTests
     }
 
     [Fact]
+    public void ABuyResponseSaysWhetherTheCardIsOurs()
+    {
+        const string bought = """
+            {"credits":9000,"auctionInfo":[{"tradeId":608459623171,"tradeState":"closed","bidState":"buyNow","expires":0,"currentBid":600,"startingBid":300,"buyNowPrice":600}]}
+            """;
+
+        Assert.True(UtasPayloads.BuyResult(200, bought, "608459623171")?.Bought);
+        Assert.False(UtasPayloads.BuyResult(200, SEARCH, "608459623170")?.Bought);
+        Assert.False(UtasPayloads.BuyResult(461, bought, "608459623171")?.Bought);
+        Assert.Null(UtasPayloads.BuyResult(200, bought, "999"));
+    }
+
+    [Fact]
     public void ItemAttributesComeOffTheListingSoACardCanBeCheckedAgainstASpecification()
     {
         const string body = """

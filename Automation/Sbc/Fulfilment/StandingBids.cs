@@ -2,8 +2,7 @@ namespace Automation.Sbc.Fulfilment;
 
 public static class StandingBids
 {
-    private const string HIGHEST_STATE = "highest";
-    private const string ACTIVE_STATE = "active";
+    private const string ACTIVE_STATE = BidStates.ACTIVE;
 
     public static GapRecord Resolve(GapRecord gap, IReadOnlyList<TradeState> states)
     {
@@ -30,10 +29,10 @@ public static class StandingBids
 
         if (trade is null) result = Unresolved(gap, "the trade is no longer on the transfer targets");
         else if (trade.State == ACTIVE_STATE)
-            result = trade.BidState == HIGHEST_STATE
+            result = BidStates.Held(trade.BidState)
                 ? gap
                 : gap with { Outcome = GapOutcome.Outbid, Detail = $"outbid at {trade.CurrentBid}" };
-        else if (trade.BidState == HIGHEST_STATE)
+        else if (BidStates.Held(trade.BidState))
             result = gap with
             {
                 Outcome = GapOutcome.Won, FinalPrice = (int)trade.CurrentBid, Detail = $"won at {trade.CurrentBid}"
@@ -56,7 +55,7 @@ public static class StandingBids
 
     private static bool TookOurBid(GapRecord gap, TradeState trade)
     {
-        return trade.BidState == HIGHEST_STATE || trade.CurrentBid >= gap.BidAmount.GetValueOrDefault();
+        return BidStates.Held(trade.BidState) || trade.CurrentBid >= gap.BidAmount.GetValueOrDefault();
     }
 
     private static GapRecord Unresolved(GapRecord gap, string detail)

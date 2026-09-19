@@ -22,6 +22,12 @@ public sealed class SimulatedMarket : IMarketAgent
             $"A run that is not buying live reached the bid path for trade {choice.Listing.TradeId} at {amount} coins.");
     }
 
+    public BuyReceipt BuyNow(AuctionListing listing, uint ceiling)
+    {
+        throw new InvalidOperationException(
+            $"A run that is not buying live reached the buy path for trade {listing.TradeId} at {ceiling} coins.");
+    }
+
     public IReadOnlyList<TradeState> Standing()
     {
         return market_.Standing();

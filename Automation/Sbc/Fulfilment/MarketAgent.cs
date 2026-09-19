@@ -1,3 +1,4 @@
+using System.Globalization;
 using Automation.Sbc;
 using Automation.Sbc.Fulfilment;
 using Automation.Setup;
@@ -19,9 +20,12 @@ public sealed class MarketAgent : IMarketAgent
     private const int SETTLE_MS = 800;
     private const string WATCH_CONTROL = "Watch";
     private const string CLUB_CONTROL = "Send to My Club";
+    private const string BUY_CONTROL = "Buy Now";
+    private const string CONFIRM_TITLE = "Get Now";
 
     private static readonly TimeSpan ResponseWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ShortWait = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan DialogWait = TimeSpan.FromSeconds(6);
 
     private readonly Screen screen_;
     private readonly NetworkObserver network_;
@@ -59,6 +63,124 @@ public sealed class MarketAgent : IMarketAgent
     public BidReceipt BidOnTarget(TradeState target, uint amount)
     {
         return Placed(ElementKeys.TARGET_ROWS, target.TradeId, amount, "transfer targets");
+    }
+
+    public BuyReceipt BuyNow(AuctionListing listing, uint ceiling)
+    {
+        ForbiddenControls.Require(BUY_CONTROL);
+
+        var row = Row(ElementKeys.RESULT_ROWS, listing.TradeId);
+        BuyReceipt result;
+
+        if (row is null) result = Declined($"the row for trade {listing.TradeId} left the results");
+        else if (!screen_.Click(row, ShortWait))
+            result = Declined($"the row for trade {listing.TradeId} would not open");
+        else result = Offered(listing, ceiling);
+
+        return result;
+    }
+
+    private BuyReceipt Offered(AuctionListing listing, uint ceiling)
+    {
+        screen_.DismissDialog();
+
+        var button = screen_.WaitEnabled(ElementKeys.BUY_NOW, ShortWait);
+        BuyReceipt result;
+
+        if (button is null) result = Declined($"no buy now control came up for trade {listing.TradeId}");
+        else
+        {
+            var asked = Asked(button.Text);
+
+            result = asked > 0 && asked <= ceiling && asked == listing.BuyNowPrice
+                ? Pressed(button, listing.TradeId, asked)
+                : Declined($"the panel asked {asked} for trade {listing.TradeId}, not the {ceiling} " +
+                           $"this gap allows at the {listing.BuyNowPrice} the search read");
+        }
+
+        return result;
+    }
+
+    private BuyReceipt Pressed(IWebElement button, string tradeId, uint asked)
+    {
+        var since = DateTime.UtcNow;
+
+        return screen_.Click(button, ShortWait)
+            ? Asking(since, tradeId, asked)
+            : Declined($"the buy now control for trade {tradeId} would not take a click");
+    }
+
+    private BuyReceipt Asking(DateTime since, string tradeId, uint asked)
+    {
+        var title = screen_.ReadText(ElementKeys.BUY_CONFIRM_TITLE, DialogWait).Trim();
+        var message = screen_.ReadText(ElementKeys.BUY_CONFIRM_MESSAGE, ShortWait);
+
+        return title == CONFIRM_TITLE && message.Contains(Money(asked), StringComparison.Ordinal)
+            ? Taken(since, tradeId, asked)
+            : Withdrawn(title, message, asked);
+    }
+
+    private BuyReceipt Withdrawn(string title, string message, uint asked)
+    {
+        screen_.Click(ElementKeys.BUY_CANCEL, TimeSpan.Zero);
+
+        return Declined($"the app answered '{title}: {message}' rather than asking for {Money(asked)}");
+    }
+
+    private BuyReceipt Taken(DateTime since, string tradeId, uint asked)
+    {
+        return screen_.Click(ElementKeys.BUY_CONFIRM, ShortWait)
+            ? Answered(since, tradeId, asked)
+            : Declined($"the confirmation for trade {tradeId} would not take a click");
+    }
+
+    private BuyReceipt Answered(DateTime since, string tradeId, uint asked)
+    {
+        var deadline = DateTime.UtcNow + ResponseWait;
+        var answer = Purchase(since, tradeId);
+
+        while (answer is null && DateTime.UtcNow < deadline)
+        {
+            ports_.Pause(RESPONSE_POLL_MS);
+            answer = Purchase(since, tradeId);
+        }
+
+        return answer is null ? Unanswered(tradeId, asked) : new BuyReceipt(answer.Bought,
+            answer.Bought ? asked : 0, $"server {answer.Reason}");
+    }
+
+    private BuyResponse? Purchase(DateTime since, string tradeId)
+    {
+        return network_.Since(since, CaptureKind.Bid)
+            .Select(capture => UtasPayloads.BuyResult(capture.Status, capture.Body, tradeId))
+            .FirstOrDefault(answer => answer is not null);
+    }
+
+    private BuyReceipt Unanswered(string tradeId, uint asked)
+    {
+        var model = screen_.Snapshot(ElementKeys.RESULT_ROWS, RowModels.Results)
+            .Select(row => row.TrustedModel).FirstOrDefault(row => row?.TradeId == tradeId);
+
+        return model is not null && BidStates.Held(model.BidState ?? string.Empty)
+            ? new BuyReceipt(true, asked, $"no answer was captured, but the row for trade {tradeId} reads as ours")
+            : Declined($"no answer came back for the purchase of trade {tradeId}");
+    }
+
+    private static uint Asked(string label)
+    {
+        var digits = new string(label.Where(char.IsDigit).ToArray());
+
+        return digits.Length > 0 && uint.TryParse(digits, out var parsed) ? parsed : 0;
+    }
+
+    private static string Money(uint amount)
+    {
+        return amount.ToString("N0", CultureInfo.InvariantCulture);
+    }
+
+    private static BuyReceipt Declined(string detail)
+    {
+        return new BuyReceipt(false, 0, detail);
     }
 
     public int Watch(IReadOnlyList<AuctionListing> listings)

@@ -85,6 +85,8 @@ public sealed record MarketSearch(string Description, IReadOnlyList<AuctionListi
 
 public sealed record BidReceipt(BidOutcome Outcome, uint Amount, string Detail, bool Placed = true);
 
+public sealed record BuyReceipt(bool Bought, uint Amount, string Detail);
+
 public sealed record TradeState(
     string TradeId,
     string State,
@@ -99,6 +101,8 @@ public interface IMarketAgent
     MarketSearch Search(MarketSpecification specification, uint ceiling);
 
     BidReceipt Bid(MarketChoice choice, uint amount);
+
+    BuyReceipt BuyNow(AuctionListing listing, uint ceiling);
 
     IReadOnlyList<TradeState> Standing();
 
