@@ -14,6 +14,13 @@ public class SquadSolverTests
                 nation, 0, true, 300, true)).ToList();
     }
 
+    private static IReadOnlyList<SquadPlayer> Strikers(int rating, int value = 300)
+    {
+        return Enumerable.Range(0, 11).Select(index =>
+            new SquadPlayer(index + 101, index + 101, $"Striker {index}", rating, "ST", ["ST"], 5, 13, 14, 0, true,
+                value, true)).ToList();
+    }
+
     private static ChallengeRequirements Challenge(params SquadRequirement[] requirements)
     {
         return new ChallengeRequirements(42, 5, "Test", "f442", requirements);
@@ -261,5 +268,50 @@ public class SquadSolverTests
         Assert.Equal(SolveOutcome.Solved, result.Outcome);
         Assert.Equal(0, result.PurchaseCount);
         Assert.True(result.Assessment!.IsValid);
+    }
+
+    [Fact]
+    public void AClubThatCannotFillTheFormationStillFieldsASquad()
+    {
+        var result = SquadSolver.Solve(Challenge(SquadSize(11)), Strikers(70), Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(0, result.PurchaseCount);
+        Assert.All(result.Slots, slot => Assert.True(slot.Player.Owned));
+    }
+
+    [Fact]
+    public void AnOutOfPositionSlotIsMarkedAndScoresNoChemistry()
+    {
+        var result = SquadSolver.Solve(Challenge(SquadSize(11)), Strikers(70), Options());
+        var strays = result.Slots.Where(slot => !slot.InPosition).ToList();
+
+        Assert.NotEmpty(strays);
+        Assert.All(strays, slot => Assert.Equal(0, result.Assessment!.Chemistry.SlotPoints[slot.Index]));
+    }
+
+    [Fact]
+    public void AnOutOfPositionPlayerCountsForNobodyElsesChemistry()
+    {
+        var chemistry = new SquadRequirement(RequirementKind.TotalChemistry, RequirementComparison.Minimum, 5, [],
+            "Total Chemistry: Min. 5");
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11), chemistry), Strikers(70), Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.True(result.Assessment!.IsValid);
+        Assert.True(result.PurchaseCount > 0);
+    }
+
+    [Fact]
+    public void TheNaturalSquadWinsWhenPlayingOutOfPositionWouldSaveNothing()
+    {
+        var owned = Club(70).Concat(Strikers(70, 100)).ToList();
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11)), owned, Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(0, result.PurchaseCount);
+        Assert.All(result.Slots, slot => Assert.True(slot.InPosition));
     }
 }
