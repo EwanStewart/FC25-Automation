@@ -1,0 +1,11 @@
+{
+  "squadSize": 11,
+  "formations": [
+    {
+      "code": "f442",
+      "id": 16,
+      "display": "4-4-2",
+      "slots": ["GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST"]
+    }
+  ]
+}

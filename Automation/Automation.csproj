@@ -17,6 +17,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="Sbc\formations.json" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Folder Include="Configuration\" />
         <None Update="Configuration\**\*">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
