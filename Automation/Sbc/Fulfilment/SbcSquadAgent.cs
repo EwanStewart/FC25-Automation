@@ -237,6 +237,7 @@ public sealed class SbcSquadAgent : ISquadAgent
     private static readonly TimeSpan ScreenWait = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan SquadWait = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan ControlWait = TimeSpan.FromSeconds(25);
+    private static readonly TimeSpan PanelWait = TimeSpan.FromSeconds(6);
 
     private readonly ChromeDriver driver_;
     private readonly Screen screen_;
@@ -301,11 +302,10 @@ public sealed class SbcSquadAgent : ISquadAgent
         ForbiddenControls.Require(CLUB_SEARCH);
 
         var slot = slotIndex.ToString(CultureInfo.InvariantCulture);
-        var opened = Pressed(SlotCentreScript, slot);
-        var asked = opened && Pressed(PanelButtonCentreScript, ADD_PLAYER);
-        var searched = asked && Pressed(ClubSearchCentreScript, slot, CLUB_SEARCH);
+        var asked = Asked(slot);
+        var searched = asked && Pressed(ControlWait, ClubSearchCentreScript, slot, CLUB_SEARCH);
 
-        Walked(slotIndex, target, opened, asked, searched);
+        Walked(slotIndex, target, asked, searched);
 
         if (searched) Choose(slotIndex, slot, target);
 
@@ -317,18 +317,33 @@ public sealed class SbcSquadAgent : ISquadAgent
         return Remember(Fresh(challengeId)) ?? new SquadView(challengeId, string.Empty, []);
     }
 
-    private void Walked(int slotIndex, SquadTarget target, bool opened, bool asked, bool searched)
+    private bool Asked(string slot)
+    {
+        var attempt = 0;
+        var asked = false;
+
+        while (!asked && attempt < OPEN_ATTEMPTS)
+        {
+            Pressed(ControlWait, SlotCentreScript, slot);
+            asked = Pressed(PanelWait, PanelButtonCentreScript, ADD_PLAYER);
+            attempt++;
+        }
+
+        return asked;
+    }
+
+    private void Walked(int slotIndex, SquadTarget target, bool asked, bool searched)
     {
         if (!searched)
-            Console.WriteLine($"  slot {slotIndex} ({target.Name}): slot opened {opened}, " +
-                              $"'{ADD_PLAYER}' pressed {asked}, club search started {searched}.");
+            Console.WriteLine($"  slot {slotIndex} ({target.Name}): '{ADD_PLAYER}' pressed {asked}, " +
+                              $"club search started {searched}.");
     }
 
     private void Choose(int slotIndex, string slot, SquadTarget target)
     {
         var item = target.ItemId.ToString(CultureInfo.InvariantCulture);
 
-        if (!Pressed(PickerCentreScript, slot, item)) Missed(slotIndex, target);
+        if (!Pressed(ControlWait, PickerCentreScript, slot, item)) Missed(slotIndex, target);
     }
 
     private void Missed(int slotIndex, SquadTarget target)
@@ -339,20 +354,20 @@ public sealed class SbcSquadAgent : ISquadAgent
                           $"({target.ItemId}); it held {listed}.");
     }
 
-    private bool Pressed(string script, params object[] arguments)
+    private bool Pressed(TimeSpan wait, string script, params object[] arguments)
     {
-        var centre = Waited(script, arguments);
+        var centre = Waited(wait, script, arguments);
 
         Thread.Sleep(SCROLL_SETTLE_MS);
 
-        var confirmed = Centre(script, arguments);
+        var confirmed = centre.Length > 0 ? Centre(script, arguments) : string.Empty;
 
         return ClickAtCentre(confirmed.Length > 0 ? confirmed : centre);
     }
 
-    private string Waited(string script, object[] arguments)
+    private string Waited(TimeSpan wait, string script, object[] arguments)
     {
-        var deadline = DateTime.UtcNow + ControlWait;
+        var deadline = DateTime.UtcNow + wait;
         var centre = Centre(script, arguments);
 
         while (centre.Length == 0 && DateTime.UtcNow < deadline)
