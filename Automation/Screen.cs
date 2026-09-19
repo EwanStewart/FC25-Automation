@@ -1,4 +1,4 @@
-﻿using Automation.Trading;
+using Automation.Trading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using static Automation.Definitions.Fc25Definitions;
@@ -11,23 +11,41 @@ public class Screen
 
     private const string SnapshotScript = """
         const xpath = arguments[0];
-        const withModel = arguments[1];
+        const source = arguments[1];
         const found = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
         const rows = [];
         for (let i = 0; i < found.snapshotLength; i++) rows.push(found.snapshotItem(i));
+        const watched = () => (window.repositories && repositories.Item && repositories.Item.getWatchedItems)
+            ? repositories.Item.getWatchedItems() : [];
+        const listed = () => {
+            const search = (node, depth) => {
+                if (!node || depth > 8) return null;
+                const list = node.paginationViewModel ? node.paginationViewModel.paginationList : null;
+                if (list && list._collection && list._collection.length > 0) return list._collection;
+                const kids = node.childViewControllers || [];
+                for (let i = 0; i < kids.length; i++) {
+                    const hit = search(kids[i], depth + 1);
+                    if (hit) return hit;
+                }
+                return null;
+            };
+            const flows = (window.getAppMain && getAppMain().getRootViewController().gameflowControllers) || [];
+            let hit = null;
+            for (let i = 0; i < flows.length && !hit; i++) hit = search(flows[i], 0);
+            return hit || [];
+        };
         let models = [];
         try {
-            if (withModel && window.repositories && repositories.Item && repositories.Item.getWatchedItems) {
-                models = repositories.Item.getWatchedItems().map(item => {
-                    const auction = item._auction;
-                    return auction ? {
-                        tradeId: String(auction.tradeId), secondsLeft: auction.getSecondsRemaining(),
-                        bidState: auction.bidState, tradeState: auction.tradeState,
-                        currentBid: auction.currentBid, startingBid: auction.startingBid,
-                        updating: auction.isUpdating === true, ageMs: typeof auction.getAge === 'function' ? auction.getAge() : null,
-                        name: item._staticData ? item._staticData.name : null, rating: item.rating, used: false } : null;
-                }).filter(model => model !== null);
-            }
+            const items = source === 'results' ? listed() : (source === 'watched' ? watched() : []);
+            models = items.map(item => {
+                const auction = item._auction;
+                return auction ? {
+                    tradeId: String(auction.tradeId), secondsLeft: auction.getSecondsRemaining(),
+                    bidState: auction.bidState, tradeState: auction.tradeState,
+                    currentBid: auction.currentBid, startingBid: auction.startingBid,
+                    updating: auction.isUpdating === true, ageMs: typeof auction.getAge === 'function' ? auction.getAge() : null,
+                    name: item._staticData ? item._staticData.name : null, rating: item.rating, used: false } : null;
+            }).filter(model => model !== null);
         } catch (error) { models = []; }
         const coins = text => { const parsed = parseInt(String(text).replace(/,/g, ''), 10); return isNaN(parsed) ? null : parsed; };
         const matchModel = (name, rating, start) => {
@@ -70,9 +88,10 @@ public class Screen
         return _driver.FindElements(Locator(Elements[key].Item1));
     }
 
-    public IReadOnlyList<RowSnapshot> Snapshot(ElementKeys key, bool withModel)
+    public IReadOnlyList<RowSnapshot> Snapshot(ElementKeys key, RowModels models)
     {
-        var json = _driver.ExecuteScript(SnapshotScript, Elements[key].Item1, withModel) as string ?? string.Empty;
+        var json = _driver.ExecuteScript(SnapshotScript, Elements[key].Item1,
+            models.ToString().ToLowerInvariant()) as string ?? string.Empty;
 
         return RowSnapshotParser.Parse(json);
     }

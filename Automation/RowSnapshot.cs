@@ -3,6 +3,13 @@ using Automation.Flow;
 
 namespace Automation.Trading;
 
+public enum RowModels
+{
+    None,
+    Watched,
+    Results
+}
+
 public sealed record ModelSnapshot(
     string? TradeId,
     int? SecondsLeft,

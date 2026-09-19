@@ -68,7 +68,7 @@ public sealed class MarketAgent : IMarketAgent
         ports_.OpenTransferTargets();
         ports_.Pause(SETTLE_MS);
 
-        return screen_.Snapshot(ElementKeys.TARGET_ROWS, true)
+        return screen_.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched)
             .Select(row => TargetRowState.Of(row.Classes, row.TrustedModel, row.BidValue ?? 0))
             .Where(state => state is not null).Select(state => state!).ToList();
     }
@@ -103,7 +103,7 @@ public sealed class MarketAgent : IMarketAgent
 
     private (IWebElement Element, string TradeId)? Row(string tradeId)
     {
-        var snapshot = screen_.Snapshot(ElementKeys.RESULT_ROWS, true);
+        var snapshot = screen_.Snapshot(ElementKeys.RESULT_ROWS, RowModels.Results);
         var elements = screen_.FindAll(ElementKeys.RESULT_ROWS);
         var index = snapshot.ToList().FindIndex(row => row.TrustedModel?.TradeId == tradeId);
 

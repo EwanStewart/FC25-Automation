@@ -1,4 +1,4 @@
-using Automation.Flow;
+﻿using Automation.Flow;
 using Automation.Setup;
 using Automation.Sbc;
 using Automation.Sbc.Fulfilment;
@@ -759,7 +759,7 @@ public class Fc25 : IDisposable
 
     private bool PageIsBeyondWindow()
     {
-        var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, false);
+        var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.None);
         var result = false;
 
         if (snapshot.Count > 0)
@@ -900,7 +900,7 @@ public class Fc25 : IDisposable
 
     private List<(int index, string key)> PlanCandidates(ISet<string> done, uint minMinutes)
     {
-        var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, false);
+        var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.None);
         var candidates = snapshot
             .Where(row => !done.Contains(row.Key) && RowTriage.IsCandidate(ReadRowFacts(row), minMinutes,
                 MAX_AUCTION_MINUTES, MARGIN_COINS))
@@ -918,7 +918,7 @@ public class Fc25 : IDisposable
 
         try
         {
-            var current = _screen.Snapshot(ElementKeys.RESULT_ROWS, false);
+            var current = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.None);
             var rows = _screen.FindAll(ElementKeys.RESULT_ROWS);
             var matches = index < current.Count && index < rows.Count && current[index].Key == key;
             var inWindow = matches && current[index].MinutesLeft.HasValue &&
@@ -955,7 +955,7 @@ public class Fc25 : IDisposable
 
     private bool RowIsSelected(ElementKeys rows, int index)
     {
-        var snapshot = _screen.Snapshot(rows, false);
+        var snapshot = _screen.Snapshot(rows, RowModels.None);
 
         return index < snapshot.Count && BidRow.IsSelected(snapshot[index].Classes);
     }
@@ -1436,7 +1436,7 @@ public class Fc25 : IDisposable
             CheckBackoff();
 
             var started = DateTime.UtcNow;
-            var snapshot = _screen.Snapshot(ElementKeys.TARGET_ROWS, true);
+            var snapshot = _screen.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched);
             var live = LiveWatchedRows(snapshot, estimates);
             var readMs = (int)(DateTime.UtcNow - started).TotalMilliseconds;
             finished = live.Count == 0;
@@ -1638,7 +1638,7 @@ public class Fc25 : IDisposable
 
     private BidOutcome ReadSelectedRowOutcome(uint amount)
     {
-        var selected = _screen.Snapshot(ElementKeys.TARGET_ROWS, true)
+        var selected = _screen.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched)
             .FirstOrDefault(row => BidRow.IsSelected(row.Classes));
 
         return selected == null
@@ -1672,7 +1672,7 @@ public class Fc25 : IDisposable
 
     private string DescribeSelectedRow(bool typed, bool clicked)
     {
-        var selected = _screen.Snapshot(ElementKeys.TARGET_ROWS, true).FirstOrDefault(row => BidRow.IsSelected(row.Classes));
+        var selected = _screen.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched).FirstOrDefault(row => BidRow.IsSelected(row.Classes));
         var state = selected == null
             ? "no selected row"
             : $"{selected.Key} {selected.Classes.Replace("listFUTItem has-auction-data", string.Empty).Trim()} bid {selected.Bid} {selected.Time} model {selected.TrustedModel?.BidState ?? "none"} {selected.TrustedModel?.SecondsLeft?.ToString() ?? "?"}s";
@@ -1730,7 +1730,7 @@ public class Fc25 : IDisposable
 
     private bool UnwatchSacrificialRow()
     {
-        var live = LiveWatchedRows(_screen.Snapshot(ElementKeys.TARGET_ROWS, true), _snipeEstimates);
+        var live = LiveWatchedRows(_screen.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched), _snipeEstimates);
         var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS));
         var unwatched = victim.row != null && UnwatchRow(victim.row);
 
