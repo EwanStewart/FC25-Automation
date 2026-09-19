@@ -9,7 +9,7 @@ public sealed class GapBuyer
     private const string CEILING_DETAIL = "the run ceiling leaves too little to buy another card";
     private const string UNWATCHED_DETAIL = "no card on the page could be watched";
     private const int POLL_MS = 1000;
-    private const string UNSOLD_DETAIL = "every card watched was still running when the wait ran out";
+    private const string UNSOLD_DETAIL = "no card watched came due before the wait ran out";
     private const int CLAIM_POLLS = 20;
 
     private readonly IMarketAgent market_;
@@ -161,10 +161,15 @@ public sealed class GapBuyer
             : Attempt(run, gap, (uint)affordable, ledger);
     }
 
-    private GapStep Attempt(FulfilmentRun run, GapRecord gap, uint ceiling, SpendLedger ledger)
+    private GapStep Attempt(FulfilmentRun run, GapRecord gap, uint asked, SpendLedger ledger)
     {
-        var search = market_.Search(gap.Specification, ceiling);
-        var searched = gap with { Searched = search.Description, CandidatesSeen = search.Listings.Count };
+        var search = market_.Search(gap.Specification, asked);
+        var ask = GapBuyNowPlan.LowestAsk(gap.Specification, search.Listings);
+        var ceiling = Permitted(gap, ask, ledger);
+        var searched = gap with
+        {
+            Searched = Read(search.Description, ask, ceiling), CandidatesSeen = search.Listings.Count
+        };
         var outright = GapBuyNowPlan.Cheapest(gap.Specification, search.Listings, ceiling);
 
         Remember(search.Listings);
@@ -172,6 +177,22 @@ public sealed class GapBuyer
         return outright is null
             ? ByBidding(run, searched, search, ceiling, ledger)
             : ByBuying(run, searched, outright, ledger);
+    }
+
+    private static uint Permitted(GapRecord gap, uint ask, SpendLedger ledger)
+    {
+        var permitted = CardCeiling.FromAsk(ask, gap.CardCeiling);
+
+        ledger.Permit(gap.SlotIndex, permitted);
+
+        return (uint)CardCeiling.Affordable(permitted, ledger, gap.SlotIndex);
+    }
+
+    private static string Read(string description, uint ask, uint ceiling)
+    {
+        var asked = ask > 0 ? $"cheapest buy now {ask}" : "no buy now price on the page";
+
+        return $"{description}; {asked}, ceiling {ceiling}";
     }
 
     private GapStep ByBidding(FulfilmentRun run, GapRecord gap, MarketSearch search, uint ceiling,
@@ -310,7 +331,7 @@ public sealed class GapBuyer
             }
         }
 
-        return Settled(run, Waited(current));
+        return Settled(run, Waited(current, targets));
     }
 
     private GapStep Settled(FulfilmentRun run, GapRecord gap)
@@ -321,11 +342,22 @@ public sealed class GapBuyer
             FulfilmentState.Failed);
     }
 
-    private static GapRecord Waited(GapRecord gap)
+    private static GapRecord Waited(GapRecord gap, IReadOnlyList<TradeState> targets)
     {
         return gap.Outcome == GapOutcome.Bidding && gap.TradeId is null
-            ? gap with { Outcome = GapOutcome.OutOfReach, Detail = UNSOLD_DETAIL }
+            ? gap with { Outcome = GapOutcome.OutOfReach, Detail = Unbid(targets) }
             : gap;
+    }
+
+    private static string Unbid(IReadOnlyList<TradeState> targets)
+    {
+        var sold = targets.Where(trade => trade.State != BidStates.ACTIVE && trade.CurrentBid > 0)
+            .Select(trade => trade.CurrentBid).OrderBy(price => price).ToList();
+
+        return sold.Count == 0
+            ? UNSOLD_DETAIL
+            : $"{sold.Count} of the card(s) watched sold for {sold.First()} to {sold.Last()}, " +
+              "over what this gap is allowed to bid";
     }
 
     private GapRecord Stepped(FulfilmentRun run, GapRecord gap, IReadOnlyList<TradeState> targets, uint ceiling)
@@ -451,19 +483,12 @@ public sealed class GapBuyer
         var fitting = search.Listings.Where(listing => MarketCandidateChoice.Matches(gap.Specification, listing))
             .ToList();
         var within = fitting.Count(listing => Within(listing, ceiling));
+        var ask = GapBuyNowPlan.LowestAsk(gap.Specification, search.Listings);
 
         return gap with
         {
-            Outcome = Unbought(fitting.Count, within),
-            Detail = Reason(fitting.Count, within, Cheapest(fitting), ceiling)
+            Outcome = Unbought(fitting.Count, within), Detail = Reason(fitting.Count, within, ask, ceiling)
         };
-    }
-
-    private static uint Cheapest(IReadOnlyList<AuctionListing> fitting)
-    {
-        var asks = fitting.Where(listing => listing.BuyNowPrice > 0).Select(listing => listing.BuyNowPrice).ToList();
-
-        return asks.Count > 0 ? asks.Min() : 0;
     }
 
     private static bool Within(AuctionListing listing, uint ceiling)

@@ -37,6 +37,73 @@ public class FulfilmentBuyingTests
         return Listing(tradeId, 300) with { BuyNowPrice = buyNowPrice, Expires = 3000 };
     }
 
+    private static AuctionListing Parked(string tradeId, uint startingBid, uint buyNowPrice, int expires = 120)
+    {
+        return Listing(tradeId, startingBid) with { BuyNowPrice = buyNowPrice, Expires = expires };
+    }
+
+    [Fact]
+    public void TheBidCeilingIsSeventyPercentOfTheCheapestAskOnThePage()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 360), [Gap(0, 240)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Parked("t1", 700, 1100)] },
+            polls: [[Due("t1", 750)], [Ended("t1", 750, "highest")]]);
+
+        Assert.Contains("bid t1 750", log);
+        Assert.Equal(GapOutcome.Won, store.Gaps(1)[0].Outcome);
+        Assert.Equal(750, store.Gaps(1)[0].FinalPrice);
+    }
+
+    [Fact]
+    public void TheAskAndTheCeilingItGaveAreWrittenDownAgainstTheGap()
+    {
+        var (_, store, _) = Buy(Run(FulfilmentMode.Live, 360), [Gap(0, 240)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Parked("t1", 700, 1100, 3000)]
+            });
+
+        Assert.Contains("cheapest buy now 1100, ceiling 770", store.Gaps(1)[0].Searched);
+    }
+
+    [Fact]
+    public void TheSearchStillAsksAtTheEstimateSoTheCheapestCardsComeBack()
+    {
+        List<string> log = [];
+        ScriptedMarket market = new(log,
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Parked("t1", 700, 1100, 3000)] });
+
+        new GapBuyer(market, new RecordingStore(log)).Buy(Run(FulfilmentMode.Live, 360), [Gap(0, 240)]);
+
+        Assert.Equal(CardCeiling.For(240), (int)market.Ceilings[0]);
+    }
+
+    [Fact]
+    public void TheCheapestAskIsNeverBoughtOutrightBecauseTheCeilingSitsUnderIt()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 360), [Gap(0, 240)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Parked("t1", 700, 1100, 3000)]
+            });
+
+        Assert.DoesNotContain(log, entry => entry.StartsWith("buy"));
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+    }
+
+    [Fact]
+    public void ACheaperAskStillGetsBoughtOutrightUnderTheEstimateFloor()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 360), [Gap(0, 240)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Parked("t1", 150, 280, 3000)]
+            }, polls: [[Ended("t1", 280, "buyNow")]]);
+
+        Assert.Contains("buy t1 280", log);
+        Assert.Equal(GapOutcome.Won, store.Gaps(1)[0].Outcome);
+    }
+
     [Fact]
     public void ACardThatCanBeBoughtOutrightIsBoughtRatherThanWatched()
     {
@@ -428,6 +495,19 @@ public class FulfilmentBuyingTests
         Assert.DoesNotContain(log, entry => entry.StartsWith("bid"));
         Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
         Assert.Equal(FulfilmentState.Buying, result.State);
+    }
+
+    [Fact]
+    public void ACardThatSoldOverTheCeilingIsRecordedAtThePriceItWentFor()
+    {
+        var (_, store, _) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Listing("t1", 300) with { Expires = 1 }, Listing("t2", 300) with { Expires = 1 }]
+            }, polls: [[Ended("t1", 4000, "outbid"), Ended("t2", 5000, "outbid")]]);
+
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+        Assert.Contains("2 of the card(s) watched sold for 4000 to 5000", store.Gaps(1)[0].Detail);
     }
 
     [Fact]

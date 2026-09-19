@@ -61,6 +61,62 @@ public class FulfilmentCeilingTests
     }
 
     [Fact]
+    public void ThePerCardCeilingIsSeventyPercentOfTheCheapestAsk()
+    {
+        Assert.Equal(770, CardCeiling.FromAsk(1100, 300));
+        Assert.Equal(700, CardCeiling.FromAsk(1000, 300));
+    }
+
+    [Fact]
+    public void AnAskBelowTheEstimateNeverDragsTheCeilingUnderIt()
+    {
+        Assert.Equal(300, CardCeiling.FromAsk(200, 300));
+        Assert.Equal(300, CardCeiling.FromAsk(0, 300));
+    }
+
+    [Fact]
+    public void AParkedAskCannotDragTheCeilingSomewhereAbsurd()
+    {
+        Assert.Equal(900, CardCeiling.FromAsk(5000, 300));
+        Assert.Equal(900, CardCeiling.FromAsk(100000, 300));
+    }
+
+    [Fact]
+    public void TheRunCeilingCoversWhatTheCardCeilingsPermit()
+    {
+        SpendLedger ledger = new(360, []);
+
+        ledger.Permit(0, 770);
+
+        Assert.Equal(770, ledger.Ceiling);
+        Assert.Equal(360, ledger.Approved);
+        Assert.True(ledger.Allows(0, 770));
+        Assert.False(ledger.Allows(0, 771));
+    }
+
+    [Fact]
+    public void TheApprovedRunCeilingStillHoldsWhenItIsTheLargerOfTheTwo()
+    {
+        SpendLedger ledger = new(5000, []);
+
+        ledger.Permit(0, 770);
+
+        Assert.Equal(5000, ledger.Ceiling);
+    }
+
+    [Fact]
+    public void EachSlotOnlyEverPermitsItsOwnCard()
+    {
+        SpendLedger ledger = new(0, []);
+
+        ledger.Permit(0, 770);
+        ledger.Permit(0, 800);
+        ledger.Permit(1, 500);
+
+        Assert.Equal(1300, ledger.Ceiling);
+    }
+
+    [Fact]
     public void ThePerCardCeilingIsTrimmedToWhatIsLeftOfTheRunCeiling()
     {
         SpendLedger ledger = new(1000, [(0, 800L)]);

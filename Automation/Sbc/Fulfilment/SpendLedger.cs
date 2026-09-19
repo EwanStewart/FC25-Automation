@@ -6,6 +6,7 @@ public sealed class SpendLedger
 
     private readonly long ceiling_;
     private readonly Dictionary<int, long> committed_ = new();
+    private readonly Dictionary<int, long> permitted_ = new();
 
     public SpendLedger(long ceiling, IEnumerable<(int Slot, long Amount)> standing)
     {
@@ -14,11 +15,13 @@ public sealed class SpendLedger
         foreach (var (slot, amount) in standing) committed_[slot] = amount;
     }
 
-    public long Ceiling => ceiling_;
+    public long Ceiling => Math.Max(ceiling_, permitted_.Values.Sum());
+
+    public long Approved => ceiling_;
 
     public long Committed => committed_.Values.Sum();
 
-    public long Remaining => Math.Max(0, ceiling_ - Committed);
+    public long Remaining => Math.Max(0, Ceiling - Committed);
 
     public static long CeilingFor(long estimatedCost)
     {
@@ -32,7 +35,12 @@ public sealed class SpendLedger
 
     public bool Allows(int slot, long amount)
     {
-        return Committed - Standing(slot) + amount <= ceiling_;
+        return Committed - Standing(slot) + amount <= Ceiling;
+    }
+
+    public void Permit(int slot, long ceiling)
+    {
+        permitted_[slot] = ceiling;
     }
 
     public void Commit(int slot, long amount)
