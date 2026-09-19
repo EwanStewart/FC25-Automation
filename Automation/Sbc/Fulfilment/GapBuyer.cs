@@ -13,24 +13,86 @@ public sealed class GapBuyer
 
     private readonly IMarketAgent market_;
     private readonly IFulfilmentStore store_;
+    private readonly SquadCensus? census_;
+    private readonly Dictionary<string, AuctionListing> seen_ = new();
 
-    public GapBuyer(IMarketAgent market, IFulfilmentStore store)
+    public GapBuyer(IMarketAgent market, IFulfilmentStore store, SquadCensus? census = null)
     {
         market_ = market;
         store_ = store;
+        census_ = census;
     }
 
     public BuyingResult Buy(FulfilmentRun run, IReadOnlyList<GapRecord> gaps)
     {
-        var resolved = Resolved(run, gaps);
-        var stalled = resolved.FirstOrDefault(gap => gap.Outcome == GapOutcome.Unresolved);
+        var resolved = Audited(run, Resolved(run, gaps));
+        var stalled = resolved.FirstOrDefault(gap => Stuck(gap.Outcome));
         var result = stalled is null
-            ? Work(run, resolved)
+            ? Worked(run, resolved)
             : new BuyingResult(FulfilmentState.Failed, Names(stalled), resolved);
 
         store_.SaveState(run.Id, FulfilmentDefaults.Recorded(run, result.State), Reported(run, result));
 
         return result;
+    }
+
+    private static bool Stuck(GapOutcome outcome)
+    {
+        return outcome is GapOutcome.Unresolved or GapOutcome.Mismatched;
+    }
+
+    private BuyingResult Worked(FulfilmentRun run, IReadOnlyList<GapRecord> gaps)
+    {
+        var bought = Work(run, gaps);
+        var audited = Audited(run, bought.Gaps);
+        var broken = audited.FirstOrDefault(gap => gap.Outcome == GapOutcome.Mismatched);
+
+        return broken is null
+            ? bought with { Gaps = audited }
+            : new BuyingResult(FulfilmentState.Failed, Names(broken), audited);
+    }
+
+    private IReadOnlyList<GapRecord> Audited(FulfilmentRun run, IReadOnlyList<GapRecord> gaps)
+    {
+        var judged = GapAudit.Checked(census_, gaps, Cards(gaps));
+
+        foreach (var gap in judged.Where(gap => gap.Outcome == GapOutcome.Mismatched)) store_.SaveGap(run.Id, gap);
+
+        return judged;
+    }
+
+    private IReadOnlyDictionary<int, CardAttributes> Cards(IReadOnlyList<GapRecord> gaps)
+    {
+        Dictionary<int, CardAttributes> result = new();
+
+        foreach (var gap in gaps.Where(gap => gap.Outcome == GapOutcome.Won))
+        {
+            var card = Card(gap);
+
+            if (card is not null) result[gap.SlotIndex] = card;
+        }
+
+        return result;
+    }
+
+    private CardAttributes? Card(GapRecord gap)
+    {
+        var catalogued = gap.AssetId.HasValue ? census_?.Card?.Invoke(gap.AssetId.Value) : null;
+
+        return catalogued ?? Listed(gap);
+    }
+
+    private CardAttributes? Listed(GapRecord gap)
+    {
+        return gap.TradeId is not null && seen_.TryGetValue(gap.TradeId, out var listing)
+            ? new CardAttributes(listing.TeamId, listing.LeagueId, listing.NationId, listing.RareFlag,
+                listing.Rating)
+            : null;
+    }
+
+    private void Remember(IReadOnlyList<AuctionListing> listings)
+    {
+        foreach (var listing in listings) seen_[listing.TradeId] = listing;
     }
 
     private static string Reported(FulfilmentRun run, BuyingResult result)
@@ -104,6 +166,8 @@ public sealed class GapBuyer
         var searched = gap with { Searched = search.Description, CandidatesSeen = search.Listings.Count };
         var shortlist = GapSnipePlan.Shortlist(gap.Specification, search.Listings, ceiling);
         GapStep result;
+
+        Remember(shortlist);
 
         if (shortlist.Count == 0) result = new GapStep(Missed(searched, search, ceiling), string.Empty,
             FulfilmentState.Buying);
@@ -195,12 +259,17 @@ public sealed class GapBuyer
         return gap with
         {
             Outcome = GapOutcome.Won, TradeId = won.TradeId, ItemId = won.ItemId > 0 ? won.ItemId : gap.ItemId,
-            Simulated = false,
+            AssetId = Bought(won.TradeId) ?? gap.AssetId, Simulated = false,
             FinalPrice = Paid(gap, won),
             Detail = claimed
                 ? $"won at {Paid(gap, won)} and sent to the club"
                 : $"won at {Paid(gap, won)} but it is still on the transfer targets"
         };
+    }
+
+    private int? Bought(string tradeId)
+    {
+        return seen_.TryGetValue(tradeId, out var listing) && listing.AssetId > 0 ? listing.AssetId : null;
     }
 
     private static int Paid(GapRecord gap, TradeState won)
@@ -240,7 +309,8 @@ public sealed class GapBuyer
 
     private static bool Done(GapRecord gap, IReadOnlyList<TradeState> targets)
     {
-        return gap.Outcome is GapOutcome.Won or GapOutcome.Unresolved || GapSnipePlan.Finished(targets);
+        return gap.Outcome is GapOutcome.Won or GapOutcome.Unresolved or GapOutcome.Mismatched ||
+               GapSnipePlan.Finished(targets);
     }
 
     private static GapRecord Marked(GapRecord gap, MarketChoice choice)
