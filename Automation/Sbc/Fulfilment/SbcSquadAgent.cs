@@ -162,15 +162,64 @@ public sealed class SbcSquadAgent : ISquadAgent
         if (typeof owner.slotIndex === 'number' && owner.slotIndex !== slotWanted) return '';
         const collection = owner.clubViewModel._collection || [];
         const rows = document.querySelectorAll('li.listFUTItem.has-action');
-        if (rows.length !== collection.length) return '';
+        if (rows.length === 0 || rows.length > collection.length) return '';
         let wanted = -1;
         for (let i = 0; i < collection.length; i++) if (String(collection[i].id) === itemWanted) wanted = i;
-        if (wanted < 0) return '';
+        if (wanted < 0 || wanted >= rows.length) {
+            rows[rows.length - 1].scrollIntoView({block: 'end'});
+            return '';
+        }
         const row = rows[wanted];
         if (!row) return '';
         row.scrollIntoView({block: 'center'});
         const action = row.querySelector('button.btnAction') || row;
         const rect = action.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return '';
+        return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
+        """;
+
+    private const string FilterPanelCentreScript = """
+        const results = document.querySelector('div.ut-club-search-results-view');
+        if (!results) return '';
+        if (document.querySelector('div.ut-club-search-filters-view')) return '';
+        let host = results;
+        while (host && !(host.tagName === 'SECTION' && host.classList.contains('ut-navigation-container-view')))
+            host = host.parentElement;
+        if (!host) return '';
+        const button = host.querySelector('button.ut-navigation-button-control');
+        if (!button || button.disabled) return '';
+        if ((button.textContent || '').trim().length > 0) return '';
+        button.scrollIntoView({block: 'center'});
+        const rect = button.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return '';
+        return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
+        """;
+
+    private const string FilterControlsScript = """
+        return JSON.stringify(Array.from(document.querySelectorAll(
+            'div.ut-club-search-filters-view div.ut-search-filter-control')).map(function (control, index) {
+            const image = control.querySelector('img.ut-search-filter-control--row-image');
+            const label = control.querySelector('span.label');
+            const button = control.querySelector('button.ut-search-filter-control--row-button');
+            const box = button ? button.getBoundingClientRect() : {width: 0, height: 0};
+            return {
+                Index: index,
+                Label: label ? (label.textContent || '').trim() : '',
+                Image: image ? (image.getAttribute('src') || '') : '',
+                Clearable: button !== null && !button.disabled && box.width > 0 && box.height > 0
+            };
+        }));
+        """;
+
+    private const string FilterClearCentreScript = """
+        const control = document.querySelectorAll(
+            'div.ut-club-search-filters-view div.ut-search-filter-control')[Number(arguments[0])];
+        if (!control) return '';
+        const button = control.querySelector('button.ut-search-filter-control--row-button');
+        if (!button || button.disabled) return '';
+        if ((button.textContent || '').trim().length > 0) return '';
+        button.scrollIntoView({block: 'center'});
+        const rect = button.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return '';
         return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
         """;
@@ -343,7 +392,82 @@ public sealed class SbcSquadAgent : ISquadAgent
     {
         var item = target.ItemId.ToString(CultureInfo.InvariantCulture);
 
-        if (!Pressed(ControlWait, PickerCentreScript, slot, item)) Missed(slotIndex, target);
+        if (!Pressed(ControlWait, PickerCentreScript, slot, item)) OutOfPosition(slotIndex, slot, target, item);
+    }
+
+    private void OutOfPosition(int slotIndex, string slot, SquadTarget target, string item)
+    {
+        var widened = Widen(slotIndex) && Pressed(ControlWait, ClubSearchCentreScript, slot, CLUB_SEARCH);
+
+        if (widened && Pressed(ControlWait, PickerCentreScript, slot, item)) Reached(slotIndex, target);
+        else Missed(slotIndex, target);
+    }
+
+    private bool Widen(int slotIndex)
+    {
+        var cleared = Cleared();
+
+        Widened(slotIndex, cleared);
+
+        return cleared;
+    }
+
+    private bool Cleared()
+    {
+        var control = ClubSearchFilters.PositionControl(Reopened());
+
+        return control != ClubSearchFilters.NOTHING &&
+               Pressed(PanelWait, FilterClearCentreScript, control.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private IReadOnlyList<FilterControl> Reopened()
+    {
+        if (FilterControls().Count == 0) Pressed(PanelWait, FilterPanelCentreScript);
+
+        return SettledFilterControls();
+    }
+
+    private void Widened(int slotIndex, bool cleared)
+    {
+        Console.WriteLine(cleared
+            ? $"  slot {slotIndex}: cleared the position filter so the club picker offers every owned card."
+            : $"  slot {slotIndex}: the club picker showed no position filter that could be cleared.");
+    }
+
+    private void Reached(int slotIndex, SquadTarget target)
+    {
+        Console.WriteLine($"  slot {slotIndex}: {target.Name} ({target.ItemId}) was chosen out of position.");
+    }
+
+    private IReadOnlyList<FilterControl> SettledFilterControls()
+    {
+        var controls = FilterControls();
+        var attempt = 0;
+
+        while (ClubSearchFilters.PositionControl(controls) == ClubSearchFilters.NOTHING && attempt < OPEN_ATTEMPTS)
+        {
+            Thread.Sleep(SCREEN_SETTLE_MS);
+            controls = FilterControls();
+            attempt++;
+        }
+
+        return controls;
+    }
+
+    private IReadOnlyList<FilterControl> FilterControls()
+    {
+        var json = driver_.ExecuteScript(FilterControlsScript) as string ?? "[]";
+        IReadOnlyList<FilterControl> result = [];
+
+        try
+        {
+            result = JsonSerializer.Deserialize<List<FilterControl>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+        }
+
+        return result;
     }
 
     private void Missed(int slotIndex, SquadTarget target)

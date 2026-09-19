@@ -18,7 +18,8 @@ public sealed record SolveOptions(
     double TimeLimitSeconds = 10.0,
     bool EnforceBudget = false);
 
-public sealed record SquadSlot(int Index, string Position, SquadPlayer Player, MarketSpecification? Gap);
+public sealed record SquadSlot(int Index, string Position, SquadPlayer Player, MarketSpecification? Gap,
+    bool InPosition = true);
 
 public sealed record SolvedSquad(
     SolveOutcome Outcome,
@@ -40,30 +41,63 @@ internal sealed class SquadModel
     public Dictionary<int, IntVar> ClubCounts { get; } = [];
     public Dictionary<int, IntVar> LeagueCounts { get; } = [];
     public Dictionary<int, IntVar> NationCounts { get; } = [];
+    public Dictionary<int, IntVar> ClubContributors { get; } = [];
+    public Dictionary<int, IntVar> LeagueContributors { get; } = [];
+    public Dictionary<int, IntVar> NationContributors { get; } = [];
     public Dictionary<int, IntVar> ClubPoints { get; } = [];
     public Dictionary<int, IntVar> LeaguePoints { get; } = [];
     public Dictionary<int, IntVar> NationPoints { get; } = [];
 
     public LinearExpr Used(int index)
     {
-        return LinearExpr.Sum(Row(index));
+        return Total(Row(index));
     }
 
-    public IEnumerable<BoolVar> Row(int index)
+    public LinearExpr UsedInPosition(int index)
     {
-        for (var slot = 0; slot < SlotPositions.Count; slot++) yield return Placement[index, slot];
+        return Total(Row(index).Where(placement => InPosition(index, placement.Slot)));
+    }
+
+    public bool InPosition(int index, int slot)
+    {
+        return Candidates[index].Player.PossiblePositions
+            .Contains(SlotPositions[slot], StringComparer.OrdinalIgnoreCase);
+    }
+
+    public IEnumerable<SlotPlacement> Row(int index)
+    {
+        for (var slot = 0; slot < SlotPositions.Count; slot++)
+            yield return new SlotPlacement(slot, Placement[index, slot]);
     }
 
     public IEnumerable<BoolVar> Column(int slot)
     {
         for (var index = 0; index < Candidates.Count; index++) yield return Placement[index, slot];
     }
+
+    public IEnumerable<BoolVar> OutOfPosition()
+    {
+        for (var index = 0; index < Candidates.Count; index++)
+        for (var slot = 0; slot < SlotPositions.Count; slot++)
+            if (!InPosition(index, slot))
+                yield return Placement[index, slot];
+    }
+
+    private static LinearExpr Total(IEnumerable<SlotPlacement> placements)
+    {
+        var variables = placements.Select(placement => placement.Variable).ToList();
+
+        return variables.Count == 0 ? LinearExpr.Constant(0) : LinearExpr.Sum(variables);
+    }
 }
+
+internal sealed record SlotPlacement(int Slot, BoolVar Variable);
 
 public static class SquadSolver
 {
     private const int OWNED_COST_DIVISOR = 100;
     private const int UNVERIFIED_WEIGHT = 3;
+    private const int OUT_OF_POSITION_PENALTY = 20;
 
     public static SolvedSquad Solve(ChallengeRequirements challenge, IReadOnlyList<SquadPlayer> owned,
         SolveOptions options)
@@ -105,11 +139,22 @@ public static class SquadSolver
         AddChemistry(squad, options);
         AddRequirements(squad, challenge, options);
         AddBudget(squad, options);
-        squad.Model.Minimize(LinearExpr.WeightedSum(
-            Enumerable.Range(0, candidates.Count).Select(index => squad.Used(index)),
-            candidates.Select(candidate => candidate.Cost)));
+        squad.Model.Minimize(Objective(squad));
 
         return Read(squad, challenge, options);
+    }
+
+    private static LinearExpr Objective(SquadModel squad)
+    {
+        var spend = LinearExpr.WeightedSum(
+            Enumerable.Range(0, squad.Candidates.Count).Select(squad.Used),
+            squad.Candidates.Select(candidate => candidate.Cost));
+        var strays = squad.OutOfPosition().ToList();
+        LinearExpr penalty = strays.Count == 0
+            ? LinearExpr.Constant(0)
+            : LinearExpr.WeightedSum(strays, strays.Select(_ => (long)OUT_OF_POSITION_PENALTY));
+
+        return LinearExpr.Sum([spend, penalty]);
     }
 
     private static IReadOnlyList<Candidate> Candidates(ChallengeRequirements challenge,
@@ -173,43 +218,47 @@ public static class SquadSolver
         squad.Model.Add(squad.Used(index) <= 1);
 
         for (var slot = 0; slot < squad.SlotPositions.Count; slot++)
-            if (!Playable(candidate, squad.SlotPositions[slot], slot))
+            if (!Available(candidate, slot))
                 squad.Model.Add(squad.Placement[index, slot] == 0);
     }
 
-    private static bool Playable(Candidate candidate, string position, int slot)
+    private static bool Available(Candidate candidate, int slot)
     {
-        return (candidate.FixedSlot is null || candidate.FixedSlot == slot) &&
-               candidate.Player.PossiblePositions.Contains(position, StringComparer.OrdinalIgnoreCase);
+        return candidate.FixedSlot is null || candidate.FixedSlot == slot;
     }
 
     private static void AddBuckets(SquadModel squad, SolveOptions options)
     {
-        AddBucket(squad, squad.ClubCounts, candidate => options.Links.Resolve(candidate.Player.TeamId),
+        AddBucket(squad, squad.ClubCounts, squad.Used, candidate => options.Links.Resolve(candidate.Player.TeamId),
             ChemistryCalculator.LEGENDS_CLUB_ID);
-        AddBucket(squad, squad.LeagueCounts, candidate => candidate.Player.LeagueId,
+        AddBucket(squad, squad.LeagueCounts, squad.Used, candidate => candidate.Player.LeagueId,
             ChemistryCalculator.LEGENDS_LEAGUE_ID);
-        AddBucket(squad, squad.NationCounts, candidate => candidate.Player.NationId, 0);
+        AddBucket(squad, squad.NationCounts, squad.Used, candidate => candidate.Player.NationId, 0);
+        AddBucket(squad, squad.ClubContributors, squad.UsedInPosition,
+            candidate => options.Links.Resolve(candidate.Player.TeamId), ChemistryCalculator.LEGENDS_CLUB_ID);
+        AddBucket(squad, squad.LeagueContributors, squad.UsedInPosition, candidate => candidate.Player.LeagueId,
+            ChemistryCalculator.LEGENDS_LEAGUE_ID);
+        AddBucket(squad, squad.NationContributors, squad.UsedInPosition, candidate => candidate.Player.NationId, 0);
     }
 
-    private static void AddBucket(SquadModel squad, Dictionary<int, IntVar> counts, Func<Candidate, int> key,
-        int excluded)
+    private static void AddBucket(SquadModel squad, Dictionary<int, IntVar> counts, Func<int, LinearExpr> usage,
+        Func<Candidate, int> key, int excluded)
     {
         foreach (var group in Enumerable.Range(0, squad.Candidates.Count)
                      .GroupBy(index => key(squad.Candidates[index]))
                      .Where(group => group.Key > 0 && group.Key != excluded))
         {
             var count = squad.Model.NewIntVar(0, squad.SlotPositions.Count, $"count{counts.Count}_{group.Key}");
-            squad.Model.Add(count == LinearExpr.Sum(group.Select(squad.Used)));
+            squad.Model.Add(count == LinearExpr.Sum(group.Select(usage)));
             counts[group.Key] = count;
         }
     }
 
     private static void AddChemistry(SquadModel squad, SolveOptions options)
     {
-        AddPoints(squad, squad.ClubCounts, squad.ClubPoints, options.Thresholds.Club);
-        AddPoints(squad, squad.LeagueCounts, squad.LeaguePoints, options.Thresholds.League);
-        AddPoints(squad, squad.NationCounts, squad.NationPoints, options.Thresholds.Nation);
+        AddPoints(squad, squad.ClubContributors, squad.ClubPoints, options.Thresholds.Club);
+        AddPoints(squad, squad.LeagueContributors, squad.LeaguePoints, options.Thresholds.League);
+        AddPoints(squad, squad.NationContributors, squad.NationPoints, options.Thresholds.Nation);
 
         for (var slot = 0; slot < squad.SlotPositions.Count; slot++) AddSlotChemistry(squad, slot);
     }
@@ -250,8 +299,9 @@ public static class SquadSolver
 
     private static void AddCandidateChemistry(SquadModel squad, int slot, int index, IntVar raw)
     {
-        if (Playable(squad.Candidates[index], squad.SlotPositions[slot], slot))
-            squad.Model.Add(raw == SlotSum(squad, index)).OnlyEnforceIf(squad.Placement[index, slot]);
+        var earned = squad.InPosition(index, slot) ? SlotSum(squad, index) : LinearExpr.Constant(0);
+
+        squad.Model.Add(raw == earned).OnlyEnforceIf(squad.Placement[index, slot]);
     }
 
     private static LinearExpr SlotSum(SquadModel squad, int index)
@@ -437,6 +487,7 @@ public static class SquadSolver
             .First(candidate => solver.BooleanValue(squad.Placement[candidate, slot]));
         var candidate = squad.Candidates[index];
 
-        return new SquadSlot(slot, squad.SlotPositions[slot], candidate.Player, candidate.Gap);
+        return new SquadSlot(slot, squad.SlotPositions[slot], candidate.Player, candidate.Gap,
+            squad.InPosition(index, slot));
     }
 }
