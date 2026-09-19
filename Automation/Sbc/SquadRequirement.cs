@@ -17,6 +17,7 @@ public enum PlayerQuality
 public enum RequirementKind
 {
     PlayerCount,
+    PlayerLevelCount,
     EveryPlayer,
     SquadRating,
     StarRating,
@@ -35,6 +36,7 @@ public enum RequirementKind
 public enum PlayerFilterKind
 {
     Quality,
+    Level,
     Rarity,
     Nation,
     League,
