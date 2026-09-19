@@ -61,6 +61,7 @@ public static class FulfilmentProgress
             GapOutcome.Unresolved => "stalled and needing a look",
             GapOutcome.Mismatched => "won on a card the squad cannot carry",
             GapOutcome.TooExpensive => "priced above the card ceiling",
+            GapOutcome.OutOfReach => "within the ceiling but out of reach this pass",
             GapOutcome.NotFound => "not on the market yet",
             GapOutcome.Outbid => "outbid and due another go",
             GapOutcome.Expired => "lost at auction and due another go",

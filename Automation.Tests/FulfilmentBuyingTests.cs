@@ -223,7 +223,7 @@ public class FulfilmentBuyingTests
         new GapBuyer(market, store).Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)]);
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("bid"));
-        Assert.Equal(GapOutcome.NotFound, store.Gaps(1)[0].Outcome);
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
     }
 
     [Fact]
@@ -237,6 +237,40 @@ public class FulfilmentBuyingTests
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("watch"));
         Assert.Contains("ends within", store.Gaps(1)[0].Detail);
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+    }
+
+    [Fact]
+    public void CardsWithinTheCeilingThatCouldNotBeBoughtAreNotCalledTooExpensive()
+    {
+        var (_, store, _) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Listing("t1", 300) with { Expires = 900 }, Listing("t2", 400) with { Expires = 900 }]
+            });
+
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+        Assert.Contains("2 of 2 matching card(s) sat at or under", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
+    public void OnlyCardsPricedOverTheCeilingAreCalledTooExpensive()
+    {
+        var (_, store, _) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0, 900)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 4000)] });
+
+        Assert.Equal(GapOutcome.TooExpensive, store.Gaps(1)[0].Outcome);
+        Assert.Contains("every one sat above", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
+    public void AMarketWithNothingTheSlotWantsIsRecordedAsNotFound()
+    {
+        var (_, store, _) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 300, 40)] });
+
+        Assert.Equal(GapOutcome.NotFound, store.Gaps(1)[0].Outcome);
+        Assert.Contains("matched what this slot needs", store.Gaps(1)[0].Detail);
     }
 
     [Fact]

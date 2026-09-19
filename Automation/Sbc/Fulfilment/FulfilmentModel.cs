@@ -22,6 +22,7 @@ public enum GapOutcome
     Expired,
     NotFound,
     TooExpensive,
+    OutOfReach,
     Unmapped,
     Simulated,
     Unresolved,
@@ -132,7 +133,7 @@ public static class GapProgress
     public static bool Retryable(GapOutcome outcome)
     {
         return outcome is GapOutcome.Pending or GapOutcome.Outbid or GapOutcome.Expired or GapOutcome.NotFound
-            or GapOutcome.TooExpensive or GapOutcome.Unmapped or GapOutcome.Simulated;
+            or GapOutcome.TooExpensive or GapOutcome.OutOfReach or GapOutcome.Unmapped or GapOutcome.Simulated;
     }
 
     public static bool Holds(GapOutcome outcome)

@@ -201,7 +201,7 @@ public sealed class GapBuyer
         var mine = shortlist.Select(listing => listing.TradeId).ToList();
 
         return watched == 0
-            ? new GapStep(gap with { Outcome = GapOutcome.NotFound, Simulated = false, Detail = UNWATCHED_DETAIL },
+            ? new GapStep(gap with { Outcome = GapOutcome.OutOfReach, Simulated = false, Detail = UNWATCHED_DETAIL },
                 string.Empty, FulfilmentState.Buying)
             : Poll(run, Watching(gap, watched), ceiling, mine);
     }
@@ -341,23 +341,35 @@ public sealed class GapBuyer
     {
         var fitting = search.Listings.Where(listing => MarketCandidateChoice.Matches(gap.Specification, listing))
             .ToList();
-        var affordable = fitting.Any(listing => MarketCandidateChoice.Price(listing) <= ceiling);
+        var within = fitting.Count(listing => Within(listing, ceiling));
 
-        return gap with
-        {
-            Outcome = fitting.Count > 0 ? GapOutcome.TooExpensive : GapOutcome.NotFound,
-            Detail = Reason(fitting.Count, affordable, ceiling)
-        };
+        return gap with { Outcome = Unbought(fitting.Count, within), Detail = Reason(fitting.Count, within, ceiling) };
     }
 
-    private static string Reason(int fitting, bool affordable, uint ceiling)
+    private static bool Within(AuctionListing listing, uint ceiling)
     {
-        var result = $"no card matched under {ceiling}";
+        return MarketCandidateChoice.Price(listing) <= ceiling ||
+               (listing.BuyNowPrice > 0 && listing.BuyNowPrice <= ceiling);
+    }
 
-        if (fitting > 0 && affordable)
-            result = $"{fitting} card(s) matched under {ceiling} but none ends within " +
-                     $"{GapSnipePlan.WATCH_MAX_SECONDS} s";
-        else if (fitting > 0) result = $"nothing matching sat at or under {ceiling}";
+    private static GapOutcome Unbought(int fitting, int within)
+    {
+        var result = GapOutcome.NotFound;
+
+        if (within > 0) result = GapOutcome.OutOfReach;
+        else if (fitting > 0) result = GapOutcome.TooExpensive;
+
+        return result;
+    }
+
+    private static string Reason(int fitting, int within, uint ceiling)
+    {
+        var result = "nothing on the page matched what this slot needs";
+
+        if (within > 0)
+            result = $"{within} of {fitting} matching card(s) sat at or under {ceiling}, " +
+                     $"but none could be bought now and none ends within {GapSnipePlan.WATCH_MAX_SECONDS} s";
+        else if (fitting > 0) result = $"{fitting} card(s) matched but every one sat above {ceiling}";
 
         return result;
     }
