@@ -64,9 +64,40 @@ public class PricingTests
     {
         var now = new DateTime(2026, 9, 19, 12, 0, 0, DateTimeKind.Utc);
 
-        Assert.True(Pricing.NeedsCompareRead(null, now, false, 6, 24));
-        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-5), now, false, 6, 24));
-        Assert.True(Pricing.NeedsCompareRead(now.AddHours(-7), now, false, 6, 24));
+        Assert.True(Pricing.NeedsCompareRead(null, now, false, 360, 1440));
+        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-5), now, false, 360, 1440));
+        Assert.True(Pricing.NeedsCompareRead(now.AddHours(-7), now, false, 360, 1440));
+    }
+
+    [Fact]
+    public void ATenMinutePolicyRepricesEvenAnItemKnownToBeCheap()
+    {
+        var now = new DateTime(2026, 9, 19, 12, 0, 0, DateTimeKind.Utc);
+
+        Assert.False(Pricing.NeedsCompareRead(now.AddMinutes(-9), now, false, 10, 10));
+        Assert.True(Pricing.NeedsCompareRead(now.AddMinutes(-11), now, false, 10, 10));
+        Assert.True(Pricing.NeedsCompareRead(now.AddMinutes(-11), now, true, 10, 10));
+    }
+
+    [Fact]
+    public void ManagerPolicyRepricesEveryTenMinutesOnTheCheapestAsk()
+    {
+        var policy = PricePolicy.For(SnipeFilters.RING.Single());
+
+        Assert.Equal(ResaleBasis.LowestAsk, policy.Basis);
+        Assert.Equal(300u, policy.MarginCoins);
+        Assert.Equal(10u, policy.MaxAgeMinutes);
+        Assert.Equal(10u, policy.CheapMaxAgeMinutes);
+    }
+
+    [Fact]
+    public void StandardPolicyKeepsTheOldAgesAndMargin()
+    {
+        Assert.Equal(ResaleBasis.SecondLowestAsk, PricePolicy.Standard.Basis);
+        Assert.Equal(BiddingStrategy.MARGIN_COINS, PricePolicy.Standard.MarginCoins);
+        Assert.Equal(360u, PricePolicy.Standard.MaxAgeMinutes);
+        Assert.Equal(1440u, PricePolicy.Standard.CheapMaxAgeMinutes);
+        Assert.Equal(PricePolicy.Standard, PricePolicy.For(new SnipeFilter("plain")));
     }
 
     [Fact]
@@ -74,9 +105,9 @@ public class PricingTests
     {
         var now = new DateTime(2026, 9, 19, 12, 0, 0, DateTimeKind.Utc);
 
-        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-7), now, true, 6, 24));
-        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-23), now, true, 6, 24));
-        Assert.True(Pricing.NeedsCompareRead(now.AddHours(-25), now, true, 6, 24));
+        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-7), now, true, 360, 1440));
+        Assert.False(Pricing.NeedsCompareRead(now.AddHours(-23), now, true, 360, 1440));
+        Assert.True(Pricing.NeedsCompareRead(now.AddHours(-25), now, true, 360, 1440));
     }
 
     [Fact]
@@ -106,6 +137,15 @@ public class PricingTests
         Assert.Equal(250u, Pricing.ResaleFromAsks(new uint[] { 300, 200, 250 }, 3));
         Assert.Equal(200u, Pricing.ResaleFromAsks(new uint[] { 200, 200, 5000 }, 3));
         Assert.Equal(1000u, Pricing.ResaleFromAsks(new uint[] { 50, 1000, 1000, 5000 }, 3));
+    }
+
+    [Fact]
+    public void LowestAskBasisTakesTheCheapestListing()
+    {
+        Assert.Equal(200u, Pricing.ResaleFromAsks(new uint[] { 300, 200, 250 }, 3, ResaleBasis.LowestAsk));
+        Assert.Equal(50u, Pricing.ResaleFromAsks(new uint[] { 50, 1000, 1000, 5000 }, 3, ResaleBasis.LowestAsk));
+        Assert.Equal(400u, Pricing.ResaleFromAsks(new uint[] { 400, 5000, 5000, 5000 }, 2, ResaleBasis.LowestAsk));
+        Assert.Equal(0u, Pricing.ResaleFromAsks(new uint[] { 3000 }, 2, ResaleBasis.LowestAsk));
     }
 
     [Fact]
@@ -160,8 +200,10 @@ public class PricingTests
     {
         DateTime now = new(2026, 9, 18, 12, 0, 0);
 
-        Assert.False(Pricing.IsStale(now.AddHours(-5), now, 6));
-        Assert.True(Pricing.IsStale(now.AddHours(-7), now, 6));
+        Assert.False(Pricing.IsStale(now.AddHours(-5), now, 360));
+        Assert.True(Pricing.IsStale(now.AddHours(-7), now, 360));
+        Assert.False(Pricing.IsStale(now.AddMinutes(-9), now, 10));
+        Assert.True(Pricing.IsStale(now.AddMinutes(-11), now, 10));
     }
 
     [Theory]

@@ -48,6 +48,8 @@ public class Fc25 : IDisposable
     private DateTime _passStarted = DateTime.UtcNow;
     private DateTime _lastRefresh = DateTime.MinValue;
     private Dictionary<string, uint> _snipeEstimates = new();
+    private uint _snipeMargin = MARGIN_COINS;
+    private uint _snipeMaxBid = SNIPE_MAX_BID;
     private string _segment = string.Empty;
     private double _calibrationRatio = 1.0;
     private uint _segmentBidAllowance = uint.MaxValue;
@@ -737,7 +739,7 @@ public class Fc25 : IDisposable
         while (morePages && page < MAX_RESULT_PAGES && CanPlaceMoreBids() && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), () => CanPlaceMoreBids() && WithinScanBudget(started), MIN_AUCTION_MINUTES);
+            ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), () => CanPlaceMoreBids() && WithinScanBudget(started), MIN_AUCTION_MINUTES, PricePolicy.Standard);
             morePages = CanPlaceMoreBids() && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
@@ -749,24 +751,24 @@ public class Fc25 : IDisposable
         return Capacity.WithinBudget(started, DateTime.UtcNow, SCAN_BUDGET_SECONDS);
     }
 
-    private RowFacts ReadRowFacts(RowSnapshot row)
+    private RowFacts ReadRowFacts(RowSnapshot row, PricePolicy policy)
     {
         RowFacts result = new(row.Classes, row.MinutesLeft, false, null, null, false);
 
-        if (RowTriage.IsCandidate(result, MIN_AUCTION_MINUTES, MAX_AUCTION_MINUTES, MARGIN_COINS))
-            result = ReadCachedRowFacts(row);
+        if (RowTriage.IsCandidate(result, MIN_AUCTION_MINUTES, MAX_AUCTION_MINUTES, policy.MarginCoins))
+            result = ReadCachedRowFacts(row, policy);
 
         return result;
     }
 
-    private RowFacts ReadCachedRowFacts(RowSnapshot row)
+    private RowFacts ReadCachedRowFacts(RowSnapshot row, PricePolicy policy)
     {
         var info = row.Key;
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
         uint? cached = sightings.Count > 0 ? SalesFeedback.Calibrate(sightings[0].price, _calibrationRatio) : null;
         var hasSales = Database.GetRecentSales(info, RESALE_WINDOW_DAYS).Count > 0;
         var expired = sightings.Count > 0 &&
-                      Pricing.IsStale(sightings[0].timestamp, DateTime.UtcNow, CHEAP_MAX_AGE_HOURS);
+                      Pricing.IsStale(sightings[0].timestamp, DateTime.UtcNow, policy.CheapMaxAgeMinutes);
 
         return new RowFacts(row.Classes, row.MinutesLeft, _bidNamesThisRun.Contains(info), row.BidValue, cached,
             hasSales, expired);
@@ -888,10 +890,11 @@ public class Fc25 : IDisposable
 
     #region Bidding
 
-    private void ProcessCandidates(Action<IWebElement, string> action, Func<bool> canContinue, uint minMinutes)
+    private void ProcessCandidates(Action<IWebElement, string> action, Func<bool> canContinue, uint minMinutes,
+        PricePolicy policy)
     {
         HashSet<string> done = new();
-        var plan = PlanCandidates(done, minMinutes);
+        var plan = PlanCandidates(done, minMinutes, policy);
         var position = 0;
         var replans = 0;
 
@@ -907,18 +910,18 @@ public class Fc25 : IDisposable
             else
             {
                 replans++;
-                plan = PlanCandidates(done, minMinutes);
+                plan = PlanCandidates(done, minMinutes, policy);
                 position = 0;
             }
         }
     }
 
-    private List<(int index, string key)> PlanCandidates(ISet<string> done, uint minMinutes)
+    private List<(int index, string key)> PlanCandidates(ISet<string> done, uint minMinutes, PricePolicy policy)
     {
         var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.None);
         var candidates = snapshot
-            .Where(row => !done.Contains(row.Key) && RowTriage.IsCandidate(ReadRowFacts(row), minMinutes,
-                MAX_AUCTION_MINUTES, MARGIN_COINS))
+            .Where(row => !done.Contains(row.Key) && RowTriage.IsCandidate(ReadRowFacts(row, policy), minMinutes,
+                MAX_AUCTION_MINUTES, policy.MarginCoins))
             .Select(row => (row.Index, row.Key))
             .ToList();
 
@@ -993,7 +996,9 @@ public class Fc25 : IDisposable
         {
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
             var requiredResale = Pricing.RequiredResale(minimumBid, MARGIN_COINS);
-            var resaleEstimate = minimumBid > maxBidCap ? null : GetResaleEstimate(info, requiredResale);
+            var resaleEstimate = minimumBid > maxBidCap
+                ? null
+                : GetResaleEstimate(info, requiredResale, PricePolicy.Standard);
 
             if (minimumBid > maxBidCap) Console.WriteLine($"{info}: minimum {minimumBid} is over the cap {maxBidCap}; no compare read.");
             if (resaleEstimate.HasValue)
@@ -1001,10 +1006,10 @@ public class Fc25 : IDisposable
         }
     }
 
-    private uint? GetResaleEstimate(string info, uint requiredResale)
+    private uint? GetResaleEstimate(string info, uint requiredResale, PricePolicy policy)
     {
         var sales = Database.GetRecentSales(info, RESALE_WINDOW_DAYS);
-        var askEstimate = GetCalibratedAskEstimate(info, requiredResale);
+        var askEstimate = GetCalibratedAskEstimate(info, requiredResale, policy);
         var result = SalesFeedback.Resale(sales, askEstimate, ITEM_SALES_MIN, SALES_MAX_UPLIFT);
 
         if (sales.Count > 0)
@@ -1014,15 +1019,15 @@ public class Fc25 : IDisposable
         return result;
     }
 
-    private uint? GetCalibratedAskEstimate(string info, uint requiredResale)
+    private uint? GetCalibratedAskEstimate(string info, uint requiredResale, PricePolicy policy)
     {
         var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
         var knownCheap = sightings.Count > 0 &&
                          SalesFeedback.Calibrate(sightings[0].price, _calibrationRatio) < requiredResale;
         var needsRead = Pricing.NeedsCompareRead(sightings.Count > 0 ? sightings[0].timestamp : null, DateTime.UtcNow,
-            knownCheap, RESALE_MAX_AGE_HOURS, CHEAP_MAX_AGE_HOURS);
+            knownCheap, policy.MaxAgeMinutes, policy.CheapMaxAgeMinutes);
 
-        if (needsRead && TryRecordLowestPrice(info))
+        if (needsRead && TryRecordLowestPrice(info, policy.Basis))
             sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
 
         var askEstimate = Pricing.EstimateResale(sightings.Select(sighting => sighting.price), RESALE_SAMPLE_SIZE);
@@ -1030,7 +1035,7 @@ public class Fc25 : IDisposable
         return askEstimate.HasValue ? SalesFeedback.Calibrate(askEstimate.Value, _calibrationRatio) : null;
     }
 
-    private bool TryRecordLowestPrice(string info, int maxPages = MAX_COMPARE_PAGES)
+    private bool TryRecordLowestPrice(string info, ResaleBasis basis, int maxPages = MAX_COMPARE_PAGES)
     {
         var recorded = false;
 
@@ -1046,7 +1051,7 @@ public class Fc25 : IDisposable
         {
             var (asks, pages) = CollectComparePrices(maxPages, clicked);
             _compareReads++;
-            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS);
+            var resale = Pricing.ResaleFromAsks(asks, MIN_COMPARE_LISTINGS, basis);
             recorded = resale > 0;
             _lastAskCount = asks.Count;
 
@@ -1287,7 +1292,7 @@ public class Fc25 : IDisposable
 
     private void RunConfiguredSnipePass(SnipeFilter snipeFilter)
     {
-        RunTimedPass(Segments.Snipe(snipeFilter.Name), Segments.ROLE_SNIPE, () => SnipePlayers(snipeFilter));
+        RunTimedPass(Segments.Snipe(snipeFilter.Name), Segments.ROLE_SNIPE, () => SnipeWithFilter(snipeFilter));
         ListWonItemsNow();
     }
 
@@ -1301,31 +1306,44 @@ public class Fc25 : IDisposable
         Console.WriteLine($"Listing after the snipe pass took {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
     }
 
-    private void SnipePlayers(SnipeFilter snipeFilter)
+    private void SnipeWithFilter(SnipeFilter snipeFilter)
     {
         Dictionary<string, uint> estimates = new();
-        Filter filter = new()
+
+        _snipeEstimates = estimates;
+        _snipeMargin = snipeFilter.MarginCoins;
+        _snipeMaxBid = snipeFilter.MaxBid;
+        Database.AddSnipeEvent(snipeFilter.Name, "search", null, null, null, null, _segment);
+        Console.WriteLine($"Snipe {snipeFilter.Name}: searching {snipeFilter.Market.ToString().ToLowerInvariant()}.");
+        SearchWithFilter(SearchFilter(snipeFilter), MarketElement(snipeFilter.Market));
+        WatchAcrossResultPages(estimates, PricePolicy.For(snipeFilter));
+        Console.WriteLine($"Snipe {snipeFilter.Name}: watching {estimates.Count} item(s).");
+
+        if (estimates.Count > 0) SnipeWatchedTargets(estimates);
+    }
+
+    private static Filter SearchFilter(SnipeFilter snipeFilter)
+    {
+        return new Filter
         {
             Quality = snipeFilter.Quality,
             Nationality = snipeFilter.Nationality,
             League = snipeFilter.League,
             Club = snipeFilter.Club,
             Position = snipeFilter.Position,
-            MaxBidPrice = PLAYER_MAX_BID,
+            MaxBidPrice = snipeFilter.MaxBid,
             MinBuyPrice = PLAYER_MIN_BUY_NOW
         };
-
-        _snipeEstimates = estimates;
-        Database.AddSnipeEvent(snipeFilter.Name, "search", null, null, null, null, _segment);
-        Console.WriteLine($"Snipe {snipeFilter.Name}: searching players.");
-        SearchWithFilter(filter, ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
-        WatchAcrossResultPages(estimates);
-        Console.WriteLine($"Snipe {snipeFilter.Name}: watching {estimates.Count} item(s).");
-
-        if (estimates.Count > 0) SnipeWatchedTargets(estimates);
     }
 
-    private void WatchAcrossResultPages(Dictionary<string, uint> estimates)
+    private static ElementKeys MarketElement(SnipeMarket market)
+    {
+        return market == SnipeMarket.Managers
+            ? ElementKeys.MANAGER_ITEMS_TRANSFER_MARKET
+            : ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET;
+    }
+
+    private void WatchAcrossResultPages(Dictionary<string, uint> estimates, PricePolicy policy)
     {
         var page = 0;
         var morePages = true;
@@ -1335,7 +1353,7 @@ public class Fc25 : IDisposable
         while (morePages && page < MAX_RESULT_PAGES && CanWatchMore(estimates) && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates), () => CanWatchMore(estimates) && WithinScanBudget(started), SNIPE_WATCH_MIN_MINUTES);
+            ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates, policy), () => CanWatchMore(estimates) && WithinScanBudget(started), SNIPE_WATCH_MIN_MINUTES, policy);
             morePages = CanWatchMore(estimates) && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
@@ -1347,23 +1365,24 @@ public class Fc25 : IDisposable
         return estimates.Count < SNIPE_BATCH_SIZE && HasBidCapacity() && !_pacing.Ended;
     }
 
-    private void TryWatchSelectedItem(IWebElement row, string info, Dictionary<string, uint> estimates)
+    private void TryWatchSelectedItem(IWebElement row, string info, Dictionary<string, uint> estimates,
+        PricePolicy policy)
     {
         var bidInput = _screen.WaitVisible(ElementKeys.FIND_ALL_PRICE_INPUTS, ShortWait);
 
         if (bidInput != null && !estimates.ContainsKey(info))
         {
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
-            var estimate = minimumBid > SNIPE_MAX_BID
+            var estimate = minimumBid > _snipeMaxBid
                 ? null
-                : GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, MARGIN_COINS));
+                : GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, _snipeMargin), policy);
 
-            if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, MARGIN_COINS, SNIPE_MAX_BID,
+            if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, _snipeMargin, _snipeMaxBid,
                     estimates.Count, SNIPE_BATCH_SIZE))
                 WatchSelectedItem(row, info, minimumBid, estimate.Value, estimates);
             else
                 Database.AddSnipeEvent(info, "skip", null, minimumBid, estimate, ReadTimeText(row),
-                    minimumBid > SNIPE_MAX_BID ? "cap" : "margin");
+                    minimumBid > _snipeMaxBid ? "cap" : "margin");
         }
     }
 
@@ -1519,7 +1538,7 @@ public class Fc25 : IDisposable
         var shown = row.BidValue ?? 0;
         var ourBidIsUnrecorded = Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key);
 
-        return ourBidIsUnrecorded || Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS);
+        return ourBidIsUnrecorded || Snipe.ShouldBid(facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS);
     }
 
     private void SnipeRowIfDue(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
@@ -1528,7 +1547,7 @@ public class Fc25 : IDisposable
 
         if (Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key))
             ConfirmUnrecordedBid(row, facts, standing);
-        else if (Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
+        else if (Snipe.ShouldBid(facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS))
             SnipeRow(row, facts, standing);
     }
 
@@ -1578,7 +1597,7 @@ public class Fc25 : IDisposable
         var delta = minimumBid > previous ? minimumBid - previous : 0;
         var confirmed = facts with { MinimumBid = minimumBid };
 
-        if (!Snipe.ShouldBid(confirmed, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
+        if (!Snipe.ShouldBid(confirmed, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS))
             RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "margin");
         else if (!Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, delta, MAX_EXPOSURE_SHARE))
             RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "budget");
@@ -1746,7 +1765,7 @@ public class Fc25 : IDisposable
     private bool UnwatchSacrificialRow()
     {
         var live = LiveWatchedRows(_screen.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched), _snipeEstimates);
-        var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS));
+        var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS));
         var unwatched = victim.row != null && UnwatchRow(victim.row);
 
         if (unwatched)
@@ -1850,7 +1869,7 @@ public class Fc25 : IDisposable
     {
         uint result = 0;
 
-        if (TryRecordLowestPrice(info, MAX_COMPARE_PAGES_FOR_LISTING))
+        if (TryRecordLowestPrice(info, ResaleBasis.SecondLowestAsk, MAX_COMPARE_PAGES_FOR_LISTING))
         {
             var sightings = Database.GetRecentSightings(info, RESALE_WINDOW_DAYS);
             result = sightings[0].price;

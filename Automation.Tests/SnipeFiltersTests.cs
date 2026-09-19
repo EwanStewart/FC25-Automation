@@ -1,4 +1,4 @@
-using Automation.Trading;
+﻿using Automation.Trading;
 
 namespace Automation.Tests;
 
@@ -23,9 +23,49 @@ public class SnipeFiltersTests
     [Fact]
     public void AnEmptyRingMeansNoSnipePass()
     {
-        Assert.Empty(SnipeFilters.RING);
-        Assert.Null(SnipeFilters.Next(SnipeFilters.RING, null));
-        Assert.Null(SnipeFilters.Next(SnipeFilters.RING, "Scotland cards"));
+        Assert.Null(SnipeFilters.Next(Array.Empty<SnipeFilter>(), null));
+        Assert.Null(SnipeFilters.Next(Array.Empty<SnipeFilter>(), "Scotland cards"));
+    }
+
+    [Fact]
+    public void RingSnipesAnyBundesligaManager()
+    {
+        var managers = Assert.Single(SnipeFilters.RING);
+
+        Assert.Equal("Bundesliga managers", managers.Name);
+        Assert.Equal(SnipeMarket.Managers, managers.Market);
+        Assert.Equal("Bundesliga (GER 1)", managers.League);
+        Assert.Null(managers.Quality);
+        Assert.Null(managers.Nationality);
+        Assert.Null(managers.Club);
+        Assert.Null(managers.Position);
+    }
+
+    [Fact]
+    public void ManagerCeilingClearsThreeHundredCoinsAndStopsAtAThousand()
+    {
+        var managers = Assert.Single(SnipeFilters.RING);
+
+        Assert.Equal(300u, managers.MarginCoins);
+        Assert.Equal(1000u, managers.MaxBid);
+        Assert.Equal(ResaleBasis.LowestAsk, managers.Resale);
+        Assert.Equal(10u, managers.PriceAgeMinutes);
+        Assert.Equal(900u, Snipe.Ceiling(1300, managers.MarginCoins, managers.MaxBid));
+        Assert.Equal(1000u, Snipe.Ceiling(1400, managers.MarginCoins, managers.MaxBid));
+        Assert.Equal(1000u, Snipe.Ceiling(9000, managers.MarginCoins, managers.MaxBid));
+        Assert.Equal(0u, Snipe.Ceiling(300, managers.MarginCoins, managers.MaxBid));
+    }
+
+    [Fact]
+    public void AFilterSearchesPlayersOnTheStandardLimitsUnlessItSaysOtherwise()
+    {
+        SnipeFilter plain = new("plain");
+
+        Assert.Equal(SnipeMarket.Players, plain.Market);
+        Assert.Equal(BiddingStrategy.MARGIN_COINS, plain.MarginCoins);
+        Assert.Equal(BiddingStrategy.SNIPE_MAX_BID, plain.MaxBid);
+        Assert.Equal(ResaleBasis.SecondLowestAsk, plain.Resale);
+        Assert.Null(plain.PriceAgeMinutes);
     }
 
     [Fact]
