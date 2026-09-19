@@ -9,6 +9,7 @@ services:
     volumes:
       - ./MySQL/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
       - ./MySQL/club.sql:/docker-entrypoint-initdb.d/club.sql:ro
+      - ./MySQL/players.sql:/docker-entrypoint-initdb.d/players.sql:ro
       - fc25-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]

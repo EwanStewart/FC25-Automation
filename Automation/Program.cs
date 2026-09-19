@@ -10,6 +10,13 @@ internal class Program
     {
         var options = Trading.RunOptions.Parse(args);
 
+        if (options.ImportPlayers) Environment.Exit(Catalogue.CatalogueProgram.Run());
+        else if (options.CaptureClub) CaptureClub(options);
+        else RunTradingConfigurations(options);
+    }
+
+    private static void RunTradingConfigurations(Trading.RunOptions options)
+    {
         List<string> toRun = new()
         {
             ""
@@ -18,6 +25,14 @@ internal class Program
         foreach (var run in toRun) RunConfiguration(run, options);
 
         if (!options.SmokeTest && !options.NoShutdown && options.LoopMinutes == 0) Utility.Utility.ShutdownPc();
+    }
+
+    private static void CaptureClub(Trading.RunOptions options)
+    {
+        using var bot = new Fc25("", options);
+        var reading = bot.CaptureClubInventory();
+
+        Console.WriteLine($"Club capture {reading.Outcome}: {reading.Players.Count} players. {reading.Detail}");
     }
 
     private static void RunConfiguration(string run, Trading.RunOptions options)
