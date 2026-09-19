@@ -15,7 +15,8 @@ public sealed record SolveOptions(
     int SquadSize,
     ChemistryThresholds Thresholds,
     TeamLinks Links,
-    double TimeLimitSeconds = 10.0);
+    double TimeLimitSeconds = 10.0,
+    bool EnforceBudget = false);
 
 public sealed record SquadSlot(int Index, string Position, SquadPlayer Player, MarketSpecification? Gap);
 
@@ -270,6 +271,7 @@ public static class SquadSolver
         switch (requirement.Kind)
         {
             case RequirementKind.PlayerCount:
+            case RequirementKind.PlayerLevelCount:
                 AddCount(squad, MatchingUse(squad, requirement), requirement.Value, requirement.Comparison);
                 break;
             case RequirementKind.SquadRating:
@@ -384,7 +386,7 @@ public static class SquadSolver
         var purchases = Enumerable.Range(0, squad.Candidates.Count)
             .Where(index => squad.Candidates[index].Gap is not null).ToList();
 
-        if (purchases.Count > 0)
+        if (options.EnforceBudget && purchases.Count > 0)
             squad.Model.Add(LinearExpr.WeightedSum(purchases.Select(squad.Used),
                 purchases.Select(index => squad.Candidates[index].Cost)) <= options.Budget);
     }

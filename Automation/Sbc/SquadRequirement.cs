@@ -17,6 +17,7 @@ public enum PlayerQuality
 public enum RequirementKind
 {
     PlayerCount,
+    PlayerLevelCount,
     EveryPlayer,
     SquadRating,
     StarRating,
@@ -35,6 +36,7 @@ public enum RequirementKind
 public enum PlayerFilterKind
 {
     Quality,
+    Level,
     Rarity,
     Nation,
     League,
@@ -45,7 +47,17 @@ public enum PlayerFilterKind
     Tradability
 }
 
-public sealed record PlayerFilter(PlayerFilterKind Kind, int Value, string Label);
+public sealed record PlayerFilter(
+    PlayerFilterKind Kind,
+    int Value,
+    string Label,
+    IReadOnlyList<int>? Alternatives = null)
+{
+    public bool Accepts(int value)
+    {
+        return value == Value || (Alternatives?.Contains(value) ?? false);
+    }
+}
 
 public sealed record SquadRequirement(
     RequirementKind Kind,

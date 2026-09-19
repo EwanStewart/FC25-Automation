@@ -54,19 +54,31 @@ public static class RequirementParser
     {
         var entries = slot.ToList();
         var comparison = ReadComparison(entries);
-        var count = ReadCount(entries);
-        var filters = ReadFilters(entries);
         List<SquadRequirement> result = [];
 
         result.AddRange(entries.Where(IsSquadLevel)
             .Select(entry => SquadLevel(entry, comparison)));
         result.AddRange(entries.Where(IsUnsupported).Select(Unsupported));
+        result.AddRange(Counted(comparison, ReadCount(entries), ReadFilters(entries), result.Count));
 
-        if (filters.Count > 0 && count.HasValue)
+        return result;
+    }
+
+    private static IReadOnlyList<SquadRequirement> Counted(RequirementComparison comparison, int? count,
+        IReadOnlyList<PlayerFilter> filters, int alreadyBuilt)
+    {
+        var levelled = filters.Any(filter => filter.Kind == PlayerFilterKind.Level);
+        List<SquadRequirement> result = [];
+
+        if (levelled && count.HasValue)
+            result.Add(PlayerLevelCount(comparison, count.Value, filters));
+        else if (levelled)
+            result.Add(LevelWithoutCount(filters));
+        else if (filters.Count > 0 && count.HasValue)
             result.Add(PlayerCount(comparison, count.Value, filters));
         else if (filters.Count > 0)
             result.Add(EveryPlayer(comparison, filters));
-        else if (count.HasValue && result.Count == 0)
+        else if (count.HasValue && alreadyBuilt == 0)
             result.Add(PlayerCount(comparison, count.Value, filters));
 
         return result;
@@ -100,8 +112,18 @@ public static class RequirementParser
     private static IReadOnlyList<PlayerFilter> ReadFilters(IEnumerable<EligibilityEntry> entries)
     {
         return entries.Where(entry => FilterKind(entry.Key).HasValue)
-            .Select(entry => new PlayerFilter(FilterKind(entry.Key)!.Value, entry.Value,
-                FilterLabel(FilterKind(entry.Key)!.Value, entry.Value))).ToList();
+            .GroupBy(entry => FilterKind(entry.Key)!.Value)
+            .Select(group => Filter(group.Key, group.Select(entry => entry.Value).ToList())).ToList();
+    }
+
+    private static PlayerFilter Filter(PlayerFilterKind kind, IReadOnlyList<int> values)
+    {
+        return new PlayerFilter(kind, values[0], AlternativesLabel(kind, values), values.Skip(1).ToList());
+    }
+
+    private static string AlternativesLabel(PlayerFilterKind kind, IEnumerable<int> values)
+    {
+        return string.Join(" or ", values.Select(value => FilterLabel(kind, value)));
     }
 
     private static PlayerFilterKind? FilterKind(int key)
@@ -109,6 +131,7 @@ public static class RequirementParser
         return key switch
         {
             EligibilityKey.PLAYER_QUALITY => PlayerFilterKind.Quality,
+            EligibilityKey.PLAYER_LEVEL => PlayerFilterKind.Level,
             EligibilityKey.PLAYER_RARITY => PlayerFilterKind.Rarity,
             EligibilityKey.NATION_ID => PlayerFilterKind.Nation,
             EligibilityKey.LEAGUE_ID => PlayerFilterKind.League,
@@ -125,7 +148,7 @@ public static class RequirementParser
     {
         return kind switch
         {
-            PlayerFilterKind.Quality => QualityName(value),
+            PlayerFilterKind.Quality or PlayerFilterKind.Level => QualityName(value),
             PlayerFilterKind.Rarity => value == 1 ? "Rare" : $"Rarity {value}",
             PlayerFilterKind.Nation => $"Nation {value}",
             PlayerFilterKind.League => $"League {value}",
@@ -160,7 +183,7 @@ public static class RequirementParser
             EligibilityKey.TEAM_RATING => RequirementKind.SquadRating,
             EligibilityKey.TEAM_STAR_RATING => RequirementKind.StarRating,
             EligibilityKey.ALL_PLAYERS_CHEMISTRY_POINTS => RequirementKind.TotalChemistry,
-            EligibilityKey.CHEMISTRY_POINTS => RequirementKind.PlayerChemistry,
+            EligibilityKey.CHEMISTRY_POINTS => RequirementKind.TotalChemistry,
             EligibilityKey.NATION_COUNT => RequirementKind.DistinctNations,
             EligibilityKey.LEAGUE_COUNT => RequirementKind.DistinctLeagues,
             EligibilityKey.CLUB_COUNT => RequirementKind.DistinctClubs,
@@ -200,6 +223,21 @@ public static class RequirementParser
             Describe(RequirementKind.PlayerCount, comparison, count, filters));
     }
 
+    private static SquadRequirement PlayerLevelCount(RequirementComparison comparison, int count,
+        IReadOnlyList<PlayerFilter> filters)
+    {
+        return new SquadRequirement(RequirementKind.PlayerLevelCount, comparison, count, filters,
+            Describe(RequirementKind.PlayerLevelCount, comparison, count, filters));
+    }
+
+    private static SquadRequirement LevelWithoutCount(IReadOnlyList<PlayerFilter> filters)
+    {
+        var subject = string.Join(" and ", filters.Select(filter => filter.Label));
+
+        return new SquadRequirement(RequirementKind.Unsupported, RequirementComparison.Minimum, 0, filters,
+            $"Unsupported requirement PLAYER_LEVEL {subject} with no player count in the same slot", "PLAYER_LEVEL");
+    }
+
     private static SquadRequirement EveryPlayer(RequirementComparison comparison, IReadOnlyList<PlayerFilter> filters)
     {
         return new SquadRequirement(RequirementKind.EveryPlayer, comparison, 0, filters,
@@ -217,6 +255,7 @@ public static class RequirementParser
             RequirementKind.EveryPlayer => $"Player Quality: {word} {subject}".Replace("  ", " ").Trim(),
             RequirementKind.PlayerCount when filters.Count == 0 => $"Number of Players in the Squad: {value}",
             RequirementKind.PlayerCount => $"{subject}: {word} {value} Players",
+            RequirementKind.PlayerLevelCount => $"{subject}: {word} {value} Players",
             RequirementKind.SquadRating => $"Squad Rating: {word} {value}",
             RequirementKind.StarRating => $"Team Star Rating: {word} {value}",
             RequirementKind.TotalChemistry => $"Total Chemistry: {word} {value}",

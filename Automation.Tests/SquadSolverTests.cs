@@ -30,6 +30,11 @@ public class SquadSolverTests
         return new SolveOptions(budget, 11, ChemistryThresholds.Default, TeamLinks.None);
     }
 
+    private static SolveOptions CappedOptions(int budget)
+    {
+        return new SolveOptions(budget, 11, ChemistryThresholds.Default, TeamLinks.None, EnforceBudget: true);
+    }
+
     [Fact]
     public void FillsEverySlotFromTheClubWhenItCan()
     {
@@ -76,14 +81,40 @@ public class SquadSolverTests
     }
 
     [Fact]
-    public void AChallengeIsUnsatisfiableWhenNoPurchaseIsAllowed()
+    public void AnEnforcedBudgetOfNothingRulesOutEveryPurchase()
+    {
+        var needsScotland = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Nation, 42, "Scotland")], "Scotland: Min. 1 Player");
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11), needsScotland), Club(70), CappedOptions(0));
+
+        Assert.Equal(SolveOutcome.Unsatisfiable, result.Outcome);
+    }
+
+    [Fact]
+    public void TheBudgetIsNotACapUnlessItIsEnforced()
     {
         var needsScotland = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
             [new PlayerFilter(PlayerFilterKind.Nation, 42, "Scotland")], "Scotland: Min. 1 Player");
 
         var result = SquadSolver.Solve(Challenge(SquadSize(11), needsScotland), Club(70), Options(0));
 
-        Assert.Equal(SolveOutcome.Unsatisfiable, result.Outcome);
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(1, result.PurchaseCount);
+        Assert.True(result.EstimatedCost > 0);
+    }
+
+    [Fact]
+    public void TheClubIsStillPreferredWhenBuyingCostsNothingToAllow()
+    {
+        var needsScotland = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Nation, 42, "Scotland")], "Scotland: Min. 1 Player");
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11), needsScotland), Club(70, nation: 42), Options(0));
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(0, result.PurchaseCount);
+        Assert.Equal(0, result.EstimatedCost);
     }
 
     [Fact]
@@ -132,5 +163,103 @@ public class SquadSolverTests
         var challenge = new ChallengeRequirements(1, 1, "Odd", "f9999", [SquadSize(11)]);
 
         Assert.Equal(SolveOutcome.UnknownFormation, SquadSolver.Solve(challenge, Club(70), Options()).Outcome);
+    }
+
+    private static SquadRequirement TierCount(PlayerQuality tier, int count, RequirementComparison comparison)
+    {
+        return new SquadRequirement(RequirementKind.PlayerLevelCount, comparison, count,
+            [new PlayerFilter(PlayerFilterKind.Level, (int)tier, tier.ToString())],
+            $"{tier}: {count} Players");
+    }
+
+    [Fact]
+    public void RawPowerDraftsElevenGoldCardsUnderARatingCeiling()
+    {
+        var owned = Club(70).Concat(Club(80).Select(player => player with { Id = player.Id + 100 })).ToList();
+        var rating = new SquadRequirement(RequirementKind.SquadRating, RequirementComparison.Maximum, 85, [],
+            "Squad Rating: Max. 85");
+
+        var result = SquadSolver.Solve(
+            Challenge(SquadSize(11), TierCount(PlayerQuality.Gold, 11, RequirementComparison.Minimum), rating),
+            owned, Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.All(result.Slots, slot => Assert.Equal(PlayerQuality.Gold, QualityBand.Of(slot.Player.Rating)));
+        Assert.Equal(0, result.PurchaseCount);
+        Assert.True(result.Assessment!.IsValid);
+    }
+
+    [Fact]
+    public void ATierTheClubLacksIsBought()
+    {
+        var result = SquadSolver.Solve(
+            Challenge(SquadSize(11), TierCount(PlayerQuality.Gold, 2, RequirementComparison.Minimum)),
+            Club(70), Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(2, result.PurchaseCount);
+        Assert.Equal(2, result.Slots.Count(slot => QualityBand.Of(slot.Player.Rating) == PlayerQuality.Gold));
+        Assert.True(result.Assessment!.IsValid);
+    }
+
+    [Fact]
+    public void AnExactTierCountAdmitsNoMoreThanItAsksFor()
+    {
+        var owned = Club(70).Concat(Club(80).Select(player => player with { Id = player.Id + 100 })).ToList();
+
+        var result = SquadSolver.Solve(
+            Challenge(SquadSize(11), TierCount(PlayerQuality.Gold, 1, RequirementComparison.Exact)), owned,
+            Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(1, result.Slots.Count(slot => QualityBand.Of(slot.Player.Rating) == PlayerQuality.Gold));
+    }
+
+    [Fact]
+    public void ATierCountStandsBesideASquadWideQualityFloor()
+    {
+        var owned = Club(70).Concat(Club(60).Select(player => player with { Id = player.Id + 100 })).ToList();
+        var floor = new SquadRequirement(RequirementKind.EveryPlayer, RequirementComparison.Minimum, 0,
+            [new PlayerFilter(PlayerFilterKind.Quality, (int)PlayerQuality.Silver, "Silver")],
+            "Player Quality: Min. Silver");
+
+        var result = SquadSolver.Solve(
+            Challenge(SquadSize(11), floor, TierCount(PlayerQuality.Gold, 2, RequirementComparison.Minimum)),
+            owned, Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.DoesNotContain(result.Slots,
+            slot => QualityBand.Of(slot.Player.Rating) == PlayerQuality.Bronze);
+        Assert.Equal(2, result.Slots.Count(slot => QualityBand.Of(slot.Player.Rating) == PlayerQuality.Gold));
+        Assert.True(result.Assessment!.IsValid);
+    }
+
+    [Fact]
+    public void AnUnknownEligibilityKeyStillRefusesTheChallenge()
+    {
+        const string json = """
+            {"challenges":[{"name":"Trophy Hunt","challengeId":8,"setId":9,"formation":"f442","elgReq":[
+              {"type":"NUM_TROPHY_REQUIRED","eligibilitySlot":0,"eligibilityKey":16,"eligibilityValue":3},
+              {"type":"SCOPE","eligibilitySlot":0,"eligibilityKey":13,"eligibilityValue":0}
+            ],"elgOperation":"AND","type":"OPEN_CHALLENGE"}]}
+            """;
+        var challenge = RequirementParser.Parse(json).Single();
+
+        Assert.Equal(SolveOutcome.UnsupportedRequirement, SquadSolver.Solve(challenge, Club(70), Options()).Outcome);
+    }
+
+    [Fact]
+    public void EitherClubSatisfiesASlotThatNamesTwo()
+    {
+        var derby = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Club, 73, "Club 73 or Club 219", [219])],
+            "Club 73 or Club 219: Min. 1 Players");
+        var owned = Club(70).Concat(Club(70, 219).Select(player => player with { Id = player.Id + 100 })).ToList();
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11), derby), owned, Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(0, result.PurchaseCount);
+        Assert.True(result.Assessment!.IsValid);
     }
 }
