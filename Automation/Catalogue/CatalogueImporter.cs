@@ -26,21 +26,21 @@ public sealed class CatalogueImporter
         var previous = store_.LatestImport(source_.Name);
         var importId = CataloguePlan.IsResumable(previous) ? previous!.ImportId : store_.BeginImport(source_.Name);
 
-        return await GuardedRunAsync(importId, CataloguePlan.StartPage(previous), cancellationToken);
+        return await GuardedRunAsync(importId, CataloguePlan.StartPage(previous), previous?.Tag, cancellationToken);
     }
 
-    private async Task<CatalogueImportResult> GuardedRunAsync(long importId, int startPage,
+    private async Task<CatalogueImportResult> GuardedRunAsync(long importId, int startPage, string? tag,
         CancellationToken cancellationToken)
     {
         CatalogueImportResult result;
 
         try
         {
-            result = await FetchPagesAsync(importId, startPage, cancellationToken);
+            result = await FetchPagesAsync(importId, startPage, tag, cancellationToken);
         }
         catch (CatalogueException)
         {
-            store_.FinishImport(importId, CataloguePlan.OUTCOME_FAILED);
+            store_.FinishImport(importId, CataloguePlan.OUTCOME_FAILED, tag);
 
             throw;
         }
@@ -48,43 +48,50 @@ public sealed class CatalogueImporter
         return result;
     }
 
-    private async Task<CatalogueImportResult> FetchPagesAsync(long importId, int startPage,
+    private async Task<CatalogueImportResult> FetchPagesAsync(long importId, int startPage, string? tag,
         CancellationToken cancellationToken)
     {
         var page = startPage;
-        var pagesFetched = 0;
-        var playersSaved = 0;
-        var moreToFetch = true;
+        var progress = CataloguePlan.Start();
+        var fetching = true;
 
-        while (moreToFetch && CataloguePlan.WithinPageLimit(pagesFetched, settings_.MaxPages))
+        while (fetching)
         {
-            await delay_(CataloguePlan.DelayMs(pagesFetched, settings_.PageDelayMs), cancellationToken);
-            var fetched = await ImportPageAsync(importId, page, cancellationToken);
-            pagesFetched += 1;
-            playersSaved += fetched.Players.Count;
-            moreToFetch = CataloguePlan.HasMorePages(page, fetched.PageTotal);
+            await delay_(CataloguePlan.DelayMs(progress.PagesFetched, settings_.PageDelayMs), cancellationToken);
+            var fetched = await ImportPageAsync(importId, page, tag, cancellationToken);
+            progress = CataloguePlan.Advance(progress, page, fetched);
+            fetching = CataloguePlan.ShouldFetchMore(progress, settings_.MaxPages);
             page += 1;
         }
 
-        return Close(importId, pagesFetched, playersSaved, moreToFetch);
+        return Close(importId, progress);
     }
 
-    private async Task<CataloguePage> ImportPageAsync(long importId, int page, CancellationToken cancellationToken)
+    private async Task<CataloguePage> ImportPageAsync(long importId, int page, string? tag,
+        CancellationToken cancellationToken)
     {
-        var fetched = await source_.FetchPageAsync(page, cancellationToken);
-        store_.SavePlayers(source_.Name, fetched.Players);
-        store_.RecordProgress(importId, page, fetched.PageTotal, fetched.Players.Count);
+        var fetched = await source_.FetchPageAsync(page, tag, cancellationToken);
+        SavePage(importId, page, fetched);
 
         return fetched;
     }
 
-    private CatalogueImportResult Close(long importId, int pagesFetched, int playersSaved, bool moreToFetch)
+    private void SavePage(long importId, int page, CataloguePage fetched)
     {
-        var outcome = moreToFetch ? CataloguePlan.OUTCOME_RUNNING : CataloguePlan.OUTCOME_COMPLETE;
+        if (!fetched.Unchanged)
+        {
+            store_.SavePlayers(source_.Name, fetched.Players);
+            store_.RecordProgress(importId, page, fetched.PageTotal, fetched.Players.Count);
+        }
+    }
 
-        if (!moreToFetch) store_.FinishImport(importId, outcome);
+    private CatalogueImportResult Close(long importId, FetchProgress progress)
+    {
+        var outcome = CataloguePlan.Outcome(progress);
 
-        return new CatalogueImportResult(importId, pagesFetched, playersSaved, outcome);
+        if (progress.ReachedEnd) store_.FinishImport(importId, outcome, progress.Tag);
+
+        return new CatalogueImportResult(importId, progress.PagesFetched, progress.PlayersSaved, outcome);
     }
 
     private static Task Wait(int delayMs, CancellationToken cancellationToken)

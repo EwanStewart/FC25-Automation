@@ -84,7 +84,7 @@ public class CatalogueSourceTests
         using HttpClient client = new(transport);
         FutDbPlayerSource source = new(client, "abc123");
 
-        var page = await source.FetchPageAsync(1, CancellationToken.None);
+        var page = await source.FetchPageAsync(1, null, CancellationToken.None);
 
         Assert.Equal(FutDbPlayerSource.SOURCE_NAME, source.Name);
         Assert.Equal(3, page.Players.Count);
@@ -100,7 +100,7 @@ public class CatalogueSourceTests
         FutDbPlayerSource source = new(client, "abc123");
 
         var error = await Assert.ThrowsAsync<CatalogueRequestException>(() =>
-            source.FetchPageAsync(1, CancellationToken.None));
+            source.FetchPageAsync(1, null, CancellationToken.None));
 
         Assert.Contains("2026-09-20T06:00:54+00:00", error.Message);
     }

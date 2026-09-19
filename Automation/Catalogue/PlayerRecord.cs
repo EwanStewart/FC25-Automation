@@ -14,4 +14,10 @@ public sealed record PlayerRecord(
     long? NationId,
     long? RarityId);
 
-public sealed record CataloguePage(int PageCurrent, int PageTotal, int CountTotal, IReadOnlyList<PlayerRecord> Players);
+public sealed record CataloguePage(
+    int PageCurrent,
+    int PageTotal,
+    int CountTotal,
+    IReadOnlyList<PlayerRecord> Players,
+    string? Tag = null,
+    bool Unchanged = false);

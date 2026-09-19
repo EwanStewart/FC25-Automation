@@ -14,7 +14,7 @@ public sealed class FutDbPlayerSource : IPlayerSource
 
     public string Name => SOURCE_NAME;
 
-    public async Task<CataloguePage> FetchPageAsync(int page, CancellationToken cancellationToken)
+    public async Task<CataloguePage> FetchPageAsync(int page, string? tag, CancellationToken cancellationToken)
     {
         var body = await ReadPageAsync(page, cancellationToken);
 

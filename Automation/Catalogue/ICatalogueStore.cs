@@ -10,5 +10,5 @@ public interface ICatalogueStore
 
     void RecordProgress(long importId, int page, int pageTotal, int itemCount);
 
-    void FinishImport(long importId, string outcome);
+    void FinishImport(long importId, string outcome, string? tag);
 }

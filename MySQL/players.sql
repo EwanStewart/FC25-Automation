@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS CatalogueImports (
     last_page INT NOT NULL DEFAULT 0,
     page_total INT NULL,
     outcome VARCHAR(16) NOT NULL DEFAULT 'running',
+    content_tag VARCHAR(128) NULL,
     started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     finished_at TIMESTAMP NULL,
     INDEX idx_catalogue_imports_source (source, id),

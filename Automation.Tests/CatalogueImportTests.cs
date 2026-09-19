@@ -13,7 +13,7 @@ public class CataloguePlanTests
     [Fact]
     public void AnInterruptedRunCarriesOnAfterItsLastFinishedPage()
     {
-        ImportProgress progress = new(7, 12, CataloguePlan.OUTCOME_RUNNING);
+        ImportProgress progress = new(7, 12, CataloguePlan.OUTCOME_RUNNING, null);
 
         Assert.True(CataloguePlan.IsResumable(progress));
         Assert.Equal(13, CataloguePlan.StartPage(progress));
@@ -22,7 +22,7 @@ public class CataloguePlanTests
     [Fact]
     public void AFailedRunIsAlsoResumed()
     {
-        ImportProgress progress = new(7, 12, CataloguePlan.OUTCOME_FAILED);
+        ImportProgress progress = new(7, 12, CataloguePlan.OUTCOME_FAILED, null);
 
         Assert.Equal(13, CataloguePlan.StartPage(progress));
     }
@@ -30,10 +30,72 @@ public class CataloguePlanTests
     [Fact]
     public void AFinishedRunStartsOverSoTheCatalogueRefreshes()
     {
-        ImportProgress progress = new(7, 400, CataloguePlan.OUTCOME_COMPLETE);
+        ImportProgress progress = new(7, 400, CataloguePlan.OUTCOME_COMPLETE, null);
 
         Assert.False(CataloguePlan.IsResumable(progress));
         Assert.Equal(1, CataloguePlan.StartPage(progress));
+    }
+
+    [Fact]
+    public void ARunThatFoundNoChangeIsNotResumed()
+    {
+        ImportProgress progress = new(7, 1, CataloguePlan.OUTCOME_UNCHANGED, null);
+
+        Assert.False(CataloguePlan.IsResumable(progress));
+        Assert.Equal(1, CataloguePlan.StartPage(progress));
+    }
+
+    [Fact]
+    public void AFetchedPageAddsItsPlayersAndItsTag()
+    {
+        var advanced = CataloguePlan.Advance(CataloguePlan.Start(), 1, Page(2, 2, "Mon, 14 Sep 2026 23:18:58 GMT"));
+
+        Assert.Equal(1, advanced.PagesFetched);
+        Assert.Equal(2, advanced.PlayersSaved);
+        Assert.Equal("Mon, 14 Sep 2026 23:18:58 GMT", advanced.Tag);
+        Assert.False(advanced.Unchanged);
+        Assert.False(advanced.ReachedEnd);
+    }
+
+    [Fact]
+    public void TheLastPageReachesTheEnd()
+    {
+        var advanced = CataloguePlan.Advance(CataloguePlan.Start(), 2, Page(2, 2, null));
+
+        Assert.True(advanced.ReachedEnd);
+        Assert.Equal(CataloguePlan.OUTCOME_COMPLETE, CataloguePlan.Outcome(advanced));
+    }
+
+    [Fact]
+    public void AnUnchangedFetchCountsNoPageAndEndsTheRun()
+    {
+        var advanced = CataloguePlan.Advance(CataloguePlan.Start(), 1, CataloguePlan.UnchangedPage("tag"));
+
+        Assert.Equal(0, advanced.PagesFetched);
+        Assert.Equal(0, advanced.PlayersSaved);
+        Assert.True(advanced.Unchanged);
+        Assert.True(advanced.ReachedEnd);
+        Assert.Equal("tag", advanced.Tag);
+        Assert.Equal(CataloguePlan.OUTCOME_UNCHANGED, CataloguePlan.Outcome(advanced));
+    }
+
+    [Fact]
+    public void ARunStoppedByThePageLimitIsStillRunning()
+    {
+        var advanced = CataloguePlan.Advance(CataloguePlan.Start(), 1, Page(9, 2, null));
+
+        Assert.False(CataloguePlan.ShouldFetchMore(advanced, 1));
+        Assert.True(CataloguePlan.ShouldFetchMore(advanced, 0));
+        Assert.Equal(CataloguePlan.OUTCOME_RUNNING, CataloguePlan.Outcome(advanced));
+    }
+
+    private static CataloguePage Page(int pageTotal, int players, string? tag)
+    {
+        return new CataloguePage(1, pageTotal, players,
+            Enumerable.Range(1, players)
+                .Select(index => new PlayerRecord(index, null, null, "Player", null, null, null, [], null, null, null,
+                    null))
+                .ToList(), tag);
     }
 
     [Fact]
@@ -88,13 +150,14 @@ public class CatalogueImporterTests
         Assert.Equal(1, store.ImportsOpened);
         Assert.Equal(result.ImportId, store.FinishedId);
         Assert.Equal(CataloguePlan.OUTCOME_COMPLETE, store.FinishedOutcome);
+        Assert.Equal("page-two-tag", store.FinishedTag);
         Assert.Equal([(1, 2, 2), (2, 2, 1)], store.Progress);
     }
 
     [Fact]
     public async Task AnInterruptedRunResumesRatherThanStartingAgain()
     {
-        StubStore store = new() { Latest = new ImportProgress(42, 1, CataloguePlan.OUTCOME_RUNNING) };
+        StubStore store = new() { Latest = new ImportProgress(42, 1, CataloguePlan.OUTCOME_RUNNING, null) };
         StubSource source = new(TwoPages());
 
         var result = await Importer(source, store).RunAsync(CancellationToken.None);
@@ -133,6 +196,21 @@ public class CatalogueImporterTests
     }
 
     [Fact]
+    public async Task AnUnchangedSourceSavesNothingAndSaysSo()
+    {
+        StubStore store = new() { Latest = new ImportProgress(42, 1, CataloguePlan.OUTCOME_COMPLETE, "old-tag") };
+        StubSource source = new(TwoPages()) { UnchangedFor = "old-tag" };
+
+        var result = await Importer(source, store).RunAsync(CancellationToken.None);
+
+        Assert.Equal("old-tag", source.SeenTag);
+        Assert.Empty(store.Saved);
+        Assert.Empty(store.Progress);
+        Assert.Equal(CataloguePlan.OUTCOME_UNCHANGED, result.Outcome);
+        Assert.Equal(CataloguePlan.OUTCOME_UNCHANGED, store.FinishedOutcome);
+    }
+
+    [Fact]
     public async Task ThePagesAreSpacedByTheConfiguredDelay()
     {
         List<int> delays = [];
@@ -164,8 +242,8 @@ public class CatalogueImporterTests
     {
         return
         [
-            new CataloguePage(1, 2, 3, [Player(1001), Player(1002)]),
-            new CataloguePage(2, 2, 3, [Player(1003)])
+            new CataloguePage(1, 2, 3, [Player(1001), Player(1002)], "page-one-tag"),
+            new CataloguePage(2, 2, 3, [Player(1003)], "page-two-tag")
         ];
     }
 
@@ -179,16 +257,21 @@ public class CatalogueImporterTests
     {
         public List<int> RequestedPages { get; } = [];
         public int FailOnPage { get; init; }
+        public string? UnchangedFor { get; init; }
+        public string? SeenTag { get; private set; }
 
         public string Name => "stub";
 
-        public Task<CataloguePage> FetchPageAsync(int page, CancellationToken cancellationToken)
+        public Task<CataloguePage> FetchPageAsync(int page, string? tag, CancellationToken cancellationToken)
         {
             RequestedPages.Add(page);
+            SeenTag = tag;
 
-            if (page == FailOnPage) throw new CatalogueRequestException("FutDB answered 429: slow down");
+            if (page == FailOnPage) throw new CatalogueRequestException("FUT-DB answered 429: slow down");
 
-            return Task.FromResult(pages[page - 1]);
+            return Task.FromResult(tag != null && tag == UnchangedFor
+                ? CataloguePlan.UnchangedPage(tag)
+                : pages[page - 1]);
         }
     }
 
@@ -200,6 +283,7 @@ public class CatalogueImporterTests
         public int ImportsOpened { get; private set; }
         public long FinishedId { get; private set; }
         public string FinishedOutcome { get; private set; } = CataloguePlan.OUTCOME_RUNNING;
+        public string? FinishedTag { get; private set; }
 
         public ImportProgress? LatestImport(string source)
         {
@@ -223,10 +307,11 @@ public class CatalogueImporterTests
             Progress.Add((page, pageTotal, itemCount));
         }
 
-        public void FinishImport(long importId, string outcome)
+        public void FinishImport(long importId, string outcome, string? tag)
         {
             FinishedId = importId;
             FinishedOutcome = outcome;
+            FinishedTag = tag;
         }
     }
 }

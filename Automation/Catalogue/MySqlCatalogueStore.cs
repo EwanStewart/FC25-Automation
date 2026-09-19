@@ -12,7 +12,7 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
         "ON DUPLICATE KEY UPDATE asset_id = incoming.asset_id, resource_id = incoming.resource_id, name = incoming.name, common_name = incoming.common_name, rating = incoming.rating, preferred_position = incoming.preferred_position, alternate_positions = incoming.alternate_positions, club_id = incoming.club_id, league_id = incoming.league_id, nation_id = incoming.nation_id, rarity_id = incoming.rarity_id, last_updated = CURRENT_TIMESTAMP";
 
     private const string SELECT_LATEST_IMPORT =
-        "SELECT id, last_page, outcome FROM CatalogueImports WHERE source = @source ORDER BY id DESC LIMIT 1";
+        "SELECT id, last_page, outcome, content_tag FROM CatalogueImports WHERE source = @source ORDER BY id DESC LIMIT 1";
 
     private const string INSERT_IMPORT = "INSERT INTO CatalogueImports (source) VALUES (@source)";
 
@@ -20,7 +20,7 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
         "UPDATE CatalogueImports SET last_page = @page, page_total = @pageTotal, item_count = item_count + @itemCount WHERE id = @id";
 
     private const string FINISH_IMPORT =
-        "UPDATE CatalogueImports SET outcome = @outcome, finished_at = NOW() WHERE id = @id";
+        "UPDATE CatalogueImports SET outcome = @outcome, content_tag = @tag, finished_at = NOW() WHERE id = @id";
 
     private readonly string connectionString_;
 
@@ -41,7 +41,7 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
         command.Parameters.AddWithValue("@source", source);
 
         using var reader = command.ExecuteReader();
-        if (reader.Read()) result = new ImportProgress(reader.GetInt64(0), reader.GetInt32(1), reader.GetString(2));
+        if (reader.Read()) result = ReadProgress(reader);
 
         return result;
     }
@@ -77,13 +77,20 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
         command.ExecuteNonQuery();
     }
 
-    public void FinishImport(long importId, string outcome)
+    public void FinishImport(long importId, string outcome, string? tag)
     {
         using var connection = Open();
         using MySqlCommand command = new(FINISH_IMPORT, connection);
         command.Parameters.AddWithValue("@outcome", outcome);
+        command.Parameters.AddWithValue("@tag", Value(tag));
         command.Parameters.AddWithValue("@id", importId);
         command.ExecuteNonQuery();
+    }
+
+    private static ImportProgress ReadProgress(MySqlDataReader reader)
+    {
+        return new ImportProgress(reader.GetInt64(0), reader.GetInt32(1), reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3));
     }
 
     private static void SavePlayer(MySqlConnection connection, MySqlTransaction transaction, string source,
