@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model ApprovalsModel
 @{
     ViewData["Title"] = "Approvals";
@@ -7,6 +7,21 @@
 <h1>Recorded approvals</h1>
 
 <p>An approval records intent for a later phase. Nothing has been bid, bought, listed or submitted.</p>
+
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <p class="estimate">@Model.Message</p>
+}
+
+<form method="post" class="fulfil">
+    <button type="submit" name="live" value="false">Fulfil approvals (dry run)</button>
+    <label>
+        <input type="checkbox" name="confirm" value="LIVE" />
+        I understand a live run bids real coins
+    </label>
+    <button type="submit" name="live" value="true">Fulfil approvals (live)</button>
+</form>
 
 <table>
     <thead>

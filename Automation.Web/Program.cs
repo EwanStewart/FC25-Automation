@@ -1,4 +1,4 @@
-using Automation.Sbc;
+﻿using Automation.Sbc;
 using Automation.Sbc.Fulfilment;
 using Automation.Web.Services;
 
@@ -9,6 +9,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddSingleton<SbcStore>();
 builder.Services.AddSingleton<MySqlFulfilmentStore>();
 builder.Services.AddSingleton<DraftService>();
+builder.Services.AddSingleton<FulfilmentLauncher>();
 
 var app = builder.Build();
 
