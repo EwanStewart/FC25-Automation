@@ -30,6 +30,15 @@ public class GapSnipePlanTests
     }
 
     [Fact]
+    public void ACardStillMinutesFromEndingIsWatchedAndWaitedOut()
+    {
+        IReadOnlyList<AuctionListing> listings = [Ending("soon", 300, 500)];
+
+        Assert.Equal(["soon"], GapSnipePlan.Shortlist(Specification(), listings, 900)
+            .Select(listing => listing.TradeId));
+    }
+
+    [Fact]
     public void ACardPricedOverTheCeilingIsNeverWatched()
     {
         IReadOnlyList<AuctionListing> listings = [Ending("cheap", 300, 100), Ending("dear", 2000, 100)];

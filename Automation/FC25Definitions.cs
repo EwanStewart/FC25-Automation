@@ -229,20 +229,20 @@ public static class Fc25Definitions
         },
         {
             ElementKeys.BUY_CONFIRM_TITLE,
-            ("section.ea-dialog-view h1.ea-dialog-view--title", "Buy Now Confirmation Title")
+            ("section.ea-dialog-view-type--message h1.ea-dialog-view--title", "Buy Now Confirmation Title")
         },
         {
             ElementKeys.BUY_CONFIRM_MESSAGE,
-            ("section.ea-dialog-view p.ea-dialog-view--msg", "Buy Now Confirmation Message")
+            ("section.ea-dialog-view-type--message p.ea-dialog-view--msg", "Buy Now Confirmation Message")
         },
         {
             ElementKeys.BUY_CONFIRM,
-            ("//section[contains(@class, 'ea-dialog-view')]//div[contains(@class, 'ut-st-button-group')]/button[normalize-space(.)='Ok']",
+            ("//section[contains(@class, 'ea-dialog-view-type--message')]//div[contains(@class, 'ut-st-button-group')]/button[normalize-space(.)='Ok']",
                 "Buy Now Confirmation Ok")
         },
         {
             ElementKeys.BUY_CANCEL,
-            ("//section[contains(@class, 'ea-dialog-view')]//div[contains(@class, 'ut-st-button-group')]/button[normalize-space(.)='Cancel']",
+            ("//section[contains(@class, 'ea-dialog-view-type--message')]//div[contains(@class, 'ut-st-button-group')]/button[normalize-space(.)='Cancel']",
                 "Buy Now Confirmation Cancel")
         },
         { ElementKeys.WATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Watch']", "Watch") },

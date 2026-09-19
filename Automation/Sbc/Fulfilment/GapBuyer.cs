@@ -9,7 +9,7 @@ public sealed class GapBuyer
     private const string CEILING_DETAIL = "the run ceiling leaves too little to buy another card";
     private const string UNWATCHED_DETAIL = "no card on the page could be watched";
     private const int POLL_MS = 1000;
-    private const int MAX_POLLS = 240;
+    private const int MAX_POLLS = GapSnipePlan.WATCH_MAX_SECONDS + 60;
     private const int CLAIM_POLLS = 20;
 
     private readonly IMarketAgent market_;

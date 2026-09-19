@@ -6,7 +6,7 @@ public sealed record SnipeTarget(TradeState Trade, uint Amount);
 
 public static class GapSnipePlan
 {
-    public const int WATCH_MAX_SECONDS = 180;
+    public const int WATCH_MAX_SECONDS = 600;
     public const int BID_AIM_SECONDS = 15;
     public const int BATCH_SIZE = 15;
 
