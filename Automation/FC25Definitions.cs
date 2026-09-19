@@ -88,7 +88,9 @@ public static class Fc25Definitions
         RESULTS_NEXT,
         BOUGHT_FOR_VALUE,
         CLUB_TAB,
-        CLUB_PLAYERS_TILE
+        CLUB_PLAYERS_TILE,
+        SBC_TAB,
+        SBC_SET_TILES
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
@@ -284,6 +286,8 @@ public static class Fc25Definitions
                 "Bought For Value")
         },
         { ElementKeys.CLUB_TAB, ("nav.ut-tab-bar button.icon-club", "Club Tab") },
-        { ElementKeys.CLUB_PLAYERS_TILE, ("div.tile.players-tile", "Club Players Tile") }
+        { ElementKeys.CLUB_PLAYERS_TILE, ("div.tile.players-tile", "Club Players Tile") },
+        { ElementKeys.SBC_TAB, ("nav.ut-tab-bar button.icon-sbc", "SBC Tab") },
+        { ElementKeys.SBC_SET_TILES, ("div.ut-sbc-set-tile-view", "SBC Set Tiles") }
     };
 }

@@ -1,0 +1,36 @@
+{
+ "challenges": [
+  {
+   "name": "Bronze Upgrade",
+   "priority": 1,
+   "status": "NOT_STARTED",
+   "setId": 4,
+   "description": "Exchange Bronze items for rewards.",
+   "challengeId": 16,
+   "endTime": 281440004,
+   "repeatable": true,
+   "formation": "f41212",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "PLAYER_QUALITY",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 3,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    }
+   ],
+   "elgDesc": [],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "300000-11f49783-bf31",
+   "contentId": 22552
+  }
+ ]
+}

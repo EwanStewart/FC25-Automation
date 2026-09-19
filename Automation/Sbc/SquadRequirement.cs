@@ -52,7 +52,8 @@ public sealed record SquadRequirement(
     RequirementComparison Comparison,
     int Value,
     IReadOnlyList<PlayerFilter> Filters,
-    string Description);
+    string Description,
+    string Subject = "");
 
 public sealed record ChallengeRequirements(
     int ChallengeId,

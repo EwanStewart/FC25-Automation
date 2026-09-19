@@ -1,0 +1,301 @@
+{
+ "challenges": [
+  {
+   "name": "3 Leagues & 2 Nations",
+   "priority": 1,
+   "status": "NOT_STARTED",
+   "setId": 10,
+   "description": "Exchange a squad with three leagues and two nations.",
+   "challengeId": 25,
+   "endTime": 282390378,
+   "repeatable": false,
+   "formation": "f343",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "LEAGUE_COUNT",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 8,
+     "eligibilityValue": 3
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "NATION_COUNT",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 7,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "SAME_LEAGUE_COUNT",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 5,
+     "eligibilityValue": 6
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "SAME_NATION_COUNT",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 4,
+     "eligibilityValue": 6
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "PLAYER_QUALITY",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 3,
+     "eligibilityValue": 3
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "CHEMISTRY_POINTS",
+     "eligibilitySlot": 6,
+     "eligibilityKey": 35,
+     "eligibilityValue": 30
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 6,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    }
+   ],
+   "elgDesc": [],
+   "awards": [
+    {
+     "value": 519,
+     "type": "pack",
+     "halId": 4,
+     "count": 1,
+     "isUntradeable": true,
+     "loan": 0,
+     "loanType": "NONE"
+    }
+   ],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "330112-12404bb1-08fe",
+   "contentId": 22567
+  },
+  {
+   "name": "4 Leagues & 5 Nations",
+   "priority": 2,
+   "status": "NOT_STARTED",
+   "setId": 10,
+   "description": "Exchange a squad with four leagues and five nations.",
+   "challengeId": 26,
+   "endTime": 282390378,
+   "repeatable": false,
+   "formation": "f4141",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "LEAGUE_COUNT",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 8,
+     "eligibilityValue": 4
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "NATION_COUNT",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 7,
+     "eligibilityValue": 5
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "SAME_LEAGUE_COUNT",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 5,
+     "eligibilityValue": 4
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "SAME_NATION_COUNT",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 4,
+     "eligibilityValue": 3
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "TEAM_RATING_1_TO_100",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 19,
+     "eligibilityValue": 78
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "CHEMISTRY_POINTS",
+     "eligibilitySlot": 6,
+     "eligibilityKey": 35,
+     "eligibilityValue": 25
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 6,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    }
+   ],
+   "elgDesc": [],
+   "awards": [
+    {
+     "value": 515,
+     "type": "pack",
+     "halId": 4,
+     "count": 1,
+     "isUntradeable": true,
+     "loan": 0,
+     "loanType": "NONE"
+    }
+   ],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "330113-0bb0c393-e1cc",
+   "contentId": 22568
+  },
+  {
+   "name": "5 Leagues & 6 Nations",
+   "priority": 3,
+   "status": "NOT_STARTED",
+   "setId": 10,
+   "description": "Exchange a squad with five leagues and six nations.",
+   "challengeId": 27,
+   "endTime": 282390378,
+   "repeatable": false,
+   "formation": "f3142",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "LEAGUE_COUNT",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 8,
+     "eligibilityValue": 5
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "NATION_COUNT",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 7,
+     "eligibilityValue": 6
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "SAME_CLUB_COUNT",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 6,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "TEAM_RATING_1_TO_100",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 19,
+     "eligibilityValue": 81
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "CHEMISTRY_POINTS",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 35,
+     "eligibilityValue": 25
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    }
+   ],
+   "elgDesc": [],
+   "awards": [
+    {
+     "value": 314,
+     "type": "pack",
+     "halId": 3,
+     "count": 1,
+     "isUntradeable": true,
+     "loan": 0,
+     "loanType": "NONE"
+    }
+   ],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "330115-0509501a-febc",
+   "contentId": 22569
+  }
+ ]
+}

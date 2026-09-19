@@ -182,7 +182,7 @@ public static class RequirementParser
     private static SquadRequirement Unsupported(EligibilityEntry entry)
     {
         return new SquadRequirement(RequirementKind.Unsupported, RequirementComparison.Minimum, entry.Value, [],
-            $"Unsupported requirement {entry.Type} (eligibility key {entry.Key}, value {entry.Value})");
+            $"Unsupported requirement {entry.Type} (eligibility key {entry.Key}, value {entry.Value})", entry.Type);
     }
 
     private static SquadRequirement SquadLevel(EligibilityEntry entry, RequirementComparison comparison)
