@@ -86,7 +86,9 @@ public static class Fc25Definitions
         UNSUPPORTED_BROWSER,
         COMPARE_PRICE_NEXT,
         RESULTS_NEXT,
-        BOUGHT_FOR_VALUE
+        BOUGHT_FOR_VALUE,
+        CLUB_TAB,
+        CLUB_PLAYERS_TILE
     }
 
     public static Dictionary<ElementKeys, (string, string)> Elements = new()
@@ -280,6 +282,8 @@ public static class Fc25Definitions
             ElementKeys.BOUGHT_FOR_VALUE,
             ("//section[contains(@class, 'ui-layout-right')]//span[contains(text(), 'Bought For')]/following-sibling::span",
                 "Bought For Value")
-        }
+        },
+        { ElementKeys.CLUB_TAB, ("nav.ut-tab-bar button.icon-club", "Club Tab") },
+        { ElementKeys.CLUB_PLAYERS_TILE, ("div.tile.players-tile", "Club Players Tile") }
     };
 }
