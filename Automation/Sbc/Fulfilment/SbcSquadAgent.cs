@@ -188,6 +188,7 @@ public sealed class SbcSquadAgent : ISquadAgent
         if (!host) return '';
         const button = host.querySelector('button.ut-navigation-button-control');
         if (!button || button.disabled) return '';
+        if ((button.textContent || '').trim().length > 0) return '';
         button.scrollIntoView({block: 'center'});
         const rect = button.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return '';
@@ -216,6 +217,7 @@ public sealed class SbcSquadAgent : ISquadAgent
         if (!control) return '';
         const button = control.querySelector('button.ut-search-filter-control--row-button');
         if (!button || button.disabled) return '';
+        if ((button.textContent || '').trim().length > 0) return '';
         button.scrollIntoView({block: 'center'});
         const rect = button.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return '';
