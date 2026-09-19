@@ -1,4 +1,4 @@
-using Automation.Sbc;
+﻿using Automation.Sbc;
 using Automation.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -25,6 +25,14 @@ public class ApprovalsModel : PageModel
     public void OnGet()
     {
         Approvals = drafts_.Approvals();
+    }
+
+    public IActionResult OnPostRemove(int approvalId)
+    {
+        drafts_.RemoveApproval(approvalId);
+        Message = $"Approval {approvalId} removed.";
+
+        return RedirectToPage();
     }
 
     public IActionResult OnPost(bool live, string? confirm)

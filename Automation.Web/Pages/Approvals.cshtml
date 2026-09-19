@@ -34,6 +34,7 @@
         <th>To buy</th>
         <th>Estimated cost</th>
         <th>State</th>
+        <th></th>
     </tr>
     </thead>
     <tbody>
@@ -48,6 +49,12 @@
             <td>@approval.PurchaseCount</td>
             <td>@approval.EstimatedCost.ToString("N0")</td>
             <td>@approval.State</td>
+            <td>
+                <form method="post" asp-page-handler="Remove">
+                    <input type="hidden" name="approvalId" value="@approval.Id" />
+                    <button type="submit">Remove</button>
+                </form>
+            </td>
         </tr>
     }
     </tbody>

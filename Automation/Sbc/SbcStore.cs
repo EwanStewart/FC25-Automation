@@ -1,4 +1,4 @@
-using Automation.Sbc.Fulfilment;
+﻿using Automation.Sbc.Fulfilment;
 using MySql.Data.MySqlClient;
 
 namespace Automation.Sbc;
@@ -207,6 +207,19 @@ public sealed class SbcStore
         return Read(query, new Dictionary<string, object> { ["@challenge"] = challengeId },
             reader => new ChallengeRoute(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)))
             .FirstOrDefault();
+    }
+
+    public void RemoveApproval(int approvalId)
+    {
+        Dictionary<string, object> parameters = new() { ["@approval"] = approvalId };
+
+        Execute("DELETE p FROM SbcFulfilmentPlacements p JOIN SbcFulfilments f ON f.id = p.fulfilment_id "
+            + "WHERE f.approval_id = @approval", parameters);
+        Execute("DELETE g FROM SbcFulfilmentGaps g JOIN SbcFulfilments f ON f.id = g.fulfilment_id "
+            + "WHERE f.approval_id = @approval", parameters);
+        Execute("DELETE FROM SbcFulfilments WHERE approval_id = @approval", parameters);
+        Execute("DELETE FROM SbcApprovalSlots WHERE approval_id = @approval", parameters);
+        Execute("DELETE FROM SbcApprovals WHERE id = @approval", parameters);
     }
 
     private List<T> Read<T>(string query, Dictionary<string, object> parameters, Func<MySqlDataReader, T> map)

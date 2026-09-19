@@ -1,4 +1,4 @@
-using Automation.Sbc;
+﻿using Automation.Sbc;
 using Automation.Sbc.Fulfilment;
 
 namespace Automation.Web.Services;
@@ -35,6 +35,11 @@ public sealed class DraftService
             drafted.Squad.EstimatedCost, FulfilmentGaps.From(drafted.Squad));
 
         return approvalId;
+    }
+
+    public void RemoveApproval(int approvalId)
+    {
+        store_.RemoveApproval(approvalId);
     }
 
     public IReadOnlyList<ApprovalRecord> Approvals()
