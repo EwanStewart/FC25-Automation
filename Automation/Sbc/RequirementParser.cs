@@ -173,7 +173,7 @@ public static class RequirementParser
             EligibilityKey.TEAM_RATING => RequirementKind.SquadRating,
             EligibilityKey.TEAM_STAR_RATING => RequirementKind.StarRating,
             EligibilityKey.ALL_PLAYERS_CHEMISTRY_POINTS => RequirementKind.TotalChemistry,
-            EligibilityKey.CHEMISTRY_POINTS => RequirementKind.PlayerChemistry,
+            EligibilityKey.CHEMISTRY_POINTS => RequirementKind.TotalChemistry,
             EligibilityKey.NATION_COUNT => RequirementKind.DistinctNations,
             EligibilityKey.LEAGUE_COUNT => RequirementKind.DistinctLeagues,
             EligibilityKey.CLUB_COUNT => RequirementKind.DistinctClubs,

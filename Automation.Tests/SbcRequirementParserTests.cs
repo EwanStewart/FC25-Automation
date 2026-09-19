@@ -175,6 +175,18 @@ public class SbcRequirementParserTests
     }
 
     [Fact]
+    public void AChemistryPointsSlotIsTheSquadTotal()
+    {
+        var challenge = RequirementParser.Parse(RAW_POWER).Single();
+        var chemistry = challenge.Requirements.Single(requirement =>
+            requirement.Kind is RequirementKind.TotalChemistry or RequirementKind.PlayerChemistry);
+
+        Assert.Equal(RequirementKind.TotalChemistry, chemistry.Kind);
+        Assert.Equal(10, chemistry.Value);
+        Assert.Equal("Total Chemistry: Min. 10", chemistry.Description);
+    }
+
+    [Fact]
     public void CelticVRangersDecodesSlotForSlot()
     {
         var challenge = RequirementParser.Parse(CELTIC_V_RANGERS).Single();
@@ -182,7 +194,7 @@ public class SbcRequirementParserTests
         Assert.True(challenge.IsFullyUnderstood);
         Assert.Equal([
             "Nation 42: Min. 1 Players", "Clubs in Squad: Min. 2", "Silver: Min. 1 Players",
-            "Player Quality: Min. Bronze", "Chemistry Points per Player: Min. 14"
+            "Player Quality: Min. Bronze", "Total Chemistry: Min. 14"
         ], challenge.Requirements.Select(requirement => requirement.Description));
     }
 
