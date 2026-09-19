@@ -38,7 +38,7 @@ public sealed record RowSnapshot(
 {
     public string Key => ItemKey.Build(Name, Description, ItemClasses, Rating, Position);
 
-    public string AuctionKey => TrustedModel?.TradeId ?? Key;
+    public string AuctionKey => TrustedModel?.TradeId ?? $"{Key} @{Start}";
 
     public uint? MinutesLeft => Pricing.ParseMinutesRemaining(Time);
 

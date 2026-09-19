@@ -62,8 +62,8 @@ public class RowSnapshotTests
         var rows = Rows();
 
         Assert.Equal("123", rows[0].AuctionKey);
-        Assert.Equal("Rapid Wien Badge", rows[1].AuctionKey);
-        Assert.Equal("Marseiler 70 LM", rows[2].AuctionKey);
+        Assert.Equal("Rapid Wien Badge @350", rows[1].AuctionKey);
+        Assert.Equal("Marseiler 70 LM @300", rows[2].AuctionKey);
         Assert.NotEqual(rows[0].Key, rows[0].AuctionKey);
     }
 
