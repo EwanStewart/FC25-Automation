@@ -140,7 +140,7 @@ public class Fc25 : IDisposable
             _screen.IsVisible(ElementKeys.INITIAL_LOGIN),
             _screen.IsVisible(ElementKeys.UNSUPPORTED_BROWSER),
             _screen.IsShieldShowing(),
-            _screen.IsVisible(ElementKeys.RECOGNISED_DEVICE),
+            _screen.IsVisible(ElementKeys.ANOTHER_METHOD),
             _screen.IsVisible(ElementKeys.SEND_CODE),
             _screen.IsVisible(ElementKeys.VERIFICATION_INPUT));
     }
@@ -161,9 +161,8 @@ public class Fc25 : IDisposable
             case LoginStep.Continue:
                 _screen.TryClick(ElementKeys.CONTINUE, ShortWait);
                 break;
-            case LoginStep.ContinueOnRecognisedDevice:
-                _screen.TryClick(ElementKeys.RECOGNISED_DEVICE, ShortWait);
-                _loginProgress = _loginProgress with { RecognisedDeviceTried = true };
+            case LoginStep.UseAnotherMethod:
+                _screen.TryClick(ElementKeys.ANOTHER_METHOD, ShortWait);
                 break;
             case LoginStep.SendCode:
                 RequestVerificationCode();
@@ -199,9 +198,17 @@ public class Fc25 : IDisposable
         {
             input.Clear();
             input.SendKeys(code);
-            input.SendKeys(Keys.Enter);
+            TrustThisDevice();
+            _screen.Click(ElementKeys.VERIFY_SUBMIT, StandardWait);
             Console.WriteLine("Entered the EA verification code.");
         }
+    }
+
+    private void TrustThisDevice()
+    {
+        var checkbox = _screen.WaitVisible(ElementKeys.TRUST_DEVICE, ShortWait);
+
+        if (checkbox is { Selected: false }) checkbox.Click();
     }
 
     private void SubmitCredential(ElementKeys inputKey, string secretName)

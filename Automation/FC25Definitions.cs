@@ -22,9 +22,11 @@ public static class Fc25Definitions
         SECOND_LOGIN,
         PASSWORD_INPUT,
         EMAIL_INPUT,
-        RECOGNISED_DEVICE,
+        ANOTHER_METHOD,
         SEND_CODE,
         VERIFICATION_INPUT,
+        TRUST_DEVICE,
+        VERIFY_SUBMIT,
         LEFT_HAND_PANE_TRANSFERS,
         TRANSFER_TARGETS,
         CLEAR_NOT_WON_TRANSFER_TARGETS,
@@ -96,12 +98,11 @@ public static class Fc25Definitions
         { ElementKeys.PASSWORD_INPUT, ("#password", "Password Input") },
         { ElementKeys.EMAIL_INPUT, ("#email", "Email Input") },
         { ElementKeys.SECOND_LOGIN, ("//*[@id=\"logInBtn\"]", "Second Login Button") },
-        {
-            ElementKeys.RECOGNISED_DEVICE,
-            ("#continueOnRecognizedDeviceBtn", "Continue On Recognised Device Button")
-        },
+        { ElementKeys.ANOTHER_METHOD, ("#selectAnotherMethod", "Use A Different Method Link") },
         { ElementKeys.SEND_CODE, ("#btnSendCode", "Send Code Button") },
-        { ElementKeys.VERIFICATION_INPUT, ("#otcForm-verification", "Verification Code Input") },
+        { ElementKeys.VERIFICATION_INPUT, ("#twoFactorCode", "Verification Code Input") },
+        { ElementKeys.TRUST_DEVICE, ("#trustThisDevice", "Remember This Device Checkbox") },
+        { ElementKeys.VERIFY_SUBMIT, ("#btnSubmit", "Verification Submit Button") },
         {
             ElementKeys.LEFT_HAND_PANE_TRANSFERS,
             ("//nav//button[contains(@class, 'icon-transfer')]", "Transfers Button (Left-Hand Pane)")

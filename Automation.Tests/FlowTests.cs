@@ -93,20 +93,19 @@ public class FlowTests
     }
 
     [Fact]
-    public void NextStepPrefersTheRecognisedDeviceButtonOverSendingACode()
+    public void NextStepLeavesTheRecognisedDeviceScreenByAnotherMethod()
     {
         LoginScreen screen = new(false, false, false, false, false, false, false, true, true, true);
 
-        Assert.Equal(LoginStep.ContinueOnRecognisedDevice, LoginFlow.NextStep(screen, default));
+        Assert.Equal(LoginStep.UseAnotherMethod, LoginFlow.NextStep(screen, default));
     }
 
     [Fact]
-    public void NextStepSendsACodeOnceTheRecognisedDeviceButtonHasBeenTried()
+    public void NextStepSendsACodeRatherThanTryingTheRecognisedDevicePath()
     {
-        LoginScreen screen = new(false, false, false, false, false, false, false, true, true, true);
-        LoginProgress progress = new(true, false);
+        LoginScreen screen = new(false, false, false, false, false, false, false, false, true, false);
 
-        Assert.Equal(LoginStep.SendCode, LoginFlow.NextStep(screen, progress));
+        Assert.Equal(LoginStep.SendCode, LoginFlow.NextStep(screen, default));
     }
 
     [Fact]
@@ -121,7 +120,7 @@ public class FlowTests
     public void NextStepTypesTheCodeOnceItHasBeenRequested()
     {
         LoginScreen screen = new(false, false, false, false, false, false, false, false, true, true);
-        LoginProgress progress = new(true, true);
+        LoginProgress progress = new(true);
 
         Assert.Equal(LoginStep.EnterVerificationCode, LoginFlow.NextStep(screen, progress));
     }
