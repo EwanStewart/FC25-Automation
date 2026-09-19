@@ -108,8 +108,8 @@ public sealed class GapBuyer
         var states = gaps.Any(gap => gap.Outcome is GapOutcome.Attempting or GapOutcome.Bidding or GapOutcome.Won)
             ? market_.Standing()
             : [];
-        var result = gaps.Select(gap => StandingBids.Resolve(gap, states)).Select(gap => Banked(run, gap, states))
-            .OrderBy(gap => gap.SlotIndex).ToList();
+        var result = StandingBids.Adopted(gaps, states).Select(gap => StandingBids.Resolve(gap, states))
+            .Select(gap => Banked(run, gap, states)).OrderBy(gap => gap.SlotIndex).ToList();
 
         foreach (var gap in result) store_.SaveGap(run.Id, gap);
 

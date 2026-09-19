@@ -14,6 +14,51 @@ public class FulfilmentResolutionTests
     }
 
     [Fact]
+    public void ABidRecordedAgainstTheWrongTradeIsMovedOntoTheOneWeActuallyHold()
+    {
+        IReadOnlyList<GapRecord> gaps = [Gap(GapOutcome.Bidding)];
+        IReadOnlyList<TradeState> states =
+            [new TradeState("t1", "closed", "none", 700), new TradeState("t9", "active", "highest", 600, 400, 0, 88)];
+
+        var adopted = StandingBids.Adopted(gaps, states);
+
+        Assert.Equal("t9", adopted[0].TradeId);
+        Assert.Equal(88, adopted[0].ItemId);
+        Assert.Contains("stands on trade t9 at 600", adopted[0].Detail);
+    }
+
+    [Fact]
+    public void ATradeAnotherGapAlreadyHoldsIsNeverAdopted()
+    {
+        IReadOnlyList<GapRecord> gaps =
+            [Gap(GapOutcome.Bidding), Gap(GapOutcome.Bidding, "t9") with { SlotIndex = 1 }];
+        IReadOnlyList<TradeState> states =
+            [new TradeState("t1", "closed", "none", 700), new TradeState("t9", "active", "highest", 600)];
+
+        Assert.Equal("t1", StandingBids.Adopted(gaps, states)[0].TradeId);
+    }
+
+    [Fact]
+    public void TwoLooseTradesAreLeftAloneBecauseNeitherCanBeToldApart()
+    {
+        IReadOnlyList<GapRecord> gaps = [Gap(GapOutcome.Bidding)];
+        IReadOnlyList<TradeState> states =
+            [new TradeState("t8", "active", "highest", 600), new TradeState("t9", "active", "highest", 600)];
+
+        Assert.Equal("t1", StandingBids.Adopted(gaps, states)[0].TradeId);
+    }
+
+    [Fact]
+    public void AGapWhoseOwnTradeIsStillOursIsNeverMoved()
+    {
+        IReadOnlyList<GapRecord> gaps = [Gap(GapOutcome.Bidding)];
+        IReadOnlyList<TradeState> states =
+            [new TradeState("t1", "active", "highest", 500), new TradeState("t9", "active", "highest", 600)];
+
+        Assert.Equal("t1", StandingBids.Adopted(gaps, states)[0].TradeId);
+    }
+
+    [Fact]
     public void AStandingBidWeStillLeadOnAnOpenAuctionStaysStanding()
     {
         var resolved = StandingBids.Resolve(Gap(GapOutcome.Bidding), [new TradeState("t1", "active", "highest", 500)]);

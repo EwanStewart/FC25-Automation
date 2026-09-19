@@ -84,6 +84,20 @@ public sealed class MarketAgent : IMarketAgent
     {
         screen_.DismissDialog();
 
+        var opened = screen_.SelectedTrade();
+
+        return opened == listing.TradeId
+            ? Shown(listing, ceiling)
+            : Declined($"the panel opened trade {Named(opened)} rather than {listing.TradeId}");
+    }
+
+    private static string Named(string tradeId)
+    {
+        return tradeId.Length > 0 ? tradeId : "nothing";
+    }
+
+    private BuyReceipt Shown(AuctionListing listing, uint ceiling)
+    {
         var button = screen_.WaitEnabled(ElementKeys.BUY_NOW, ShortWait);
         BuyReceipt result;
 
@@ -231,11 +245,20 @@ public sealed class MarketAgent : IMarketAgent
 
         if (row is null) result = Withheld($"the row for trade {tradeId} left the {where}");
         else if (!screen_.Click(row, ShortWait)) result = Withheld($"the row for trade {tradeId} would not open");
-        else result = Selected(tradeId, amount);
+        else result = Opened(tradeId, amount);
 
         screen_.DismissDialog();
 
         return result;
+    }
+
+    private BidReceipt Opened(string tradeId, uint amount)
+    {
+        var opened = screen_.SelectedTrade();
+
+        return opened == tradeId
+            ? Selected(tradeId, amount)
+            : Withheld($"the panel opened trade {Named(opened)} rather than {tradeId}");
     }
 
     public IReadOnlyList<TradeState> Standing()

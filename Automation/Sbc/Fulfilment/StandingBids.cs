@@ -17,6 +17,42 @@ public static class StandingBids
         return result;
     }
 
+    public static IReadOnlyList<GapRecord> Adopted(IReadOnlyList<GapRecord> gaps,
+        IReadOnlyList<TradeState> states)
+    {
+        var loose = Loose(gaps, states);
+        var stranded = Stranded(gaps, states);
+
+        return loose.Count == 1 && stranded.Count == 1
+            ? gaps.Select(gap => gap == stranded[0] ? Taken(gap, loose[0]) : gap).ToList()
+            : gaps;
+    }
+
+    private static IReadOnlyList<TradeState> Loose(IReadOnlyList<GapRecord> gaps,
+        IReadOnlyList<TradeState> states)
+    {
+        var spoken = gaps.Select(gap => gap.TradeId).Where(trade => trade is not null).ToHashSet();
+
+        return states.Where(state => BidStates.Held(state.BidState) && !spoken.Contains(state.TradeId)).ToList();
+    }
+
+    private static IReadOnlyList<GapRecord> Stranded(IReadOnlyList<GapRecord> gaps,
+        IReadOnlyList<TradeState> states)
+    {
+        return gaps.Where(gap => GapProgress.Holds(gap.Outcome) && gap.Outcome != GapOutcome.Won)
+            .Where(gap => !states.Any(state => state.TradeId == gap.TradeId && BidStates.Held(state.BidState)))
+            .ToList();
+    }
+
+    private static GapRecord Taken(GapRecord gap, TradeState held)
+    {
+        return gap with
+        {
+            TradeId = held.TradeId, ItemId = held.ItemId > 0 ? held.ItemId : gap.ItemId, AssetId = null,
+            Detail = $"the bid this gap placed stands on trade {held.TradeId} at {held.CurrentBid}"
+        };
+    }
+
     public static IEnumerable<(int Slot, long Amount)> Exposure(IEnumerable<GapRecord> gaps)
     {
         return gaps.Where(gap => GapProgress.Holds(gap.Outcome) && gap.BidAmount.HasValue)

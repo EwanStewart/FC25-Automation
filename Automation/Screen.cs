@@ -71,6 +71,28 @@ public class Screen
         }));
         """;
 
+    private const string SelectedTradeScript = """
+        function hunt(node, depth) {
+            if (!node || depth > 10) return null;
+            if (node.viewmodel && typeof node.viewmodel.current === 'function') {
+                try {
+                    const item = node.viewmodel.current();
+                    if (item && item._auction) return item;
+                } catch (error) {}
+            }
+            const kids = node.childViewControllers || [];
+            for (let i = 0; i < kids.length; i++) {
+                const hit = hunt(kids[i], depth + 1);
+                if (hit) return hit;
+            }
+            return null;
+        }
+        const flows = (window.getAppMain && getAppMain().getRootViewController().gameflowControllers) || [];
+        let item = null;
+        for (let i = 0; i < flows.length && !item; i++) item = hunt(flows[i], 0);
+        return item ? String(item._auction.tradeId) : '';
+        """;
+
     private static readonly string[] DismissLabels = { "Cancel", "Close", "Ok", "Continue" };
 
     private readonly ChromeDriver _driver;
@@ -200,6 +222,11 @@ public class Screen
         var element = WaitVisible(key, timeout);
 
         return element?.Text ?? string.Empty;
+    }
+
+    public string SelectedTrade()
+    {
+        return _driver.ExecuteScript(SelectedTradeScript) as string ?? string.Empty;
     }
 
     public string ReadTitle()
