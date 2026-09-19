@@ -13,6 +13,12 @@ public static class GapSnipePlan
     private const string ACTIVE_STATE = "active";
     private const string HIGHEST_STATE = "highest";
 
+    public static IReadOnlyList<TradeState> Watched(IReadOnlyList<TradeState> targets,
+        IReadOnlyList<string> tradeIds)
+    {
+        return targets.Where(trade => tradeIds.Contains(trade.TradeId)).ToList();
+    }
+
     public static IReadOnlyList<AuctionListing> Shortlist(MarketSpecification specification,
         IReadOnlyList<AuctionListing> listings, uint ceiling)
     {

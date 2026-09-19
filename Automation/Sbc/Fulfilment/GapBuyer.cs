@@ -42,14 +42,24 @@ public sealed class GapBuyer
 
     private IReadOnlyList<GapRecord> Resolved(FulfilmentRun run, IReadOnlyList<GapRecord> gaps)
     {
-        var states = gaps.Any(gap => gap.Outcome is GapOutcome.Attempting or GapOutcome.Bidding)
+        var states = gaps.Any(gap => gap.Outcome is GapOutcome.Attempting or GapOutcome.Bidding or GapOutcome.Won)
             ? market_.Standing()
             : [];
-        var result = gaps.Select(gap => StandingBids.Resolve(gap, states)).OrderBy(gap => gap.SlotIndex).ToList();
+        var result = gaps.Select(gap => StandingBids.Resolve(gap, states)).Select(gap => Banked(run, gap, states))
+            .OrderBy(gap => gap.SlotIndex).ToList();
 
         foreach (var gap in result) store_.SaveGap(run.Id, gap);
 
         return result;
+    }
+
+    private GapRecord Banked(FulfilmentRun run, GapRecord gap, IReadOnlyList<TradeState> states)
+    {
+        var waiting = run.BuysLive && gap.Outcome == GapOutcome.Won && gap.TradeId is not null
+            ? states.FirstOrDefault(state => state.TradeId == gap.TradeId)
+            : null;
+
+        return waiting is null ? gap : Claimed(gap, waiting);
     }
 
     private BuyingResult Work(FulfilmentRun run, IReadOnlyList<GapRecord> gaps)
@@ -124,17 +134,18 @@ public sealed class GapBuyer
     private GapStep Snipe(FulfilmentRun run, GapRecord gap, IReadOnlyList<AuctionListing> shortlist, uint ceiling)
     {
         var watched = market_.Watch(shortlist);
+        var mine = shortlist.Select(listing => listing.TradeId).ToList();
 
         return watched == 0
             ? new GapStep(gap with { Outcome = GapOutcome.NotFound, Simulated = false, Detail = UNWATCHED_DETAIL },
                 string.Empty, FulfilmentState.Buying)
-            : Poll(run, Watching(gap, watched), ceiling);
+            : Poll(run, Watching(gap, watched), ceiling, mine);
     }
 
-    private GapStep Poll(FulfilmentRun run, GapRecord gap, uint ceiling)
+    private GapStep Poll(FulfilmentRun run, GapRecord gap, uint ceiling, IReadOnlyList<string> mine)
     {
         var current = gap;
-        var targets = market_.Standing();
+        var targets = GapSnipePlan.Watched(market_.Standing(), mine);
         var polls = 0;
         var finished = false;
 
@@ -147,7 +158,7 @@ public sealed class GapBuyer
             if (!finished)
             {
                 market_.Pause(POLL_MS);
-                targets = market_.Targets();
+                targets = GapSnipePlan.Watched(market_.Targets(), mine);
             }
         }
 
@@ -183,12 +194,18 @@ public sealed class GapBuyer
 
         return gap with
         {
-            Outcome = GapOutcome.Won, TradeId = won.TradeId, ItemId = won.ItemId, Simulated = false,
-            FinalPrice = (int)won.CurrentBid,
+            Outcome = GapOutcome.Won, TradeId = won.TradeId, ItemId = won.ItemId > 0 ? won.ItemId : gap.ItemId,
+            Simulated = false,
+            FinalPrice = Paid(gap, won),
             Detail = claimed
-                ? $"won at {won.CurrentBid} and sent to the club"
-                : $"won at {won.CurrentBid} but it is still on the transfer targets"
+                ? $"won at {Paid(gap, won)} and sent to the club"
+                : $"won at {Paid(gap, won)} but it is still on the transfer targets"
         };
+    }
+
+    private static int Paid(GapRecord gap, TradeState won)
+    {
+        return won.CurrentBid > 0 ? (int)won.CurrentBid : gap.BidAmount.GetValueOrDefault();
     }
 
     private GapRecord Sniped(FulfilmentRun run, GapRecord gap, SnipeTarget due)

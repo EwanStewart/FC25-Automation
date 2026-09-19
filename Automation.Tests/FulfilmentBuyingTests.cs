@@ -240,6 +240,41 @@ public class FulfilmentBuyingTests
     }
 
     [Fact]
+    public void ACardThisRunNeverWatchedIsNotTreatedAsItsOwnWin()
+    {
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 300)] },
+            polls: [[Ended("other", 400, "highest"), Due("t1", 300)]]);
+
+        Assert.DoesNotContain("claim other", log);
+        Assert.Contains("bid t1 300", log);
+        Assert.NotEqual(GapOutcome.Won, store.Gaps(1)[0].Outcome);
+    }
+
+    [Fact]
+    public void ACardWonButLeftOnTheTargetsIsSentToTheClubOnTheNextRun()
+    {
+        var won = Gap(0) with { Outcome = GapOutcome.Won, TradeId = "t1", ItemId = 77, BidAmount = 550 };
+        var (_, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [won],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>(), standing: [Ended("t1", 0, "highest")]);
+
+        Assert.Contains("claim t1", log);
+        Assert.Equal(GapOutcome.Won, store.Gaps(1)[0].Outcome);
+        Assert.Equal(550, store.Gaps(1)[0].FinalPrice);
+        Assert.Contains("sent to the club", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
+    public void ACardAlreadyInTheClubIsNotClaimedTwice()
+    {
+        var won = Gap(0) with { Outcome = GapOutcome.Won, TradeId = "t1", ItemId = 77, BidAmount = 550 };
+        var (_, _, log) = Buy(Run(FulfilmentMode.Live, 100000), [won],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>(), standing: []);
+
+        Assert.DoesNotContain(log, entry => entry.StartsWith("claim"));
+    }
+
+    [Fact]
     public void AGapAlreadyWonIsNeverSearchedForAgain()
     {
         var won = Gap(0) with { Outcome = GapOutcome.Won, TradeId = "t1", BidAmount = 800, FinalPrice = 800 };

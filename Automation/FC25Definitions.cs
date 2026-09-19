@@ -220,7 +220,7 @@ public static class Fc25Definitions
         { ElementKeys.WATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Watch']", "Watch") },
         {
             ElementKeys.SEND_TO_CLUB,
-            ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Send to My Club']",
+            ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(.)='Send to My Club']",
                 "Send To Club")
         },
         { ElementKeys.UNWATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Unwatch']", "Unwatch") },
