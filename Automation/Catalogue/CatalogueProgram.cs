@@ -9,11 +9,16 @@ public static class CatalogueProgram
 
     public static int Run()
     {
+        return Run(CatalogueSources.DEFAULT_SOURCE);
+    }
+
+    public static int Run(string sourceName)
+    {
         var result = FAILURE;
 
         try
         {
-            result = Import();
+            result = Import(sourceName);
         }
         catch (CatalogueException error)
         {
@@ -23,15 +28,20 @@ public static class CatalogueProgram
         return result;
     }
 
-    private static int Import()
+    private static int Import(string sourceName)
     {
         using HttpClient client = new();
-        FutDbPlayerSource source = new(client, CatalogueSecrets.ApiKey());
+        var source = CatalogueSources.Create(sourceName, client, ApiKeyFor(sourceName));
         CatalogueImporter importer = new(source, new MySqlCatalogueStore(),
             new CatalogueImportSettings(PAGE_DELAY_MS, MAX_PAGES_PER_RUN));
         Report(importer.RunAsync(CancellationToken.None).GetAwaiter().GetResult());
 
         return SUCCESS;
+    }
+
+    private static string? ApiKeyFor(string sourceName)
+    {
+        return sourceName == FutDbPlayerSource.SOURCE_NAME ? CatalogueSecrets.ApiKey() : null;
     }
 
     private static void Report(CatalogueImportResult result)
