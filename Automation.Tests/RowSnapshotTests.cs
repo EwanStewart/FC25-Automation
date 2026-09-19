@@ -1,4 +1,4 @@
-using Automation.Trading;
+﻿using Automation.Trading;
 
 namespace Automation.Tests;
 
@@ -54,6 +54,17 @@ public class RowSnapshotTests
         Assert.Null(rows[2].Model?.AgeMs);
         Assert.Null(rows[1].TrustedModel);
         Assert.Null(rows[2].TrustedModel);
+    }
+
+    [Fact]
+    public void AuctionKeyIsTheTradeIdSoTwoListingsOfOneCardStayApart()
+    {
+        var rows = Rows();
+
+        Assert.Equal("123", rows[0].AuctionKey);
+        Assert.Equal("Rapid Wien Badge", rows[1].AuctionKey);
+        Assert.Equal("Marseiler 70 LM", rows[2].AuctionKey);
+        Assert.NotEqual(rows[0].Key, rows[0].AuctionKey);
     }
 
     [Fact]

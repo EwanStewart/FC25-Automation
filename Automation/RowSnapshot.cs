@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Automation.Flow;
 
 namespace Automation.Trading;
@@ -37,6 +37,8 @@ public sealed record RowSnapshot(
     ModelSnapshot? Model)
 {
     public string Key => ItemKey.Build(Name, Description, ItemClasses, Rating, Position);
+
+    public string AuctionKey => TrustedModel?.TradeId ?? Key;
 
     public uint? MinutesLeft => Pricing.ParseMinutesRemaining(Time);
 
