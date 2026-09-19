@@ -1,0 +1,41 @@
+USE fc25;
+
+CREATE TABLE IF NOT EXISTS Players (
+    source VARCHAR(16) NOT NULL,
+    source_id BIGINT NOT NULL,
+    asset_id BIGINT NULL,
+    resource_id BIGINT NULL,
+    name VARCHAR(255) NOT NULL,
+    common_name VARCHAR(255) NULL,
+    rating INT NULL,
+    preferred_position VARCHAR(8) NULL,
+    alternate_positions VARCHAR(64) NULL,
+    club_id BIGINT NULL,
+    league_id BIGINT NULL,
+    nation_id BIGINT NULL,
+    rarity_id BIGINT NULL,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (source, source_id),
+    UNIQUE KEY uq_players_resource (resource_id),
+    INDEX idx_players_asset (asset_id),
+    INDEX idx_players_rating (rating),
+    INDEX idx_players_club (club_id),
+    INDEX idx_players_league (league_id),
+    INDEX idx_players_nation (nation_id),
+    INDEX idx_players_position (preferred_position),
+    INDEX idx_players_name (name)
+);
+
+CREATE TABLE IF NOT EXISTS CatalogueImports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source VARCHAR(32) NOT NULL,
+    item_count INT NOT NULL DEFAULT 0,
+    last_page INT NOT NULL DEFAULT 0,
+    page_total INT NULL,
+    outcome VARCHAR(16) NOT NULL DEFAULT 'running',
+    content_tag VARCHAR(128) NULL,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    finished_at TIMESTAMP NULL,
+    INDEX idx_catalogue_imports_source (source, id),
+    INDEX idx_catalogue_imports_outcome (outcome)
+);
