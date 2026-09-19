@@ -214,6 +214,16 @@ public class FulfilmentBuildingTests
         ForbiddenControls.Require("Search on Transfer Market");
         ForbiddenControls.Require("Make Bid");
         ForbiddenControls.Require("Search");
+        ForbiddenControls.Require("Watch");
+        ForbiddenControls.Require("Send to My Club");
+    }
+
+    [Fact]
+    public void TheGuardStillRefusesEveryRouteOntoTheTransferList()
+    {
+        Assert.Throws<InvalidOperationException>(() => ForbiddenControls.Require("Send to Transfer List"));
+        Assert.Throws<InvalidOperationException>(() => ForbiddenControls.Require("Transfer List"));
+        Assert.Throws<InvalidOperationException>(() => ForbiddenControls.Require("send to transfer list"));
     }
 
     [Fact]
