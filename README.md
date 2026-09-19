@@ -122,7 +122,7 @@ Swap in another provider by writing another IPlayerSource. The HTTP calls are th
 
 ## Squad building challenges
 
-The SBC solver reads a challenge, drafts a squad from the club and offers it for approval in a local panel. It never bids, buys, lists or submits. Approving writes a row and stops there.
+The SBC solver reads a challenge, drafts a squad from the club and offers it for approval in a local panel. Approving writes the approval and queues fulfilment. Fulfilment buys the missing cards and builds the squad, and stops there. Nothing in the code path can complete a challenge, and nothing sells, lists or discards a card.
 
 ### Requirements
 
@@ -157,3 +157,24 @@ The panel is a separate project:
 It binds to 127.0.0.1:5199 only and reads the same fc25 database. The list shows every stored challenge and whether it drafts. The challenge page shows the squad with names, ratings, positions and per slot chemistry, marks owned against bought, and shows every requirement with a pass or fail marker. Approve writes an SbcApprovals row and its slots, and the button stays disabled while any requirement fails.
 
 MySQL/sbc.sql holds SbcChallenges, SbcApprovals and SbcApprovalSlots. It is mounted beside the other schema files in docker-compose.yml. An existing container has already run its init scripts, so apply it by hand with docker exec -i fc25-mysql mysql -uroot -proot < MySQL/sbc.sql.
+
+### Fulfilment
+
+Approving queues a fulfilment row and one gap row per slot the squad has to buy, inside the same web request, so the panel stays fast. Nothing is bought there. A separate run picks the queue up.
+
+Two ceilings bound the spend. The run ceiling is the approved estimate plus fifty per cent, fixed when the approval is queued. It is held against the standing bids rather than a running count, so raising a bid on one gap costs only the difference and a resumed run inherits what the last one committed. The per-card ceiling is the solver's estimate for that gap plus a quarter, capped at a thousand coins of margin and floored at 250 coins, and it is trimmed to whatever the run ceiling still allows. A gap that cannot be afforded at the market floor aborts the whole run rather than letting a loop bid on.
+
+The buyer walks the gaps in slot order. It searches the player market on quality, position and the per-card ceiling as the maximum bid, then checks every listing in the captured search response against the gap specification, because the market dropdowns take option text and the repo holds no name for any nation, league or club id. A listing whose club, league, nation, rarity, rating or playable positions do not hold is rejected outright. The cheapest card that fits wins, ties going to whichever ends soonest. Bidding goes through the same typing, clicking and outcome cross-check the snipe pass uses, so there is one bidding implementation and it inherits the existing pacing and backoff.
+
+Every bid is written to the database before it is placed and its outcome after, so a crash cannot leave a spend untracked. A re-run reads the trades back first and turns each standing bid into won, outbid or expired. Won gaps are never bought again. Outbid and expired gaps are retried. A bid written down that cannot be read back on any trade stops the run and is recorded as unresolved, because a retry there could buy the same card twice. A bid the market refuses stops the run the same way.
+
+Once every gap is won, the builder opens the challenge, places each card from the club picker and verifies the placement against the squad the app sends back, slot by slot. A slot that will not take its card stops the build with a record. Filling the last slot is the end of the job.
+
+Fulfilment is dry by default and a dry run places no bid and moves no card. It searches, evaluates, writes down what it would buy and at what price, commits against the same ledger so it exercises the real ceiling, and leaves the approval queued so the live run still picks it up. Only --fulfil-live turns the bidding on.
+
+    ./fulfil.sh                 dry run, takes the shared run.lock
+    ./fulfil.sh --fulfil-live   the same run, allowed to bid
+
+Automation/Program.cs is untouched. The --fulfil-sbc flag falls through its existing default branch into the bot, which runs Fc25.FulfilSbcRoutine instead of the trading routine. Always pass --no-shutdown, as that default branch shuts the machine down without it. fulfil.sh does both.
+
+MySQL/fulfilment.sql holds SbcFulfilments, SbcFulfilmentGaps and SbcFulfilmentPlacements, mounted beside the other schema files. Apply it to an existing container by hand with docker exec -i fc25-mysql mysql -uroot -proot < MySQL/fulfilment.sql. The unique keys on fulfilment and slot are what make a re-run idempotent.
