@@ -122,7 +122,7 @@ public static class RequirementTextParser
         SquadRequirement result;
 
         if (match.Success && filter is not null)
-            result = new SquadRequirement(RequirementKind.PlayerCount, Comparison(match.Groups[1].Value),
+            result = new SquadRequirement(CountKind(filter), Comparison(match.Groups[1].Value),
                 int.Parse(match.Groups[2].Value), [filter], line);
         else
             result = Unsupported(line);
@@ -130,12 +130,17 @@ public static class RequirementTextParser
         return result;
     }
 
+    private static RequirementKind CountKind(PlayerFilter filter)
+    {
+        return filter.Kind == PlayerFilterKind.Level ? RequirementKind.PlayerLevelCount : RequirementKind.PlayerCount;
+    }
+
     private static PlayerFilter? ResolveFilter(string subject, NameLookup names)
     {
         PlayerFilter? result = null;
 
         if (Quality.IsMatch(subject))
-            result = new PlayerFilter(PlayerFilterKind.Quality, QualityValue(subject), subject);
+            result = new PlayerFilter(PlayerFilterKind.Level, QualityValue(subject), subject);
         else if (Rarities.TryGetValue(subject, out var rarity))
             result = new PlayerFilter(PlayerFilterKind.Rarity, rarity, subject);
         else if (names.Nations.TryGetValue(subject, out var nation))

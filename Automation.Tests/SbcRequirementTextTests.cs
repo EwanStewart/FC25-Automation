@@ -53,13 +53,42 @@ public class SbcRequirementTextTests
     }
 
     [Fact]
-    public void ReadsACountOfPlayersOfAQuality()
+    public void ReadsACountOfPlayersOfATier()
     {
         var requirement = Single("Silver: Min. 1 Players");
 
-        Assert.Equal(RequirementKind.PlayerCount, requirement.Kind);
+        Assert.Equal(RequirementKind.PlayerLevelCount, requirement.Kind);
+        Assert.Equal(RequirementComparison.Minimum, requirement.Comparison);
         Assert.Equal(1, requirement.Value);
+        Assert.Equal(PlayerFilterKind.Level, requirement.Filters.Single().Kind);
         Assert.Equal((int)PlayerQuality.Silver, requirement.Filters.Single().Value);
+    }
+
+    [Theory]
+    [InlineData("Gold: Exactly 11 Players", RequirementComparison.Exact, 11, PlayerQuality.Gold)]
+    [InlineData("Bronze: Min. 11 Players", RequirementComparison.Minimum, 11, PlayerQuality.Bronze)]
+    [InlineData("Gold: Max. 3 Players", RequirementComparison.Maximum, 3, PlayerQuality.Gold)]
+    public void ReadsTheMinimumAndExactTierForms(string line, RequirementComparison comparison, int value,
+        PlayerQuality quality)
+    {
+        var requirement = Single(line);
+
+        Assert.Equal(RequirementKind.PlayerLevelCount, requirement.Kind);
+        Assert.Equal(comparison, requirement.Comparison);
+        Assert.Equal(value, requirement.Value);
+        Assert.Equal((int)quality, requirement.Filters.Single().Value);
+    }
+
+    [Fact]
+    public void ATierCountAndASquadWideFloorReadAsSeparateRequirements()
+    {
+        var requirements = RequirementTextParser.Parse(["Silver: Min. 1 Players", "Player Quality: Min. Bronze"],
+            NAMES);
+
+        Assert.Equal(RequirementKind.PlayerLevelCount, requirements[0].Kind);
+        Assert.Equal(PlayerFilterKind.Level, requirements[0].Filters.Single().Kind);
+        Assert.Equal(RequirementKind.EveryPlayer, requirements[1].Kind);
+        Assert.Equal(PlayerFilterKind.Quality, requirements[1].Filters.Single().Kind);
     }
 
     [Fact]
