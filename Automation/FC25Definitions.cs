@@ -12,6 +12,7 @@ public static class Fc25Definitions
         public string? League { get; set; }
         public string? Club { get; set; }
         public string? Playstyles { get; set; }
+        public bool PinsOptional { get; set; }
         public uint MaxBidPrice { get; set; }
         public uint MinBuyPrice { get; set; }
     }
