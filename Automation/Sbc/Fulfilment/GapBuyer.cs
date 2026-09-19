@@ -438,7 +438,18 @@ public sealed class GapBuyer
             .ToList();
         var within = fitting.Count(listing => Within(listing, ceiling));
 
-        return gap with { Outcome = Unbought(fitting.Count, within), Detail = Reason(fitting.Count, within, ceiling) };
+        return gap with
+        {
+            Outcome = Unbought(fitting.Count, within),
+            Detail = Reason(fitting.Count, within, Cheapest(fitting), ceiling)
+        };
+    }
+
+    private static uint Cheapest(IReadOnlyList<AuctionListing> fitting)
+    {
+        var asks = fitting.Where(listing => listing.BuyNowPrice > 0).Select(listing => listing.BuyNowPrice).ToList();
+
+        return asks.Count > 0 ? asks.Min() : 0;
     }
 
     private static bool Within(AuctionListing listing, uint ceiling)
@@ -457,16 +468,21 @@ public sealed class GapBuyer
         return result;
     }
 
-    private static string Reason(int fitting, int within, uint ceiling)
+    private static string Reason(int fitting, int within, uint cheapest, uint ceiling)
     {
         var result = "nothing on the page matched what this slot needs";
 
         if (within > 0)
-            result = $"{within} of {fitting} matching card(s) sat at or under {ceiling}, " +
-                     $"but none could be bought now and none ends within {GapSnipePlan.WATCH_MAX_SECONDS} s";
+            result = $"{within} of {fitting} matching card(s) sat at or under {ceiling}, {Ask(cheapest)} " +
+                     $"and none ends within {GapSnipePlan.WATCH_MAX_SECONDS} s";
         else if (fitting > 0) result = $"{fitting} card(s) matched but every one sat above {ceiling}";
 
         return result;
+    }
+
+    private static string Ask(uint cheapest)
+    {
+        return cheapest > 0 ? $"the cheapest buy now asked {cheapest}," : "none of them could be bought outright,";
     }
 
     private static string Names(GapRecord gap)

@@ -383,6 +383,19 @@ public class FulfilmentBuyingTests
     }
 
     [Fact]
+    public void TheDetailNamesTheCheapestAskSoTheCeilingCanBeJudged()
+    {
+        var (_, store, _) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Asking("t1", 5000), Asking("t2", 2000)]
+            });
+
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+        Assert.Contains("the cheapest buy now asked 2000", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
     public void OnlyCardsPricedOverTheCeilingAreCalledTooExpensive()
     {
         var (_, store, _) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0, 900)],
