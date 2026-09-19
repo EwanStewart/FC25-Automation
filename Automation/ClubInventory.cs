@@ -19,9 +19,55 @@ public sealed record ClubPlayer(
     int Pile,
     int MarketAverage);
 
+public enum ClubCaptureOutcome
+{
+    Captured,
+    NotObserved,
+    NoItems,
+    Failed
+}
+
+public sealed record ClubResponse(int Status, string Body);
+
+public sealed record ClubReading(ClubCaptureOutcome Outcome, IReadOnlyList<ClubPlayer> Players, string Detail);
+
 public static class ClubInventory
 {
     private const string PLAYER_ITEM_TYPE = "player";
+    private const int OK_STATUS = 200;
+
+    public static ClubReading Read(IReadOnlyList<ClubResponse> responses)
+    {
+        var failures = responses.Where(response => response.Status != OK_STATUS).Select(response => response.Status)
+            .ToList();
+        var players = Merge(responses.Where(response => response.Status == OK_STATUS));
+        ClubReading result;
+
+        if (responses.Count == 0)
+            result = new ClubReading(ClubCaptureOutcome.NotObserved, [], "no club response was observed");
+        else if (players.Count > 0)
+            result = new ClubReading(ClubCaptureOutcome.Captured, players, Detail(players.Count, failures));
+        else if (failures.Count > 0)
+            result = new ClubReading(ClubCaptureOutcome.Failed, [],
+                $"club responses returned {string.Join(", ", failures)}");
+        else
+            result = new ClubReading(ClubCaptureOutcome.NoItems, [], "the club response carried no player items");
+
+        return result;
+    }
+
+    private static IReadOnlyList<ClubPlayer> Merge(IEnumerable<ClubResponse> responses)
+    {
+        return responses.SelectMany(response => Parse(response.Body)).GroupBy(player => player.Id)
+            .Select(group => group.Last()).ToList();
+    }
+
+    private static string Detail(int count, IReadOnlyList<int> failures)
+    {
+        var failed = failures.Count == 0 ? string.Empty : $", failed responses {string.Join(", ", failures)}";
+
+        return $"{count} player items{failed}";
+    }
 
     public static IReadOnlyList<ClubPlayer> Parse(string json)
     {

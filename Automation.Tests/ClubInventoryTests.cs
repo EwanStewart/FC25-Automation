@@ -85,4 +85,60 @@ public class ClubInventoryTests
 
         Assert.Equal(new[] { "ST", "CF" }, player.PossiblePositions);
     }
+
+    [Fact]
+    public void NoClubResponseIsReportedRatherThanAnEmptyClub()
+    {
+        var reading = ClubInventory.Read([]);
+
+        Assert.Equal(ClubCaptureOutcome.NotObserved, reading.Outcome);
+        Assert.Empty(reading.Players);
+    }
+
+    [Fact]
+    public void AFailedClubResponseIsReportedWithItsStatus()
+    {
+        var reading = ClubInventory.Read([new ClubResponse(500, string.Empty)]);
+
+        Assert.Equal(ClubCaptureOutcome.Failed, reading.Outcome);
+        Assert.Empty(reading.Players);
+        Assert.Contains("500", reading.Detail);
+    }
+
+    [Fact]
+    public void AClubResponseWithoutPlayersIsReportedAsEmpty()
+    {
+        var reading = ClubInventory.Read([new ClubResponse(200, """{"itemData":[]}""")]);
+
+        Assert.Equal(ClubCaptureOutcome.NoItems, reading.Outcome);
+        Assert.Empty(reading.Players);
+    }
+
+    [Fact]
+    public void AGoodClubResponseCarriesItsPlayers()
+    {
+        var reading = ClubInventory.Read([new ClubResponse(200, CLUB)]);
+
+        Assert.Equal(ClubCaptureOutcome.Captured, reading.Outcome);
+        Assert.Equal(942808952427, reading.Players.Single().Id);
+    }
+
+    [Fact]
+    public void SeveralClubResponsesMergeOnTheOwnedInstanceId()
+    {
+        var later = """{"itemData":[{"id":1,"assetId":11,"itemType":"player"},{"id":4,"assetId":40,"itemType":"player"}]}""";
+        var reading = ClubInventory.Read([new ClubResponse(200, MIXED), new ClubResponse(200, later)]);
+
+        Assert.Equal(new long[] { 1, 3, 4 }, reading.Players.Select(player => player.Id).Order());
+        Assert.Equal(11, reading.Players.Single(player => player.Id == 1).AssetId);
+    }
+
+    [Fact]
+    public void PlayersStillCountWhenAnotherResponseFailed()
+    {
+        var reading = ClubInventory.Read([new ClubResponse(200, CLUB), new ClubResponse(429, string.Empty)]);
+
+        Assert.Equal(ClubCaptureOutcome.Captured, reading.Outcome);
+        Assert.Contains("429", reading.Detail);
+    }
 }
