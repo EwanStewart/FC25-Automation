@@ -1,4 +1,4 @@
-using Automation.Trading;
+﻿using Automation.Trading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using static Automation.Definitions.Fc25Definitions;
@@ -50,7 +50,7 @@ public class Screen
         } catch (error) { models = []; }
         const coins = text => { const parsed = parseInt(String(text).replace(/,/g, ''), 10); return isNaN(parsed) ? null : parsed; };
         const matchModel = (name, rating, start) => {
-            const match = models.find(model => !model.used && model.name === name && String(model.rating) === rating && model.startingBid === start);
+            const match = models.find(model => !model.used && model.name === name && String(model.rating === null || model.rating === undefined ? '' : model.rating) === rating && model.startingBid === start);
             if (match) match.used = true;
             return match ? { tradeId: match.tradeId, secondsLeft: match.secondsLeft, bidState: match.bidState, tradeState: match.tradeState,
                 currentBid: match.currentBid, startingBid: match.startingBid, name: match.name, updating: match.updating,
