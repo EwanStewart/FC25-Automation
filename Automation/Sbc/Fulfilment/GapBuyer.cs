@@ -122,7 +122,11 @@ public sealed class GapBuyer
         store_.SaveGap(run.Id, gap with { Outcome = GapOutcome.Attempting, Simulated = false });
 
         var receipt = market_.Bid(choice, choice.Price);
-        var placed = gap with { Outcome = Landed(receipt), Simulated = false, Detail = receipt.Detail };
+        var placed = gap with
+        {
+            Outcome = Landed(receipt), Simulated = false, Detail = receipt.Detail,
+            BidAmount = receipt.Placed ? (int)receipt.Amount : gap.BidAmount
+        };
 
         return new GapStep(placed, placed.Outcome == GapOutcome.Unresolved ? Names(placed) : string.Empty,
             FulfilmentState.Failed);
