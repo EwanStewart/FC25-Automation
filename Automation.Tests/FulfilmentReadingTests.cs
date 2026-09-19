@@ -14,6 +14,29 @@ public class FulfilmentReadingTests
          ]}}
         """;
 
+    private const string LIVE_SQUAD = """
+        {"challengeId":14,"squad":{"formation":"f424","players":[
+          {"index":0,"itemData":{"id":0,"assetId":0,"rating":0,"preferredPosition":"GK","itemState":"invalid"}},
+          {"index":1,"itemData":{"id":942212306556,"assetId":86938,"rating":65,"preferredPosition":"RB","itemState":"free"}},
+          {"index":2,"itemData":{"id":942808952425,"assetId":251659,"rating":69,"preferredPosition":"CB","itemState":"free"}},
+          {"index":11,"itemData":{"id":0,"assetId":0,"rating":0,"preferredPosition":"","itemState":"invalid"}}
+        ]}}
+        """;
+
+    [Fact]
+    public void TheSquadTheAppHoldsInMemoryReadsBackLikeTheSquadOnTheWire()
+    {
+        var view = SquadReader.Read(LIVE_SQUAD);
+
+        Assert.Equal(14, view?.ChallengeId);
+        Assert.Equal("f424", view?.Formation);
+        Assert.Equal(942212306556, view?.Slots[1].ItemId);
+        Assert.True(view?.Slots[1].Filled);
+        Assert.Equal(942808952425, view?.Slots[2].ItemId);
+        Assert.False(view?.Slots[0].Filled);
+        Assert.False(view?.Slots[3].Filled);
+    }
+
     [Fact]
     public void TheChallengeSquadReadsBackAsSlotsWithTheirCards()
     {

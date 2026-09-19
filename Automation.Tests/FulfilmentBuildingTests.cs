@@ -213,6 +213,7 @@ public class FulfilmentBuildingTests
         ForbiddenControls.Require("Add Player");
         ForbiddenControls.Require("Search on Transfer Market");
         ForbiddenControls.Require("Make Bid");
+        ForbiddenControls.Require("Search");
     }
 
     [Fact]
