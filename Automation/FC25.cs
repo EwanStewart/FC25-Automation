@@ -48,6 +48,8 @@ public class Fc25 : IDisposable
     private DateTime _passStarted = DateTime.UtcNow;
     private DateTime _lastRefresh = DateTime.MinValue;
     private Dictionary<string, uint> _snipeEstimates = new();
+    private uint _snipeMargin = MARGIN_COINS;
+    private uint _snipeMaxBid = SNIPE_MAX_BID;
     private string _segment = string.Empty;
     private double _calibrationRatio = 1.0;
     private uint _segmentBidAllowance = uint.MaxValue;
@@ -1287,7 +1289,7 @@ public class Fc25 : IDisposable
 
     private void RunConfiguredSnipePass(SnipeFilter snipeFilter)
     {
-        RunTimedPass(Segments.Snipe(snipeFilter.Name), Segments.ROLE_SNIPE, () => SnipePlayers(snipeFilter));
+        RunTimedPass(Segments.Snipe(snipeFilter.Name), Segments.ROLE_SNIPE, () => SnipeWithFilter(snipeFilter));
         ListWonItemsNow();
     }
 
@@ -1301,28 +1303,41 @@ public class Fc25 : IDisposable
         Console.WriteLine($"Listing after the snipe pass took {(DateTime.UtcNow - started).TotalSeconds:F0} s.");
     }
 
-    private void SnipePlayers(SnipeFilter snipeFilter)
+    private void SnipeWithFilter(SnipeFilter snipeFilter)
     {
         Dictionary<string, uint> estimates = new();
-        Filter filter = new()
+
+        _snipeEstimates = estimates;
+        _snipeMargin = snipeFilter.MarginCoins;
+        _snipeMaxBid = snipeFilter.MaxBid;
+        Database.AddSnipeEvent(snipeFilter.Name, "search", null, null, null, null, _segment);
+        Console.WriteLine($"Snipe {snipeFilter.Name}: searching {snipeFilter.Market.ToString().ToLowerInvariant()}.");
+        SearchWithFilter(SearchFilter(snipeFilter), MarketElement(snipeFilter.Market));
+        WatchAcrossResultPages(estimates);
+        Console.WriteLine($"Snipe {snipeFilter.Name}: watching {estimates.Count} item(s).");
+
+        if (estimates.Count > 0) SnipeWatchedTargets(estimates);
+    }
+
+    private static Filter SearchFilter(SnipeFilter snipeFilter)
+    {
+        return new Filter
         {
             Quality = snipeFilter.Quality,
             Nationality = snipeFilter.Nationality,
             League = snipeFilter.League,
             Club = snipeFilter.Club,
             Position = snipeFilter.Position,
-            MaxBidPrice = PLAYER_MAX_BID,
+            MaxBidPrice = snipeFilter.MaxBid,
             MinBuyPrice = PLAYER_MIN_BUY_NOW
         };
+    }
 
-        _snipeEstimates = estimates;
-        Database.AddSnipeEvent(snipeFilter.Name, "search", null, null, null, null, _segment);
-        Console.WriteLine($"Snipe {snipeFilter.Name}: searching players.");
-        SearchWithFilter(filter, ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
-        WatchAcrossResultPages(estimates);
-        Console.WriteLine($"Snipe {snipeFilter.Name}: watching {estimates.Count} item(s).");
-
-        if (estimates.Count > 0) SnipeWatchedTargets(estimates);
+    private static ElementKeys MarketElement(SnipeMarket market)
+    {
+        return market == SnipeMarket.Managers
+            ? ElementKeys.MANAGER_ITEMS_TRANSFER_MARKET
+            : ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET;
     }
 
     private void WatchAcrossResultPages(Dictionary<string, uint> estimates)
@@ -1354,16 +1369,16 @@ public class Fc25 : IDisposable
         if (bidInput != null && !estimates.ContainsKey(info))
         {
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
-            var estimate = minimumBid > SNIPE_MAX_BID
+            var estimate = minimumBid > _snipeMaxBid
                 ? null
-                : GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, MARGIN_COINS));
+                : GetResaleEstimate(info, Pricing.RequiredResale(minimumBid, _snipeMargin));
 
-            if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, MARGIN_COINS, SNIPE_MAX_BID,
+            if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, _snipeMargin, _snipeMaxBid,
                     estimates.Count, SNIPE_BATCH_SIZE))
                 WatchSelectedItem(row, info, minimumBid, estimate.Value, estimates);
             else
                 Database.AddSnipeEvent(info, "skip", null, minimumBid, estimate, ReadTimeText(row),
-                    minimumBid > SNIPE_MAX_BID ? "cap" : "margin");
+                    minimumBid > _snipeMaxBid ? "cap" : "margin");
         }
     }
 
@@ -1519,7 +1534,7 @@ public class Fc25 : IDisposable
         var shown = row.BidValue ?? 0;
         var ourBidIsUnrecorded = Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key);
 
-        return ourBidIsUnrecorded || Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS);
+        return ourBidIsUnrecorded || Snipe.ShouldBid(facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS);
     }
 
     private void SnipeRowIfDue(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
@@ -1528,7 +1543,7 @@ public class Fc25 : IDisposable
 
         if (Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key))
             ConfirmUnrecordedBid(row, facts, standing);
-        else if (Snipe.ShouldBid(facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
+        else if (Snipe.ShouldBid(facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS))
             SnipeRow(row, facts, standing);
     }
 
@@ -1578,7 +1593,7 @@ public class Fc25 : IDisposable
         var delta = minimumBid > previous ? minimumBid - previous : 0;
         var confirmed = facts with { MinimumBid = minimumBid };
 
-        if (!Snipe.ShouldBid(confirmed, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS))
+        if (!Snipe.ShouldBid(confirmed, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS))
             RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "margin");
         else if (!Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, delta, MAX_EXPOSURE_SHARE))
             RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "budget");
@@ -1746,7 +1761,7 @@ public class Fc25 : IDisposable
     private bool UnwatchSacrificialRow()
     {
         var live = LiveWatchedRows(_screen.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched), _snipeEstimates);
-        var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, MARGIN_COINS, SNIPE_MAX_BID, SNIPE_AIM_SECONDS));
+        var victim = live.FirstOrDefault(entry => Snipe.IsSacrificial(entry.facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS));
         var unwatched = victim.row != null && UnwatchRow(victim.row);
 
         if (unwatched)
