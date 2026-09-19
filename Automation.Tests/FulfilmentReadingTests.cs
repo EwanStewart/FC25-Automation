@@ -52,6 +52,24 @@ public class FulfilmentReadingTests
     }
 
     [Fact]
+    public void AnInProgressChallengeReadsItsSquadBackOverAGetAndIsRecognisedToo()
+    {
+        Assert.Equal(CaptureKind.SbcSquad,
+            UtasPayloads.Classify("GET", "https://utas.mob.v1.fut.ea.com/ut/game/fc27/sbs/challenge/14/squad"));
+        Assert.NotEqual(CaptureKind.SbcSquad,
+            UtasPayloads.Classify("PUT", "https://utas.mob.v1.fut.ea.com/ut/game/fc27/sbs/challenge/14"));
+    }
+
+    [Fact]
+    public void TheChallengeIdIsReadFromTheSquadUrlWhenTheBodyCarriesNone()
+    {
+        Assert.Equal(14, SquadReader.ChallengeIn("https://utas.mob.v1.fut.ea.com/ut/game/fc27/sbs/challenge/14"));
+        Assert.Equal(14,
+            SquadReader.ChallengeIn("https://utas.mob.v1.fut.ea.com/ut/game/fc27/sbs/challenge/14/squad"));
+        Assert.Equal(0, SquadReader.ChallengeIn("https://utas.mob.v1.fut.ea.com/ut/game/fc27/sbs/sets"));
+    }
+
+    [Fact]
     public void ATargetRowReportsWhatTheModelSaysAboutTheTrade()
     {
         var state = TargetRowState.Of("listFUTItem has-auction-data",

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Automation.Sbc;
 using Automation.Sbc.Fulfilment;
 using Automation.Setup;
@@ -80,8 +81,28 @@ public sealed class SbcSquadAgent : ISquadAgent
         return document.querySelectorAll('div.DetailPanel li.listFUTItem, section.ui-layout-right li.listFUTItem').length;
         """;
 
+    private const string EntryLabelsScript = """
+        return JSON.stringify(Array.from(document.querySelectorAll(arguments[0]))
+            .filter(button => !button.disabled)
+            .map(button => (button.textContent || '').trim())
+            .filter(text => text.length > 0));
+        """;
+
+    private const string EntryCentreScript = """
+        const button = Array.from(document.querySelectorAll(arguments[0]))
+            .filter(entry => !entry.disabled && (entry.textContent || '').trim() === arguments[1])[0];
+        if (!button) return '';
+        button.scrollIntoView({block: 'center'});
+        const rect = button.getBoundingClientRect();
+        return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
+        """;
+
     private const string ADD_PLAYER = "Add Player";
     private const string SBC_TITLE = "SBC";
+
+    private const string ENTRY_SELECTOR =
+        "div.ut-sbc-requirements-view footer button, div.ut-sbc-requirements-popup footer button";
+
     private const int RESPONSE_POLL_MS = 250;
     private const int SCREEN_SETTLE_MS = 1500;
     private const int SCROLL_SETTLE_MS = 800;
@@ -105,6 +126,8 @@ public sealed class SbcSquadAgent : ISquadAgent
     private readonly MouseInput mouse_;
     private readonly ChallengeRoute route_;
 
+    private SquadView? seen_;
+
     public SbcSquadAgent(ChromeDriver driver, Screen screen, NetworkObserver network, MouseInput mouse,
         ChallengeRoute route)
     {
@@ -121,13 +144,37 @@ public sealed class SbcSquadAgent : ISquadAgent
 
         EnterChallenge();
 
-        var view = Settled(since, challengeId);
+        var answered = Remember(Settled(since, challengeId));
+        var view = answered ?? Remembered(challengeId);
 
         if (view is null)
             throw new InvalidOperationException(
                 $"The squad for challenge {challengeId} ('{route_.ChallengeName}') never came back from the app.");
 
+        Announce(view, answered is null);
+
         return view;
+    }
+
+    private void Announce(SquadView view, bool cached)
+    {
+        var source = cached ? " served from the client cache, so it is the squad this run last read" : string.Empty;
+
+        Console.WriteLine($"  squad for challenge {view.ChallengeId} ('{route_.ChallengeName}'): " +
+                          $"formation {view.Formation}, {view.Slots.Count(slot => slot.Filled)} of " +
+                          $"{view.Slots.Count} slots filled{source}.");
+    }
+
+    private SquadView? Remember(SquadView? view)
+    {
+        if (view is not null) seen_ = view;
+
+        return view;
+    }
+
+    private SquadView? Remembered(int challengeId)
+    {
+        return seen_ is not null && seen_.ChallengeId == challengeId ? seen_ : null;
     }
 
     public void Place(int slotIndex, SquadTarget target)
@@ -151,7 +198,7 @@ public sealed class SbcSquadAgent : ISquadAgent
     {
         var since = DateTime.UtcNow - TimeSpan.FromSeconds(30);
 
-        return Settled(since, challengeId) ??
+        return Remember(Settled(since, challengeId)) ??
                new SquadView(challengeId, string.Empty, []);
     }
 
@@ -199,6 +246,71 @@ public sealed class SbcSquadAgent : ISquadAgent
         OpenHub();
         OpenTile(SET_TILE_SELECTORS, route_.SetName);
         OpenTile(CHALLENGE_TILE_SELECTORS, route_.ChallengeName);
+        OpenSquad();
+    }
+
+    private void OpenSquad()
+    {
+        var labels = SettledEntryLabels();
+        var wanted = ChallengeEntry.Opening(labels);
+
+        if (wanted.Length == 0)
+            throw new InvalidOperationException(
+                $"Nothing on screen '{ScreenName()}' opens the squad for '{route_.ChallengeName}'; " +
+                $"the challenge pane offers [{string.Join(", ", labels)}].");
+
+        Entered(wanted, Press(wanted));
+    }
+
+    private IReadOnlyList<string> SettledEntryLabels()
+    {
+        var labels = EntryLabels();
+        var attempt = 0;
+
+        while (ChallengeEntry.Opening(labels).Length == 0 && attempt < OPEN_ATTEMPTS)
+        {
+            Thread.Sleep(SCREEN_SETTLE_MS);
+            labels = EntryLabels();
+            attempt++;
+        }
+
+        return labels;
+    }
+
+    private IReadOnlyList<string> EntryLabels()
+    {
+        var json = driver_.ExecuteScript(EntryLabelsScript, ENTRY_SELECTOR) as string ?? "[]";
+        IReadOnlyList<string> result = [];
+
+        try
+        {
+            result = JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+        }
+
+        return result;
+    }
+
+    private bool Press(string label)
+    {
+        var centre = driver_.ExecuteScript(EntryCentreScript, ENTRY_SELECTOR, label) as string ?? string.Empty;
+
+        Thread.Sleep(SCROLL_SETTLE_MS);
+
+        var settled = driver_.ExecuteScript(EntryCentreScript, ENTRY_SELECTOR, label) as string ?? centre;
+
+        return ClickAtCentre(settled);
+    }
+
+    private void Entered(string label, bool pressed)
+    {
+        Console.WriteLine($"  pressed '{label}' for '{route_.ChallengeName}', now on screen '{ScreenName()}'.");
+
+        if (!pressed)
+            throw new InvalidOperationException(
+                $"The control '{label}' for '{route_.ChallengeName}' would not take a click, so the squad never opened.");
     }
 
     private void RequireMouse()
@@ -294,8 +406,16 @@ public sealed class SbcSquadAgent : ISquadAgent
     private SquadView? Latest(DateTime since, int challengeId)
     {
         return network_.Since(since, CaptureKind.SbcSquad).Where(capture => capture.Body.Length > 0)
-            .Select(capture => SquadReader.Read(capture.Body))
-            .LastOrDefault(view => view is not null && view.ChallengeId == challengeId);
+            .Select(Identified).LastOrDefault(view => view is not null && view.ChallengeId == challengeId);
+    }
+
+    private static SquadView? Identified(Capture capture)
+    {
+        var view = SquadReader.Read(capture.Body);
+
+        return view is null || view.ChallengeId > 0
+            ? view
+            : view with { ChallengeId = SquadReader.ChallengeIn(capture.Url) };
     }
 
     private bool WaitForScreen(string name)

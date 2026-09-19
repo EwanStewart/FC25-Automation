@@ -91,6 +91,8 @@ public static class UtasPayloads
         else if (get && url.EndsWith("/sbs/sets", StringComparison.Ordinal)) result = CaptureKind.SbcSets;
         else if (post && url.Contains("/sbs/challenge/", StringComparison.Ordinal))
             result = CaptureKind.SbcSquad;
+        else if (get && url.Contains("/sbs/challenge/", StringComparison.Ordinal) &&
+                 url.EndsWith("/squad", StringComparison.Ordinal)) result = CaptureKind.SbcSquad;
         else if (get && url.Contains("/sbs/setId/", StringComparison.Ordinal) &&
                  url.EndsWith("/challenges", StringComparison.Ordinal)) result = CaptureKind.SbcChallenges;
 
