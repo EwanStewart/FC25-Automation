@@ -30,6 +30,11 @@ public class SquadSolverTests
         return new SolveOptions(budget, 11, ChemistryThresholds.Default, TeamLinks.None);
     }
 
+    private static SolveOptions CappedOptions(int budget)
+    {
+        return new SolveOptions(budget, 11, ChemistryThresholds.Default, TeamLinks.None, EnforceBudget: true);
+    }
+
     [Fact]
     public void FillsEverySlotFromTheClubWhenItCan()
     {
@@ -76,14 +81,40 @@ public class SquadSolverTests
     }
 
     [Fact]
-    public void AChallengeIsUnsatisfiableWhenNoPurchaseIsAllowed()
+    public void AnEnforcedBudgetOfNothingRulesOutEveryPurchase()
+    {
+        var needsScotland = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Nation, 42, "Scotland")], "Scotland: Min. 1 Player");
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11), needsScotland), Club(70), CappedOptions(0));
+
+        Assert.Equal(SolveOutcome.Unsatisfiable, result.Outcome);
+    }
+
+    [Fact]
+    public void TheBudgetIsNotACapUnlessItIsEnforced()
     {
         var needsScotland = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
             [new PlayerFilter(PlayerFilterKind.Nation, 42, "Scotland")], "Scotland: Min. 1 Player");
 
         var result = SquadSolver.Solve(Challenge(SquadSize(11), needsScotland), Club(70), Options(0));
 
-        Assert.Equal(SolveOutcome.Unsatisfiable, result.Outcome);
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(1, result.PurchaseCount);
+        Assert.True(result.EstimatedCost > 0);
+    }
+
+    [Fact]
+    public void TheClubIsStillPreferredWhenBuyingCostsNothingToAllow()
+    {
+        var needsScotland = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Nation, 42, "Scotland")], "Scotland: Min. 1 Player");
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11), needsScotland), Club(70, nation: 42), Options(0));
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(0, result.PurchaseCount);
+        Assert.Equal(0, result.EstimatedCost);
     }
 
     [Fact]
