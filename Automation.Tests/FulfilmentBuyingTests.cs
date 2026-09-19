@@ -28,7 +28,7 @@ public class FulfilmentBuyingTests
         Assert.Equal(GapOutcome.Simulated, store.Gaps(1)[0].Outcome);
         Assert.True(store.Gaps(1)[0].Simulated);
         Assert.Equal(800, store.Gaps(1)[0].BidAmount);
-        Assert.Equal(FulfilmentState.Building, result.State);
+        Assert.Equal(FulfilmentState.Buying, result.State);
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class FulfilmentBuyingTests
         var (result, store, _) = Buy(Run(true, 3000), [Gap(0)],
             new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 800)] });
 
-        Assert.Equal(FulfilmentState.Building, result.State);
+        Assert.Equal(FulfilmentState.Buying, result.State);
         Assert.Equal(FulfilmentState.Pending, store.State);
         Assert.Contains("dry run", store.Detail);
     }
@@ -150,7 +150,7 @@ public class FulfilmentBuyingTests
 
         Assert.Empty(log.Where(entry => entry.StartsWith("search")));
         Assert.Equal(GapOutcome.Won, store.Gaps(1)[0].Outcome);
-        Assert.Equal(FulfilmentState.Building, result.State);
+        Assert.Equal(FulfilmentState.Buying, result.State);
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class FulfilmentBuyingTests
 
         Assert.Empty(log.Where(entry => entry.StartsWith("search")));
         Assert.Equal(GapOutcome.Won, store.Gaps(1)[0].Outcome);
-        Assert.Equal(FulfilmentState.Building, result.State);
+        Assert.Equal(FulfilmentState.Buying, result.State);
     }
 
     [Fact]
@@ -288,7 +288,7 @@ public class FulfilmentBuyingTests
         var result = new GapBuyer(second, store).Buy(Run(false, 100000), store.Gaps(1));
 
         Assert.Single(log.Where(entry => entry.StartsWith("bid")));
-        Assert.Equal(FulfilmentState.Building, result.State);
+        Assert.Equal(FulfilmentState.Buying, result.State);
         Assert.Equal(800, store.Gaps(1)[0].FinalPrice);
     }
 }

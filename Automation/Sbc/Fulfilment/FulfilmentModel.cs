@@ -5,8 +5,8 @@ namespace Automation.Sbc.Fulfilment;
 public enum FulfilmentState
 {
     Pending,
+    Placing,
     Buying,
-    Building,
     Built,
     Failed,
     Aborted

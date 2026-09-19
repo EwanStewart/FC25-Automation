@@ -26,6 +26,29 @@ public sealed class SbcSquadAgent : ISquadAgent
         return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
         """;
 
+    private const string TitledCentreScript = """
+        const wanted = arguments[0];
+        const leaves = Array.from(document.querySelectorAll('h1, h2, h3, span, div, li'))
+            .filter(node => node.children.length === 0 && (node.textContent || '').trim() === wanted);
+        if (leaves.length === 0) return '';
+        let node = leaves[leaves.length - 1];
+        for (let depth = 0; depth < 6 && node.parentElement; depth++) {
+            const box = node.getBoundingClientRect();
+            if (box.width > 120 && box.height > 40) break;
+            node = node.parentElement;
+        }
+        node.scrollIntoView({block: 'center'});
+        const rect = node.getBoundingClientRect();
+        return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
+        """;
+
+    private const string ScreenTitlesScript = """
+        return JSON.stringify(Array.from(document.querySelectorAll('h1, h2, h3, span.label, div.tileTitle'))
+            .map(node => (node.textContent || '').trim())
+            .filter(text => text.length > 0 && text.length < 60)
+            .slice(0, 40));
+        """;
+
     private const string SlotCentreScript = """
         const slot = document.querySelector('div.ut-squad-pitch-view div.ut-squad-slot-view[index="' + arguments[0] + '"]');
         if (!slot) return '';
@@ -172,9 +195,17 @@ public sealed class SbcSquadAgent : ISquadAgent
 
     private void EnterChallenge()
     {
+        RequireMouse();
         OpenHub();
         OpenTile(SET_TILE_SELECTORS, route_.SetName);
         OpenTile(CHALLENGE_TILE_SELECTORS, route_.ChallengeName);
+    }
+
+    private void RequireMouse()
+    {
+        if (!mouse_.Enabled)
+            throw new InvalidOperationException(
+                "Real mouse input is not running, so no SBC tile can be clicked and the challenge cannot be opened.");
     }
 
     private void OpenHub()
@@ -193,13 +224,39 @@ public sealed class SbcSquadAgent : ISquadAgent
 
         while (!clicked && attempt < OPEN_ATTEMPTS)
         {
-            clicked = selectors.Any(selector => ClickTile(selector, title));
+            clicked = selectors.Any(selector => ClickTile(selector, title)) || ClickTitled(title);
             attempt++;
 
             if (!clicked) Thread.Sleep(SCREEN_SETTLE_MS);
         }
 
+        Report(title, clicked);
         Thread.Sleep(SCREEN_SETTLE_MS);
+    }
+
+    private bool ClickTitled(string title)
+    {
+        ForbiddenControls.Require(title);
+
+        var centre = driver_.ExecuteScript(TitledCentreScript, title) as string ?? string.Empty;
+
+        Thread.Sleep(SCROLL_SETTLE_MS);
+
+        var settled = driver_.ExecuteScript(TitledCentreScript, title) as string ?? centre;
+
+        return ClickAtCentre(settled);
+    }
+
+    private void Report(string title, bool clicked)
+    {
+        Console.WriteLine(clicked
+            ? $"  opened '{title}', now on screen '{ScreenName()}'."
+            : $"  nothing titled '{title}' on screen '{ScreenName()}', which shows {Titles()}.");
+    }
+
+    private string Titles()
+    {
+        return driver_.ExecuteScript(ScreenTitlesScript) as string ?? "nothing";
     }
 
     private bool ClickTile(string selector, string title)

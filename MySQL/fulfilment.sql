@@ -64,3 +64,5 @@ CREATE TABLE IF NOT EXISTS SbcFulfilmentPlacements (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY SbcFulfilmentPlacementsSlot (fulfilment_id, slot_index)
 );
+
+UPDATE SbcFulfilments SET state = 'placing' WHERE state = 'building';

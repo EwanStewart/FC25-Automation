@@ -167,3 +167,21 @@ public sealed class ScriptedSquad : ISquadAgent
         return new SquadView(challengeId, "442", slots_.Values.OrderBy(slot => slot.Index).ToList());
     }
 }
+
+public sealed class RefusingSquad : ISquadAgent
+{
+    public SquadView Open(int challengeId)
+    {
+        throw new InvalidOperationException($"The squad for challenge {challengeId} never came back from the app.");
+    }
+
+    public void Place(int slotIndex, SquadTarget target)
+    {
+        throw new InvalidOperationException($"Slot {slotIndex} cannot take {target.Name}.");
+    }
+
+    public SquadView Read(int challengeId)
+    {
+        throw new InvalidOperationException($"The squad for challenge {challengeId} cannot be read.");
+    }
+}

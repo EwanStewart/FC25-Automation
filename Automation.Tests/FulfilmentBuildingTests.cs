@@ -1,4 +1,3 @@
-using System.Reflection;
 using Automation.Sbc.Fulfilment;
 using static Automation.Tests.FulfilmentFixtures;
 
@@ -21,6 +20,11 @@ public class FulfilmentBuildingTests
         return Gap(slot) with { Outcome = GapOutcome.Won, ItemId = itemId, BidAmount = 800, FinalPrice = 800 };
     }
 
+    private static SquadSlotView Empty(int slot)
+    {
+        return new SquadSlotView(slot, "CB", 0, 0, 0, false);
+    }
+
     [Fact]
     public void OwnedSlotsAndWonCardsBecomeOneOrderedPlan()
     {
@@ -34,12 +38,22 @@ public class FulfilmentBuildingTests
     }
 
     [Fact]
-    public void ASlotWhoseCardWasNeverWonLeavesThePlanIncomplete()
+    public void ThePlanSeparatesTheCardsInTheClubFromTheOnesStillToBuy()
     {
-        var targets = SquadPlan.Targets([Owned(0, 11), Bought(1)], [Gap(1)]);
+        var targets = SquadPlan.Targets([Owned(0, 11), Bought(1), Bought(2)], [Won(1, 99), Gap(2)]);
 
-        Assert.Equal("slot 1", SquadPlan.Unready(targets));
-        Assert.False(SquadPlan.Ready(targets));
+        Assert.Equal([0], SquadPlan.Owned(targets).Select(target => target.SlotIndex));
+        Assert.Equal([1], SquadPlan.Bought(targets).Select(target => target.SlotIndex));
+        Assert.Equal("slot 2", SquadPlan.Names(SquadPlan.Outstanding(targets)));
+    }
+
+    [Fact]
+    public void ASimulatedGapCountsAsACardInHandSoADryRunCanFillTheSquad()
+    {
+        var targets = SquadPlan.Targets([Bought(0)], [Gap(0) with { Outcome = GapOutcome.Simulated }]);
+
+        Assert.Single(SquadPlan.Bought(targets));
+        Assert.Empty(SquadPlan.Outstanding(targets));
     }
 
     [Fact]
@@ -47,13 +61,14 @@ public class FulfilmentBuildingTests
     {
         List<string> log = [];
         RecordingStore store = new(log);
-        ScriptedSquad squad = new(log, [new SquadSlotView(0, "CB", 0, 0, 0, false)]);
+        ScriptedSquad squad = new(log, [Empty(0)]);
 
-        var result = new SquadBuilder(squad, store).Build(Run(true, 3000), [Owned(0, 11)], []);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(true, 3000), [Owned(0, 11)]);
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("place-in-app"));
         Assert.Equal(PlacementOutcome.Simulated, store.Placements(1)[0].Outcome);
-        Assert.Equal(FulfilmentState.Built, result.State);
+        Assert.False(report.Halted);
+        Assert.Equal(1, report.Placed);
     }
 
     [Fact]
@@ -63,56 +78,113 @@ public class FulfilmentBuildingTests
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, [new SquadSlotView(0, "CB", 11, 0, 70, true)]);
 
-        var result = new SquadBuilder(squad, store).Build(Run(false, 3000), [Owned(0, 11)], []);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11)]);
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("place-in-app"));
         Assert.Equal(PlacementOutcome.Placed, store.Placements(1)[0].Outcome);
-        Assert.Equal(FulfilmentState.Built, result.State);
+        Assert.False(report.Halted);
     }
 
     [Fact]
-    public void APlacementThatDoesNotShowOnTheSquadStopsTheBuild()
+    public void APlacementThatDoesNotShowOnTheSquadStopsTheRun()
     {
         List<string> log = [];
         RecordingStore store = new(log);
-        ScriptedSquad squad = new(log, [new SquadSlotView(0, "CB", 0, 0, 0, false),
-            new SquadSlotView(1, "CB", 0, 0, 0, false)]) { Refuse = 0 };
+        ScriptedSquad squad = new(log, [Empty(0), Empty(1)]) { Refuse = 0 };
 
-        var result = new SquadBuilder(squad, store).Build(Run(false, 3000), [Owned(0, 11), Owned(1, 12)], []);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11), Owned(1, 12)]);
 
-        Assert.Equal(FulfilmentState.Failed, result.State);
-        Assert.Contains("slot 0", result.Detail);
+        Assert.True(report.Halted);
+        Assert.Contains("slot 0", report.Detail);
         Assert.Equal(PlacementOutcome.Missing, store.Placements(1)[0].Outcome);
         Assert.Single(store.Placements(1));
     }
 
     [Fact]
-    public void EverySlotFilledLeavesTheRunBuiltAndNothingIsSubmitted()
+    public void EveryClubCardGoesInAndNothingIsSubmitted()
     {
         List<string> log = [];
         RecordingStore store = new(log);
-        ScriptedSquad squad = new(log, [new SquadSlotView(0, "CB", 0, 0, 0, false),
-            new SquadSlotView(1, "CB", 0, 0, 0, false)]);
+        ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
 
-        var result = new SquadBuilder(squad, store).Build(Run(false, 3000), [Owned(0, 11), Owned(1, 12)], []);
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11), Owned(1, 12)]);
 
-        Assert.Equal(FulfilmentState.Built, result.State);
+        Assert.False(report.Halted);
+        Assert.Equal(2, report.Placed);
         Assert.Equal(2, log.Count(entry => entry.StartsWith("place-in-app")));
         Assert.All(store.Placements(1), placement => Assert.Equal(PlacementOutcome.Placed, placement.Outcome));
     }
 
     [Fact]
-    public void ABuildWhoseCardsAreNotAllInHandNeverOpensTheChallenge()
+    public void TheClubPassIgnoresTheSlotsThatAreStillToBeBought()
+    {
+        List<string> log = [];
+        RecordingStore store = new(log);
+        ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
+
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Owned(0, 11), Bought(1)]);
+
+        Assert.Equal(1, report.Placed);
+        Assert.Single(store.Placements(1));
+        Assert.Equal(0, store.Placements(1)[0].SlotIndex);
+    }
+
+    [Fact]
+    public void ASlotWhoseCardIsNotYetWonIsLeftAloneAndNeverOpensTheChallenge()
     {
         List<string> log = [];
         RecordingStore store = new(log);
         ScriptedSquad squad = new(log, []);
 
-        var result = new SquadBuilder(squad, store).Build(Run(false, 3000), [Bought(0)], [Gap(0)]);
+        var report = new SquadBuilder(squad, store).PlaceBought(Run(false, 3000), [Bought(0)], [Gap(0)]);
 
         Assert.Empty(log);
-        Assert.Equal(FulfilmentState.Failed, result.State);
-        Assert.Contains("slot 0", result.Detail);
+        Assert.False(report.Halted);
+        Assert.Equal(0, report.Placed);
+    }
+
+    [Fact]
+    public void AWonCardIsPlacedOnceTheAuctionIsBanked()
+    {
+        List<string> log = [];
+        RecordingStore store = new(log);
+        ScriptedSquad squad = new(log, [Empty(0)]);
+
+        var report = new SquadBuilder(squad, store).PlaceBought(Run(false, 3000), [Bought(0)], [Won(0, 99)]);
+
+        Assert.Equal(1, report.Placed);
+        Assert.Contains("place-in-app 0 99", log);
+        Assert.Equal(PlacementOutcome.Placed, store.Placements(1)[0].Outcome);
+    }
+
+    [Fact]
+    public void ACardAlreadyVerifiedOnTheSquadIsNotPlacedTwice()
+    {
+        List<string> log = [];
+        RecordingStore store = new(log);
+        ScriptedSquad squad = new(log, [Empty(0)]);
+        SquadBuilder builder = new(squad, store);
+
+        builder.PlaceBought(Run(false, 3000), [Bought(0)], [Won(0, 99)]);
+
+        var second = builder.PlaceBought(Run(false, 3000), [Bought(0)], [Won(0, 99)]);
+
+        Assert.Single(log, entry => entry.StartsWith("place-in-app"));
+        Assert.Equal(0, second.Placed);
+        Assert.False(second.Halted);
+    }
+
+    [Fact]
+    public void NothingLeftToPlaceNeverOpensTheChallenge()
+    {
+        List<string> log = [];
+        RecordingStore store = new(log);
+        ScriptedSquad squad = new(log, []);
+
+        var report = new SquadBuilder(squad, store).PlaceOwned(Run(false, 3000), [Bought(0)]);
+
+        Assert.Empty(log);
+        Assert.False(report.Halted);
     }
 
     [Fact]

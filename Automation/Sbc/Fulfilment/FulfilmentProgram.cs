@@ -28,13 +28,14 @@ public static class FulfilmentProgram
         }
         catch (RunStoppedException exception)
         {
-            store.SaveState(run.Id, FulfilmentState.Failed, $"the run was stopped: {exception.Message}");
+            store.SaveState(run.Id, FulfilmentDefaults.Recorded(run, FulfilmentState.Failed),
+                $"the run was stopped: {exception.Message}");
 
             throw;
         }
         catch (Exception exception)
         {
-            store.SaveState(run.Id, FulfilmentState.Failed, exception.Message);
+            store.SaveState(run.Id, FulfilmentDefaults.Recorded(run, FulfilmentState.Failed), exception.Message);
             Console.WriteLine($"Fulfilment {run.Id} stopped: {exception.Message}");
         }
     }
@@ -42,25 +43,80 @@ public static class FulfilmentProgram
     private static void One(IFulfilmentStore store, Func<int, IReadOnlyList<ApprovalSlot>> slots,
         Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentRun run)
     {
+        var plan = slots(run.ApprovalId);
+        SquadBuilder builder = new(squad(run), store);
+
         Announce(run);
 
-        var bought = new GapBuyer(market(run), store).Buy(run, store.Gaps(run.Id));
+        var owned = Owned(store, builder, run, plan);
+        var outcome = owned.Halted
+            ? new RunOutcome(FulfilmentState.Failed, owned.Detail)
+            : Shop(store, market, builder, run, plan);
 
-        Console.WriteLine($"  buying finished {bought.State}. {bought.Detail}");
-
-        if (bought.State == FulfilmentState.Building) Assemble(store, slots, squad, run, bought);
+        Settle(store, run, plan, outcome);
     }
 
-    private static void Assemble(IFulfilmentStore store, Func<int, IReadOnlyList<ApprovalSlot>> slots,
-        Func<FulfilmentRun, ISquadAgent> squad, FulfilmentRun run, BuyingResult bought)
+    private static PlacementReport Owned(IFulfilmentStore store, SquadBuilder builder, FulfilmentRun run,
+        IReadOnlyList<ApprovalSlot> plan)
     {
-        var built = new SquadBuilder(squad(run), store).Build(run, slots(run.ApprovalId), bought.Gaps);
+        store.SaveState(run.Id, FulfilmentDefaults.Recorded(run, FulfilmentState.Placing),
+            "placing the cards already in the club");
 
-        store.SaveState(run.Id, GapBuyer.Recorded(run, built.State),
-            run.DryRun ? $"dry run reached {built.State}. {built.Detail}".Trim() : built.Detail);
-        Console.WriteLine(built.State == FulfilmentState.Built
-            ? $"  squad built for approval {run.ApprovalId}. Check it in the app and finish it yourself."
-            : $"  squad not built: {built.Detail}");
+        var report = builder.PlaceOwned(run, plan);
+
+        Console.WriteLine($"  club cards: {report.Detail}");
+
+        return report;
+    }
+
+    private static RunOutcome Shop(IFulfilmentStore store, Func<FulfilmentRun, IMarketAgent> market,
+        SquadBuilder builder, FulfilmentRun run, IReadOnlyList<ApprovalSlot> plan)
+    {
+        var bought = new GapBuyer(market(run), store).Buy(run, store.Gaps(run.Id));
+
+        Console.WriteLine($"  market: {Lower(bought.State)} {bought.Detail}".TrimEnd());
+
+        var placed = builder.PlaceBought(run, plan, bought.Gaps);
+
+        Console.WriteLine($"  bought cards: {placed.Detail}");
+
+        return placed.Halted
+            ? new RunOutcome(FulfilmentState.Failed, placed.Detail)
+            : new RunOutcome(bought.State, bought.Detail);
+    }
+
+    private static void Settle(IFulfilmentStore store, FulfilmentRun run, IReadOnlyList<ApprovalSlot> plan,
+        RunOutcome outcome)
+    {
+        var progress = FulfilmentProgress.Of(plan, store.Gaps(run.Id), store.Placements(run.Id));
+        var state = Final(outcome, progress);
+        var detail = $"{FulfilmentProgress.Describe(progress)}. {outcome.Detail}".Trim();
+
+        store.SaveState(run.Id, FulfilmentDefaults.Recorded(run, state), Reported(run, state, detail));
+        Console.WriteLine($"  fulfilment {run.Id} is {Lower(state)}: {detail}");
+        Console.WriteLine(state == FulfilmentState.Built
+            ? $"  approval {run.ApprovalId} has a full squad. Check it in the app and finish it yourself."
+            : $"  approval {run.ApprovalId} needs another run.");
+    }
+
+    private static FulfilmentState Final(RunOutcome outcome, RunProgress progress)
+    {
+        var result = outcome.State;
+
+        if (outcome.State is FulfilmentState.Placing or FulfilmentState.Buying)
+            result = FulfilmentProgress.Complete(progress) ? FulfilmentState.Built : FulfilmentState.Buying;
+
+        return result;
+    }
+
+    private static string Reported(FulfilmentRun run, FulfilmentState state, string detail)
+    {
+        return run.DryRun ? $"dry run reached {state}. {detail}".Trim() : detail;
+    }
+
+    private static string Lower(FulfilmentState state)
+    {
+        return state.ToString().ToLowerInvariant();
     }
 
     private static void Announce(FulfilmentRun run)
@@ -68,4 +124,6 @@ public static class FulfilmentProgram
         Console.WriteLine(
             $"Fulfilment {run.Id} for approval {run.ApprovalId} (challenge {run.ChallengeId}): estimate {run.EstimatedCost}, ceiling {run.SpendCeiling}, dry run {run.DryRun}.");
     }
+
+    private sealed record RunOutcome(FulfilmentState State, string Detail);
 }

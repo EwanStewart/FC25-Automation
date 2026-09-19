@@ -367,6 +367,8 @@ public class Fc25 : IDisposable
 
     public void FulfilSbcRoutine()
     {
+        if (!_mouse.Enabled) _mouse.Start(Browser.DebuggerHttp);
+
         SbcStore catalogue = new();
         MySqlFulfilmentStore store = new();
 

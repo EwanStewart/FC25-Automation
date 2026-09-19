@@ -25,14 +25,9 @@ public sealed class GapBuyer
             ? Work(run, resolved)
             : new BuyingResult(FulfilmentState.Failed, Names(stalled), resolved);
 
-        store_.SaveState(run.Id, Recorded(run, result.State), Reported(run, result));
+        store_.SaveState(run.Id, FulfilmentDefaults.Recorded(run, result.State), Reported(run, result));
 
         return result;
-    }
-
-    public static FulfilmentState Recorded(FulfilmentRun run, FulfilmentState state)
-    {
-        return run.DryRun ? FulfilmentState.Pending : state;
     }
 
     private static string Reported(FulfilmentRun run, BuyingResult result)
@@ -76,7 +71,7 @@ public sealed class GapBuyer
 
         var settled = current.Values.OrderBy(gap => gap.SlotIndex).ToList();
 
-        return new BuyingResult(halt.Length > 0 ? state : Reached(settled), halt, settled);
+        return new BuyingResult(halt.Length > 0 ? state : FulfilmentState.Buying, halt, settled);
     }
 
     private GapStep Step(FulfilmentRun run, GapRecord gap, SpendLedger ledger)
@@ -165,11 +160,6 @@ public sealed class GapBuyer
             Outcome = fitting ? GapOutcome.TooExpensive : GapOutcome.NotFound,
             Detail = fitting ? $"nothing matching sat at or under {ceiling}" : $"no card matched under {ceiling}"
         };
-    }
-
-    private static FulfilmentState Reached(IReadOnlyList<GapRecord> gaps)
-    {
-        return gaps.All(gap => GapProgress.Settled(gap.Outcome)) ? FulfilmentState.Building : FulfilmentState.Buying;
     }
 
     private static string Names(GapRecord gap)

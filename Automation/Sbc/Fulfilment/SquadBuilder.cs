@@ -1,9 +1,11 @@
 namespace Automation.Sbc.Fulfilment;
 
-public sealed record BuildingResult(FulfilmentState State, string Detail);
+public sealed record PlacementReport(int Placed, int Wanted, string Detail, bool Halted);
 
 public sealed class SquadBuilder
 {
+    private const string NOTHING_TO_PLACE = "no card waiting for a slot";
+
     private readonly ISquadAgent squad_;
     private readonly IFulfilmentStore store_;
 
@@ -13,38 +15,54 @@ public sealed class SquadBuilder
         store_ = store;
     }
 
-    public BuildingResult Build(FulfilmentRun run, IReadOnlyList<ApprovalSlot> slots,
-        IReadOnlyList<GapRecord> gaps)
+    public PlacementReport PlaceOwned(FulfilmentRun run, IReadOnlyList<ApprovalSlot> slots)
     {
-        var targets = SquadPlan.Targets(slots, gaps);
-
-        return SquadPlan.Ready(targets)
-            ? Fill(run, targets)
-            : new BuildingResult(FulfilmentState.Failed, $"no card in hand for {SquadPlan.Unready(targets)}");
+        return Fill(run, Outstanding(run, SquadPlan.Owned(SquadPlan.Targets(slots, []))));
     }
 
-    private BuildingResult Fill(FulfilmentRun run, IReadOnlyList<SquadTarget> targets)
+    public PlacementReport PlaceBought(FulfilmentRun run, IReadOnlyList<ApprovalSlot> slots,
+        IReadOnlyList<GapRecord> gaps)
+    {
+        return Fill(run, Outstanding(run, SquadPlan.Bought(SquadPlan.Targets(slots, gaps))));
+    }
+
+    private IReadOnlyList<SquadTarget> Outstanding(FulfilmentRun run, IReadOnlyList<SquadTarget> targets)
+    {
+        var done = store_.Placements(run.Id).Where(placement => placement.Outcome == PlacementOutcome.Placed)
+            .Select(placement => placement.SlotIndex).ToHashSet();
+
+        return targets.Where(target => !done.Contains(target.SlotIndex)).ToList();
+    }
+
+    private PlacementReport Fill(FulfilmentRun run, IReadOnlyList<SquadTarget> targets)
+    {
+        return targets.Count == 0
+            ? new PlacementReport(0, 0, NOTHING_TO_PLACE, false)
+            : Opened(run, targets);
+    }
+
+    private PlacementReport Opened(FulfilmentRun run, IReadOnlyList<SquadTarget> targets)
     {
         var view = squad_.Open(run.ChallengeId);
         var halt = string.Empty;
+        var placed = 0;
 
         foreach (var target in targets)
         {
-            var placement = Fill(run, target, ref view);
+            var placement = Attempt(run, target, ref view);
 
             store_.SavePlacement(run.Id, placement);
 
-            if (placement.Outcome != PlacementOutcome.Placed && placement.Outcome != PlacementOutcome.Simulated)
-            {
-                halt = $"slot {target.SlotIndex} could not be filled: {placement.Detail}";
-                break;
-            }
+            if (Landed(placement.Outcome)) placed++;
+            else halt = $"slot {target.SlotIndex} would not take {target.Name}: {placement.Detail}";
+
+            if (halt.Length > 0) break;
         }
 
-        return new BuildingResult(halt.Length > 0 ? FulfilmentState.Failed : FulfilmentState.Built, halt);
+        return new PlacementReport(placed, targets.Count, Summary(placed, targets.Count, halt), halt.Length > 0);
     }
 
-    private PlacementRecord Fill(FulfilmentRun run, SquadTarget target, ref SquadView view)
+    private PlacementRecord Attempt(FulfilmentRun run, SquadTarget target, ref SquadView view)
     {
         PlacementRecord result;
 
@@ -60,6 +78,16 @@ public sealed class SquadBuilder
         }
 
         return result;
+    }
+
+    private static string Summary(int placed, int wanted, string halt)
+    {
+        return halt.Length > 0 ? halt : $"{placed} of {wanted} placed";
+    }
+
+    private static bool Landed(PlacementOutcome outcome)
+    {
+        return outcome is PlacementOutcome.Placed or PlacementOutcome.Simulated;
     }
 
     private static PlacementRecord Record(SquadTarget target, PlacementOutcome outcome, bool simulated,
