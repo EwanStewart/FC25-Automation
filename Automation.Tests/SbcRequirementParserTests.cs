@@ -68,6 +68,15 @@ public class SbcRequirementParserTests
         ],"elgOperation":"AND","type":"OPEN_CHALLENGE"}]}
         """;
 
+    private const string TWO_CLUBS = """
+        {"challenges":[{"name":"Derby","challengeId":38,"setId":16,"formation":"f532","elgReq":[
+          {"type":"PLAYER_COUNT","eligibilitySlot":1,"eligibilityKey":2,"eligibilityValue":1},
+          {"type":"SCOPE","eligibilitySlot":1,"eligibilityKey":13,"eligibilityValue":0},
+          {"type":"CLUB_ID","eligibilitySlot":1,"eligibilityKey":12,"eligibilityValue":73},
+          {"type":"CLUB_ID","eligibilitySlot":1,"eligibilityKey":12,"eligibilityValue":219}
+        ],"elgOperation":"AND","type":"OPEN_CHALLENGE"}]}
+        """;
+
     private const string UNKNOWN_KEY = """
         {"challenges":[{"name":"Trophy Hunt","challengeId":8,"setId":9,"formation":"f442","elgReq":[
           {"type":"NUM_TROPHY_REQUIRED","eligibilitySlot":0,"eligibilityKey":16,"eligibilityValue":3},
@@ -232,5 +241,19 @@ public class SbcRequirementParserTests
 
         Assert.False(challenge.IsFullyUnderstood);
         Assert.Equal("PLAYER_LEVEL", challenge.Requirements.Single().Subject);
+    }
+
+    [Fact]
+    public void TwoClubsInOneSlotAreAlternativesNotBothAtOnce()
+    {
+        var challenge = RequirementParser.Parse(TWO_CLUBS).Single();
+        var filter = challenge.Requirements.Single().Filters.Single();
+
+        Assert.Equal(PlayerFilterKind.Club, filter.Kind);
+        Assert.Equal(73, filter.Value);
+        Assert.Equal([219], filter.Alternatives);
+        Assert.True(filter.Accepts(219));
+        Assert.False(filter.Accepts(1));
+        Assert.Equal("Club 73 or Club 219: Min. 1 Players", challenge.Requirements.Single().Description);
     }
 }

@@ -247,4 +247,19 @@ public class SquadSolverTests
 
         Assert.Equal(SolveOutcome.UnsupportedRequirement, SquadSolver.Solve(challenge, Club(70), Options()).Outcome);
     }
+
+    [Fact]
+    public void EitherClubSatisfiesASlotThatNamesTwo()
+    {
+        var derby = new SquadRequirement(RequirementKind.PlayerCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Club, 73, "Club 73 or Club 219", [219])],
+            "Club 73 or Club 219: Min. 1 Players");
+        var owned = Club(70).Concat(Club(70, 219).Select(player => player with { Id = player.Id + 100 })).ToList();
+
+        var result = SquadSolver.Solve(Challenge(SquadSize(11), derby), owned, Options());
+
+        Assert.Equal(SolveOutcome.Solved, result.Outcome);
+        Assert.Equal(0, result.PurchaseCount);
+        Assert.True(result.Assessment!.IsValid);
+    }
 }

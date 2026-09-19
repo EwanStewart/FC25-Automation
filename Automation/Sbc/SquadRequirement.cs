@@ -47,7 +47,17 @@ public enum PlayerFilterKind
     Tradability
 }
 
-public sealed record PlayerFilter(PlayerFilterKind Kind, int Value, string Label);
+public sealed record PlayerFilter(
+    PlayerFilterKind Kind,
+    int Value,
+    string Label,
+    IReadOnlyList<int>? Alternatives = null)
+{
+    public bool Accepts(int value)
+    {
+        return value == Value || (Alternatives?.Contains(value) ?? false);
+    }
+}
 
 public sealed record SquadRequirement(
     RequirementKind Kind,

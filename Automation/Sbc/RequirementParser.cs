@@ -112,8 +112,18 @@ public static class RequirementParser
     private static IReadOnlyList<PlayerFilter> ReadFilters(IEnumerable<EligibilityEntry> entries)
     {
         return entries.Where(entry => FilterKind(entry.Key).HasValue)
-            .Select(entry => new PlayerFilter(FilterKind(entry.Key)!.Value, entry.Value,
-                FilterLabel(FilterKind(entry.Key)!.Value, entry.Value))).ToList();
+            .GroupBy(entry => FilterKind(entry.Key)!.Value)
+            .Select(group => Filter(group.Key, group.Select(entry => entry.Value).ToList())).ToList();
+    }
+
+    private static PlayerFilter Filter(PlayerFilterKind kind, IReadOnlyList<int> values)
+    {
+        return new PlayerFilter(kind, values[0], AlternativesLabel(kind, values), values.Skip(1).ToList());
+    }
+
+    private static string AlternativesLabel(PlayerFilterKind kind, IEnumerable<int> values)
+    {
+        return string.Join(" or ", values.Select(value => FilterLabel(kind, value)));
     }
 
     private static PlayerFilterKind? FilterKind(int key)
