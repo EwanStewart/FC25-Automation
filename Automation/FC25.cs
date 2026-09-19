@@ -1,6 +1,7 @@
 ﻿using Automation.Flow;
 using Automation.Setup;
 using Automation.Sbc;
+using Automation.Sbc.Fulfilment;
 using Automation.Trading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
@@ -33,6 +34,8 @@ public class Fc25 : IDisposable
     private readonly uint _maxBids;
     private readonly string _smokeTarget;
     private readonly bool _snipeOnly;
+    private readonly bool _fulfilSbc;
+    private readonly bool _fulfilLive;
     private readonly Dictionary<string, int> _credentialAttempts = new();
     private readonly IVerificationCodeSource _codeSource = new GmailCodeSource();
     private LoginProgress _loginProgress;
@@ -64,6 +67,8 @@ public class Fc25 : IDisposable
         _maxBids = options.SmokeTest ? 1u : uint.MaxValue;
         _smokeTarget = options.SmokeTarget;
         _snipeOnly = options.SnipeOnly;
+        _fulfilSbc = options.FulfilSbc;
+        _fulfilLive = options.FulfilLive;
         Browser browser = new(configuration);
         _driver = browser.Chrome;
         _screen = new Screen(_driver);
@@ -75,10 +80,9 @@ public class Fc25 : IDisposable
             EnsureLoggedIn();
             GetCoinTotal();
 
-            if (options.SmokeTest)
-                SmokeTestRoutine();
-            else
-                ListAndBidRoutine();
+            if (options.SmokeTest) SmokeTestRoutine();
+            else if (_fulfilSbc) FulfilSbcRoutine();
+            else ListAndBidRoutine();
         }
         catch (RunStoppedException exception)
         {
@@ -277,6 +281,45 @@ public class Fc25 : IDisposable
         if (!_snipeOnly) RunClubItemBidPass(true);
         if (!_snipeOnly && HasBidCapacity()) RunClubItemBidPass(false);
         if (HasBidCapacity()) RunSnipePass();
+    }
+
+    public void FulfilSbcRoutine()
+    {
+        SbcStore catalogue = new();
+        MySqlFulfilmentStore store = new();
+
+        FulfilmentProgram.Process(store, catalogue.ReadApprovalSlots, _ => MarketSide(),
+            run => SquadSide(catalogue, run), _fulfilLive);
+    }
+
+    private MarketAgent MarketSide()
+    {
+        MarketPorts ports = new(SearchForFulfilment, SendBid, OpenTransferTargets, Pause);
+
+        return new MarketAgent(_screen, _network, ports);
+    }
+
+    private void SearchForFulfilment(Filter filter)
+    {
+        CheckBackoff();
+        SearchWithFilter(filter, ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
+    }
+
+    private void OpenTransferTargets()
+    {
+        GoToTransfers();
+        GoToTransferTargets();
+    }
+
+    private SbcSquadAgent SquadSide(SbcStore catalogue, FulfilmentRun run)
+    {
+        var route = catalogue.ReadChallengeRoute(run.ChallengeId);
+
+        if (route is null)
+            throw new InvalidOperationException(
+                $"Challenge {run.ChallengeId} is not in the captured SBC catalogue, so its screen cannot be found.");
+
+        return new SbcSquadAgent(_driver, _screen, _network, _mouse, route);
     }
 
     public ClubReading CaptureClubInventory()
@@ -1407,22 +1450,32 @@ public class Fc25 : IDisposable
         Console.WriteLine($"Skipping {info} at minimum {minimumBid} (resale estimate {estimate}, {timeText}): {reason}.");
     }
 
-    private void PlaceSnipeBid(string info, IWebElement bidInput, uint amount, uint estimate,
-        Dictionary<string, uint> standing, string timeText, BidContext context, DateTime rowClicked, string? tradeId)
+    private BidAttempt SendBid(IWebElement bidInput, uint amount, string? tradeId)
     {
         var typed = _screen.SetInputValue(bidInput, amount) == amount;
         var sent = DateTime.UtcNow;
         var clicked = typed && _screen.Click(ElementKeys.MAKE_BID, ShortWait);
-        var chain = $"chain {(int)(DateTime.UtcNow - rowClicked).TotalMilliseconds} ms";
-        var (outcome, reason) = clicked ? WaitForSnipeOutcome(amount, tradeId, sent) : (BidOutcome.Failed, "click failed");
-        var detail = $"{chain}, {reason}";
+        var clickedAt = DateTime.UtcNow;
+        var (outcome, reason) = clicked
+            ? WaitForSnipeOutcome(amount, tradeId, sent)
+            : (BidOutcome.Failed, "click failed");
 
-        if (outcome == BidOutcome.Registered)
+        return new BidAttempt(outcome, reason, typed, clicked, clickedAt);
+    }
+
+    private void PlaceSnipeBid(string info, IWebElement bidInput, uint amount, uint estimate,
+        Dictionary<string, uint> standing, string timeText, BidContext context, DateTime rowClicked, string? tradeId)
+    {
+        var attempt = SendBid(bidInput, amount, tradeId);
+        var chain = $"chain {(int)(attempt.ClickedAt - rowClicked).TotalMilliseconds} ms";
+        var detail = $"{chain}, {attempt.Reason}";
+
+        if (attempt.Outcome == BidOutcome.Registered)
             RecordSnipeBid(info, amount, estimate, standing, timeText, standing.ContainsKey(info) ? "rebid" : "bid", context, detail);
-        else if (outcome == BidOutcome.Overtaken)
+        else if (attempt.Outcome == BidOutcome.Overtaken)
             RecordOvertakenBid(info, amount, estimate, timeText, detail);
         else
-            RecoverFromUnregisteredBid(info, amount, estimate, timeText, $"{detail}, {DescribeSelectedRow(typed, clicked)}");
+            RecoverFromUnregisteredBid(info, amount, estimate, timeText, $"{detail}, {DescribeSelectedRow(attempt.Typed, attempt.Clicked)}");
 
         _screen.DismissDialog();
     }

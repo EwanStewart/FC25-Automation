@@ -38,4 +38,13 @@ public class RunOptionsTests
         Assert.Equal(BiddingStrategy.LOOP_MINUTES_DEFAULT, RunOptions.Parse(["--loop"]).LoopMinutes);
         Assert.Equal(BiddingStrategy.LOOP_MINUTES_DEFAULT, RunOptions.Parse(["--loop", "soon"]).LoopMinutes);
     }
+
+    [Fact]
+    public void FulfilmentIsOffUntilAskedForAndDryUntilAskedTwice()
+    {
+        Assert.False(RunOptions.Parse(["--no-shutdown"]).FulfilSbc);
+        Assert.True(RunOptions.Parse(["--fulfil-sbc", "--no-shutdown"]).FulfilSbc);
+        Assert.False(RunOptions.Parse(["--fulfil-sbc"]).FulfilLive);
+        Assert.True(RunOptions.Parse(["--fulfil-sbc", "--fulfil-live"]).FulfilLive);
+    }
 }

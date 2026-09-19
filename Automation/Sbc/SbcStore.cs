@@ -1,3 +1,4 @@
+using Automation.Sbc.Fulfilment;
 using MySql.Data.MySqlClient;
 
 namespace Automation.Sbc;
@@ -185,6 +186,27 @@ public sealed class SbcStore
         return Read(query, [], reader => new ApprovalRecord(reader.GetInt32(0), reader.GetInt32(1),
             reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.GetInt32(5), reader.GetInt32(6),
             reader.GetInt64(7), reader.GetString(8), reader.GetDateTime(9)));
+    }
+
+    public IReadOnlyList<ApprovalSlot> ReadApprovalSlots(int approvalId)
+    {
+        const string query =
+            "SELECT slot_index, position, club_player_id, player_name, rating, owned, specification, estimated_cost FROM SbcApprovalSlots WHERE approval_id = @approval ORDER BY slot_index";
+
+        return Read(query, new Dictionary<string, object> { ["@approval"] = approvalId },
+            reader => new ApprovalSlot(reader.GetInt32(0), reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.GetString(3), reader.GetInt32(4),
+                reader.GetBoolean(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetInt32(7)));
+    }
+
+    public ChallengeRoute? ReadChallengeRoute(int challengeId)
+    {
+        const string query =
+            "SELECT c.challenge_id, COALESCE(s.name, ''), c.name FROM SbcChallenges c LEFT JOIN SbcSets s ON s.set_id = c.set_id WHERE c.challenge_id = @challenge";
+
+        return Read(query, new Dictionary<string, object> { ["@challenge"] = challengeId },
+            reader => new ChallengeRoute(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)))
+            .FirstOrDefault();
     }
 
     private List<T> Read<T>(string query, Dictionary<string, object> parameters, Func<MySqlDataReader, T> map)

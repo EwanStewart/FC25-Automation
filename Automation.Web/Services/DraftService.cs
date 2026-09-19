@@ -1,14 +1,17 @@
 using Automation.Sbc;
+using Automation.Sbc.Fulfilment;
 
 namespace Automation.Web.Services;
 
 public sealed class DraftService
 {
     private readonly SbcStore store_;
+    private readonly MySqlFulfilmentStore fulfilments_;
 
-    public DraftService(SbcStore store)
+    public DraftService(SbcStore store, MySqlFulfilmentStore fulfilments)
     {
         store_ = store;
+        fulfilments_ = fulfilments;
     }
 
     public IReadOnlyList<DraftedChallenge> DraftAll(long budget)
@@ -26,7 +29,12 @@ public sealed class DraftService
 
     public int Approve(DraftedChallenge drafted)
     {
-        return store_.SaveApproval(drafted.Challenge, drafted.Squad);
+        var approvalId = store_.SaveApproval(drafted.Challenge, drafted.Squad);
+
+        fulfilments_.Queue(approvalId, drafted.Challenge.ChallengeId, FulfilmentDefaults.DRY_RUN,
+            drafted.Squad.EstimatedCost, FulfilmentGaps.From(drafted.Squad));
+
+        return approvalId;
     }
 
     public IReadOnlyList<ApprovalRecord> Approvals()
