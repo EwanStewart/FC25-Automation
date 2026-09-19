@@ -72,7 +72,7 @@ public static class SbcCatalogue
         if (bodies == 0 && failures.Count == 0)
             result = new SbcCatalogueReading(SbcCaptureOutcome.NotObserved, [], [], [],
                 "no SBC response was observed");
-        else if (sets.Count > 0)
+        else if (sets.Count > 0 || challenges.Count > 0)
             result = new SbcCatalogueReading(SbcCaptureOutcome.Captured, sets, challenges, missing,
                 Detail(sets.Count, challenges.Count, missing, failures));
         else if (failures.Count > 0)
@@ -119,10 +119,11 @@ public static class SbcCatalogue
 
     private static string Detail(int sets, int challenges, IReadOnlyList<int> missing, IReadOnlyList<int> failures)
     {
+        var unseen = sets == 0 ? ", the set list was not observed" : string.Empty;
         var absent = missing.Count == 0 ? string.Empty : $", no challenges seen for sets {string.Join(", ", missing)}";
         var failed = failures.Count == 0 ? string.Empty : $", failed responses {string.Join(", ", failures)}";
 
-        return $"{sets} sets and {challenges} challenges{absent}{failed}";
+        return $"{sets} sets and {challenges} challenges{unseen}{absent}{failed}";
     }
 
     public static IReadOnlyList<SbcSet> ParseSets(string json)

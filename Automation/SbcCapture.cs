@@ -12,8 +12,14 @@ public sealed class SbcCapture
 {
     private const string TileTitlesScript = """
         return JSON.stringify(Array.from(document.querySelectorAll('div.ut-sbc-set-tile-view'))
+            .filter(tile => !tile.classList.contains('disabled'))
             .map(tile => ((tile.querySelector('h1.tileTitle') || {}).textContent || '').trim())
             .filter(title => title.length > 0));
+        """;
+
+    private const string ScreenNameScript = """
+        const heading = document.querySelector('.ut-navigation-bar-view h1');
+        return heading ? heading.textContent.trim() : '';
         """;
 
     private const string TileCentreScript = """
@@ -97,7 +103,8 @@ public sealed class SbcCapture
 
     private static bool NeedsFreshRead(SbcCatalogueReading reading)
     {
-        return reading.Outcome == SbcCaptureOutcome.NotObserved || reading.MissingSets.Count > 0;
+        return reading.Outcome == SbcCaptureOutcome.NotObserved || reading.Sets.Count == 0 ||
+               reading.MissingSets.Count > 0;
     }
 
     private SbcCatalogueReading Attempt()
@@ -117,7 +124,7 @@ public sealed class SbcCapture
     {
         ClearBlockingDialog();
 
-        var reached = OpenScreen(ElementKeys.SBC_TAB, SBC_TITLE);
+        var reached = OpenScreen(ElementKeys.SBC_TAB);
         var titles = reached ? SettledTileTitles() : [];
 
         Console.WriteLine($"SBC hub reached {reached}, {titles.Count} set tiles on screen.");
@@ -159,26 +166,30 @@ public sealed class SbcCapture
     private void VisitSet(string title)
     {
         var started = DateTime.UtcNow;
-        var opened = OpenSet(title);
+        var clicked = ClickTile(title);
 
-        if (opened) WaitFor(started, CaptureKind.SbcChallenges, ChallengesWait);
+        if (clicked) WaitFor(started, CaptureKind.SbcChallenges, ChallengesWait);
 
-        Console.WriteLine($"  set '{title}' opened {opened}, screen '{_screen.ReadTitle()}'.");
+        Console.WriteLine($"  set '{title}' clicked {clicked}, screen '{ScreenName()}'.");
         LeaveSet();
     }
 
-    private bool OpenSet(string title)
+    private string ScreenName()
     {
-        var clicked = ClickTile(title);
-
-        return clicked && !_screen.WaitForTitle(SBC_TITLE, TimeSpan.FromSeconds(3));
+        return _driver.ExecuteScript(ScreenNameScript) as string ?? string.Empty;
     }
 
     private void LeaveSet()
     {
-        if (_screen.ReadTitle() != SBC_TITLE) ClickByMouse(BACK_SELECTOR);
+        var attempt = 0;
 
-        _screen.WaitForTitle(SBC_TITLE, ScreenWait);
+        while (attempt < TILE_RETRIES && ScreenName() != SBC_TITLE)
+        {
+            ClickByMouse(BACK_SELECTOR);
+            Thread.Sleep(SCREEN_SETTLE_MS);
+            attempt++;
+        }
+
         Thread.Sleep(SCREEN_SETTLE_MS);
     }
 
@@ -193,21 +204,35 @@ public sealed class SbcCapture
         return ClickAtCentre(settled);
     }
 
-    private bool OpenScreen(ElementKeys key, string title)
+    private bool OpenScreen(ElementKeys key)
     {
-        var opened = ClickThrough(key, title);
+        var opened = ClickThrough(key);
 
-        if (!opened) opened = ClickThrough(key, title);
+        if (!opened) opened = ClickThrough(key);
 
         return opened;
     }
 
-    private bool ClickThrough(ElementKeys key, string title)
+    private bool ClickThrough(ElementKeys key)
     {
         _screen.WaitVisible(key, ScreenWait);
         Thread.Sleep(SCREEN_SETTLE_MS);
 
-        return ClickByMouse(Selector(key)) && _screen.WaitForTitle(title, ScreenWait);
+        return ClickByMouse(Selector(key)) && WaitForScreen(SBC_TITLE);
+    }
+
+    private bool WaitForScreen(string name)
+    {
+        var deadline = DateTime.UtcNow + ScreenWait;
+        var matched = ScreenName() == name;
+
+        while (!matched && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(RESPONSE_POLL_MS);
+            matched = ScreenName() == name;
+        }
+
+        return matched;
     }
 
     private void ClearBlockingDialog()

@@ -178,6 +178,18 @@ public class SbcCatalogueTests
     }
 
     [Fact]
+    public void KeepsChallengesSeenWhileTheSetListStayedCached()
+    {
+        var reading = SbcCatalogue.Read([],
+            [new SbcResponse(200, "/sbs/setId/13/challenges", SbcFixture.Read("sbc_challenges_13.json"))]);
+
+        Assert.Equal(SbcCaptureOutcome.Captured, reading.Outcome);
+        Assert.Single(reading.Challenges);
+        Assert.Empty(reading.Sets);
+        Assert.Contains("the set list was not observed", reading.Detail);
+    }
+
+    [Fact]
     public void ReportsNoItemsWhenTheSetListCameBackEmpty()
     {
         var reading = SbcCatalogue.Read([new SbcResponse(200, "/sbs/sets", EMPTY_SETS)], []);
