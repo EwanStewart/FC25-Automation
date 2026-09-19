@@ -99,7 +99,44 @@ public sealed class ScriptedMarket : IMarketAgent
 
     public IReadOnlyList<TradeState> Standing()
     {
-        return Standings;
+        return Polls.Count > 0 ? Polls.Dequeue() : Standings;
+    }
+
+    public Queue<IReadOnlyList<TradeState>> Polls { get; } = new();
+
+    public List<string> Watched { get; } = [];
+
+    public List<string> Claimed { get; } = [];
+
+    public int Watch(IReadOnlyList<AuctionListing> listings)
+    {
+        foreach (var listing in listings) Watched.Add(listing.TradeId);
+
+        log_.Add($"watch {string.Join(",", listings.Select(listing => listing.TradeId))}");
+
+        return WatchRefused ? 0 : listings.Count;
+    }
+
+    public bool WatchRefused { get; init; }
+
+    public BidReceipt BidOnTarget(TradeState target, uint amount)
+    {
+        log_.Add($"bid {target.TradeId} {amount}");
+
+        return new BidReceipt(outcomes_.GetValueOrDefault(target.TradeId, BidOutcome.Registered),
+            Actual ?? amount, "scripted", !Withhold);
+    }
+
+    public bool Claim(TradeState target)
+    {
+        Claimed.Add(target.TradeId);
+        log_.Add($"claim {target.TradeId}");
+
+        return true;
+    }
+
+    public void Pause(int milliseconds)
+    {
     }
 }
 
@@ -173,7 +210,7 @@ public sealed class RefusingMarket : IMarketAgent
 {
     public int Searches { get; private set; }
 
-    public int Bids { get; private set; }
+    public int Bids { get; set; }
 
     public MarketSearch Search(MarketSpecification specification, uint ceiling)
     {
@@ -191,7 +228,34 @@ public sealed class RefusingMarket : IMarketAgent
 
     public IReadOnlyList<TradeState> Standing()
     {
-        return [];
+        return Polls.Count > 0 ? Polls.Dequeue() : [];
+    }
+
+    public Queue<IReadOnlyList<TradeState>> Polls { get; } = new();
+
+    public int Watches { get; private set; }
+
+    public int Watch(IReadOnlyList<AuctionListing> listings)
+    {
+        Watches++;
+
+        return listings.Count;
+    }
+
+    public BidReceipt BidOnTarget(TradeState target, uint amount)
+    {
+        Bids++;
+
+        throw new InvalidOperationException("A bid was sent when no bid should have been reachable.");
+    }
+
+    public bool Claim(TradeState target)
+    {
+        return false;
+    }
+
+    public void Pause(int milliseconds)
+    {
     }
 }
 

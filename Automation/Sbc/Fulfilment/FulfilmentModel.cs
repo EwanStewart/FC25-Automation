@@ -99,6 +99,14 @@ public interface IMarketAgent
     BidReceipt Bid(MarketChoice choice, uint amount);
 
     IReadOnlyList<TradeState> Standing();
+
+    int Watch(IReadOnlyList<AuctionListing> listings);
+
+    BidReceipt BidOnTarget(TradeState target, uint amount);
+
+    bool Claim(TradeState target);
+
+    void Pause(int milliseconds);
 }
 
 public interface IFulfilmentStore

@@ -26,4 +26,25 @@ public sealed class SimulatedMarket : IMarketAgent
     {
         return market_.Standing();
     }
+
+    public int Watch(IReadOnlyList<AuctionListing> listings)
+    {
+        return 0;
+    }
+
+    public BidReceipt BidOnTarget(TradeState target, uint amount)
+    {
+        throw new InvalidOperationException(
+            $"A run that is not buying live reached the bid path for trade {target.TradeId} at {amount} coins.");
+    }
+
+    public bool Claim(TradeState target)
+    {
+        return false;
+    }
+
+    public void Pause(int milliseconds)
+    {
+        market_.Pause(milliseconds);
+    }
 }
