@@ -472,8 +472,10 @@ public static class SquadSolver
     private static SolvedSquad Extract(SquadModel squad, CpSolver solver, ChallengeRequirements challenge,
         SolveOptions options)
     {
-        var slots = Enumerable.Range(0, squad.SlotPositions.Count).Select(slot => Slot(squad, solver, slot)).ToList();
-        var players = slots.Select(slot => slot.Player).ToList();
+        var planned = Enumerable.Range(0, squad.SlotPositions.Count).Select(slot => Slot(squad, solver, slot))
+            .ToList();
+        var players = planned.Select(slot => slot.Player).ToList();
+        var slots = MarketRelaxation.Relax(challenge, planned, options, MarketReference.Ea);
         var purchases = slots.Where(slot => slot.Gap is not null).ToList();
         var assessment = SquadAssessor.Assess(challenge, players, null, options.Thresholds, options.Links);
 
