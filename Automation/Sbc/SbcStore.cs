@@ -44,6 +44,73 @@ public sealed class SbcStore
         return csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
+    public void SaveCatalogue(SbcCatalogueReading reading)
+    {
+        foreach (var set in reading.Sets) SaveSet(set);
+
+        foreach (var challenge in reading.Challenges) SaveChallenge(challenge);
+    }
+
+    private void SaveSet(SbcSet set)
+    {
+        const string query =
+            "INSERT INTO SbcSets (set_id, name, description, category_id, category_name, priority, end_time, challenges_count, challenges_completed_count, repeatable, times_completed, completed) VALUES (@set, @name, @description, @category, @categoryName, @priority, @endTime, @count, @completedCount, @repeatable, @timesCompleted, @completed) AS incoming ON DUPLICATE KEY UPDATE name = incoming.name, description = incoming.description, category_id = incoming.category_id, category_name = incoming.category_name, priority = incoming.priority, end_time = incoming.end_time, challenges_count = incoming.challenges_count, challenges_completed_count = incoming.challenges_completed_count, repeatable = incoming.repeatable, times_completed = incoming.times_completed, completed = incoming.completed, captured_at = CURRENT_TIMESTAMP";
+
+        Execute(query, new Dictionary<string, object>
+        {
+            ["@set"] = set.SetId,
+            ["@name"] = set.Name,
+            ["@description"] = set.Description,
+            ["@category"] = set.CategoryId,
+            ["@categoryName"] = set.CategoryName,
+            ["@priority"] = set.Priority,
+            ["@endTime"] = set.EndTime,
+            ["@count"] = set.ChallengesCount,
+            ["@completedCount"] = set.ChallengesCompletedCount,
+            ["@repeatable"] = set.Repeatable,
+            ["@timesCompleted"] = set.TimesCompleted,
+            ["@completed"] = set.Completed
+        });
+    }
+
+    private void SaveChallenge(SbcChallengeRecord challenge)
+    {
+        const string query =
+            "INSERT INTO SbcChallenges (challenge_id, set_id, name, description, formation, status, challenge_type, eligibility_operation, challenge_image_id, content_id, priority, end_time, repeatable, times_completed, tutorial, eligibility, eligibility_description, requirements) VALUES (@challenge, @set, @name, @description, @formation, @status, @type, @operation, @image, @content, @priority, @endTime, @repeatable, @timesCompleted, @tutorial, @eligibility, @eligibilityDescription, @requirements) AS incoming ON DUPLICATE KEY UPDATE set_id = incoming.set_id, name = incoming.name, description = incoming.description, formation = incoming.formation, status = incoming.status, challenge_type = incoming.challenge_type, eligibility_operation = incoming.eligibility_operation, challenge_image_id = incoming.challenge_image_id, content_id = incoming.content_id, priority = incoming.priority, end_time = incoming.end_time, repeatable = incoming.repeatable, times_completed = incoming.times_completed, tutorial = incoming.tutorial, eligibility = incoming.eligibility, eligibility_description = incoming.eligibility_description, requirements = incoming.requirements, captured_at = CURRENT_TIMESTAMP";
+
+        Execute(query, new Dictionary<string, object>
+        {
+            ["@challenge"] = challenge.ChallengeId,
+            ["@set"] = challenge.SetId,
+            ["@name"] = challenge.Name,
+            ["@description"] = challenge.Description,
+            ["@formation"] = challenge.Formation,
+            ["@status"] = challenge.Status,
+            ["@type"] = challenge.Type,
+            ["@operation"] = challenge.ElgOperation,
+            ["@image"] = challenge.ChallengeImageId,
+            ["@content"] = challenge.ContentId,
+            ["@priority"] = challenge.Priority,
+            ["@endTime"] = challenge.EndTime,
+            ["@repeatable"] = challenge.Repeatable,
+            ["@timesCompleted"] = challenge.TimesCompleted,
+            ["@tutorial"] = challenge.Tutorial,
+            ["@eligibility"] = challenge.Eligibility,
+            ["@eligibilityDescription"] = challenge.EligibilityDescription,
+            ["@requirements"] = challenge.Body
+        });
+    }
+
+    public IReadOnlyList<SbcSet> ReadSets()
+    {
+        const string query =
+            "SELECT set_id, name, description, category_id, category_name, priority, end_time, challenges_count, challenges_completed_count, repeatable, times_completed FROM SbcSets ORDER BY category_id, set_id";
+
+        return Read(query, [], reader => new SbcSet(reader.GetInt32(0), reader.GetString(1), reader.GetString(2),
+            reader.GetInt32(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt64(6), reader.GetInt32(7),
+            reader.GetInt32(8), reader.GetBoolean(9), reader.GetInt32(10)));
+    }
+
     public void SaveChallenges(IEnumerable<ChallengeRequirements> challenges, string body)
     {
         const string query =

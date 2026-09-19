@@ -1,5 +1,6 @@
 ﻿using Automation.Flow;
 using Automation.Setup;
+using Automation.Sbc;
 using Automation.Trading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
@@ -283,6 +284,13 @@ public class Fc25 : IDisposable
         if (!_mouse.Enabled) _mouse.Start(Browser.DebuggerHttp);
 
         return new ClubCapture(_driver, _screen, _network, _mouse, ReloadForClubCapture).Capture();
+    }
+
+    public SbcCatalogueReading CaptureSbcCatalogue()
+    {
+        if (!_mouse.Enabled) _mouse.Start(Browser.DebuggerHttp);
+
+        return new SbcCapture(_driver, _screen, _network, _mouse, ReloadForClubCapture).Capture();
     }
 
     private void ReloadForClubCapture()
