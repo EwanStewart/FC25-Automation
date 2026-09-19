@@ -110,7 +110,6 @@ public static class RequirementParser
         {
             EligibilityKey.PLAYER_QUALITY => PlayerFilterKind.Quality,
             EligibilityKey.PLAYER_RARITY => PlayerFilterKind.Rarity,
-            EligibilityKey.PLAYER_RARITY_GROUP => PlayerFilterKind.RarityGroup,
             EligibilityKey.NATION_ID => PlayerFilterKind.Nation,
             EligibilityKey.LEAGUE_ID => PlayerFilterKind.League,
             EligibilityKey.CLUB_ID => PlayerFilterKind.Club,
@@ -118,7 +117,6 @@ public static class RequirementParser
             EligibilityKey.PLAYER_MAX_OVR => PlayerFilterKind.MaximumRating,
             EligibilityKey.PLAYER_EXACT_OVR => PlayerFilterKind.ExactRating,
             EligibilityKey.PLAYER_TRADABILITY => PlayerFilterKind.Tradability,
-            EligibilityKey.FIRST_OWNER_PLAYERS_COUNT => PlayerFilterKind.FirstOwner,
             _ => null
         };
     }
@@ -128,16 +126,14 @@ public static class RequirementParser
         return kind switch
         {
             PlayerFilterKind.Quality => QualityName(value),
-            PlayerFilterKind.Rarity => $"Rarity {value}",
-            PlayerFilterKind.RarityGroup => $"Rarity group {value}",
+            PlayerFilterKind.Rarity => value == 1 ? "Rare" : $"Rarity {value}",
             PlayerFilterKind.Nation => $"Nation {value}",
             PlayerFilterKind.League => $"League {value}",
             PlayerFilterKind.Club => $"Club {value}",
             PlayerFilterKind.MinimumRating => $"Rating {value} or better",
             PlayerFilterKind.MaximumRating => $"Rating {value} or worse",
             PlayerFilterKind.ExactRating => $"Rating exactly {value}",
-            PlayerFilterKind.Tradability => value == 0 ? "Untradeable" : "Tradeable",
-            _ => $"First owner {value}"
+            _ => value == 0 ? "Untradeable" : "Tradeable"
         };
     }
 

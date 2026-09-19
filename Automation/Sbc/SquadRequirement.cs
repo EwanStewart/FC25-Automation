@@ -36,15 +36,13 @@ public enum PlayerFilterKind
 {
     Quality,
     Rarity,
-    RarityGroup,
     Nation,
     League,
     Club,
     MinimumRating,
     MaximumRating,
     ExactRating,
-    Tradability,
-    FirstOwner
+    Tradability
 }
 
 public sealed record PlayerFilter(PlayerFilterKind Kind, int Value, string Label);
