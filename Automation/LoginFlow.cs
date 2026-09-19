@@ -7,6 +7,9 @@ public enum LoginStep
     EnterPassword,
     EnterEmail,
     ClickLogin,
+    ContinueOnRecognisedDevice,
+    SendCode,
+    EnterVerificationCode,
     Unsupported,
     Wait
 }
@@ -18,17 +21,29 @@ public readonly record struct LoginScreen(
     bool HasEmail,
     bool HasLoginButton,
     bool IsUnsupported,
-    bool HasShield = false);
+    bool HasShield = false,
+    bool HasRecognisedDevice = false,
+    bool HasSendCode = false,
+    bool HasVerificationInput = false);
+
+public readonly record struct LoginProgress(
+    bool RecognisedDeviceTried = false,
+    bool CodeRequested = false);
 
 public static class LoginFlow
 {
-    public static LoginStep NextStep(LoginScreen screen)
+    public static LoginStep NextStep(LoginScreen screen, LoginProgress progress = default)
     {
         var result = LoginStep.Wait;
 
         if (screen.HasNavigation) result = LoginStep.Done;
         else if (screen.IsUnsupported) result = LoginStep.Unsupported;
         else if (screen.HasShield) result = LoginStep.Wait;
+        else if (screen.HasRecognisedDevice && !progress.RecognisedDeviceTried)
+            result = LoginStep.ContinueOnRecognisedDevice;
+        else if (screen.HasVerificationInput && progress.CodeRequested)
+            result = LoginStep.EnterVerificationCode;
+        else if (screen.HasSendCode && !progress.CodeRequested) result = LoginStep.SendCode;
         else if (screen.HasContinue) result = LoginStep.Continue;
         else if (screen.HasPassword) result = LoginStep.EnterPassword;
         else if (screen.HasEmail) result = LoginStep.EnterEmail;

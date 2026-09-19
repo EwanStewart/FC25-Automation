@@ -91,4 +91,54 @@ public class FlowTests
         Assert.True(BidRow.IsSelected("listFUTItem has-auction-data selected"));
         Assert.False(BidRow.IsSelected("listFUTItem has-auction-data"));
     }
+
+    [Fact]
+    public void NextStepPrefersTheRecognisedDeviceButtonOverSendingACode()
+    {
+        LoginScreen screen = new(false, false, false, false, false, false, false, true, true, true);
+
+        Assert.Equal(LoginStep.ContinueOnRecognisedDevice, LoginFlow.NextStep(screen, default));
+    }
+
+    [Fact]
+    public void NextStepSendsACodeOnceTheRecognisedDeviceButtonHasBeenTried()
+    {
+        LoginScreen screen = new(false, false, false, false, false, false, false, true, true, true);
+        LoginProgress progress = new(true, false);
+
+        Assert.Equal(LoginStep.SendCode, LoginFlow.NextStep(screen, progress));
+    }
+
+    [Fact]
+    public void NextStepDoesNotTypeACodeBeforeOneWasRequested()
+    {
+        LoginScreen screen = new(false, false, false, false, false, false, false, false, true, true);
+
+        Assert.Equal(LoginStep.SendCode, LoginFlow.NextStep(screen, default));
+    }
+
+    [Fact]
+    public void NextStepTypesTheCodeOnceItHasBeenRequested()
+    {
+        LoginScreen screen = new(false, false, false, false, false, false, false, false, true, true);
+        LoginProgress progress = new(true, true);
+
+        Assert.Equal(LoginStep.EnterVerificationCode, LoginFlow.NextStep(screen, progress));
+    }
+
+    [Fact]
+    public void NextStepWaitsOnTheVerificationScreenWhenTheShieldIsUp()
+    {
+        LoginScreen screen = new(false, false, false, false, false, false, true, true, true, true);
+
+        Assert.Equal(LoginStep.Wait, LoginFlow.NextStep(screen, default));
+    }
+
+    [Fact]
+    public void NextStepIgnoresVerificationOnceTheWebAppIsUp()
+    {
+        LoginScreen screen = new(true, false, false, false, false, false, false, true, true, true);
+
+        Assert.Equal(LoginStep.Done, LoginFlow.NextStep(screen, default));
+    }
 }
