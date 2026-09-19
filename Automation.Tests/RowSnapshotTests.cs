@@ -62,4 +62,22 @@ public class RowSnapshotTests
         Assert.Empty(RowSnapshotParser.Parse("not json"));
         Assert.Empty(RowSnapshotParser.Parse(""));
     }
+
+    [Fact]
+    public void TheModelSourceNamesAreTheOnesTheSnapshotScriptReads()
+    {
+        Assert.Equal("none", RowModels.None.ToString().ToLowerInvariant());
+        Assert.Equal("watched", RowModels.Watched.ToString().ToLowerInvariant());
+        Assert.Equal("results", RowModels.Results.ToString().ToLowerInvariant());
+    }
+
+    [Fact]
+    public void TheSnapshotScriptReadsBothModelSourcesByName()
+    {
+        var script = File.ReadAllText(Path.Combine(SourceTree.Root(), "Automation", "Screen.cs"));
+
+        Assert.Contains("source === 'results'", script, StringComparison.Ordinal);
+        Assert.Contains("source === 'watched'", script, StringComparison.Ordinal);
+        Assert.Contains("paginationViewModel", script, StringComparison.Ordinal);
+    }
 }

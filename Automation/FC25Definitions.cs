@@ -65,6 +65,7 @@ public static class Fc25Definitions
         MAKE_BID,
         WATCH,
         UNWATCH,
+        SEND_TO_CLUB,
         NEXT,
         TRANSFER_TARGETS_TOTAL,
         TRANSFER_LIST_TOTAL,
@@ -217,6 +218,11 @@ public static class Fc25Definitions
         { ElementKeys.RESET, ("//button[contains(text(), 'Reset')]", "Reset") },
         { ElementKeys.MAKE_BID, ("//button[contains(text(), 'Make Bid')]", "Make Bid") },
         { ElementKeys.WATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Watch']", "Watch") },
+        {
+            ElementKeys.SEND_TO_CLUB,
+            ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(.)='Send to My Club']",
+                "Send To Club")
+        },
         { ElementKeys.UNWATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Unwatch']", "Unwatch") },
         { ElementKeys.NEXT, ("//button[contains(text(), 'Next')]", "Next") },
         {

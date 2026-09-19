@@ -25,7 +25,7 @@ public class FulfilmentOrderTests
     {
         RecordingStore store = new(log);
 
-        store.Runs.Add(Run(true, 100000));
+        store.Runs.Add(Run(FulfilmentMode.Dry, 100000));
 
         foreach (var gap in gaps) store.SaveGap(1, gap);
 
@@ -35,9 +35,9 @@ public class FulfilmentOrderTests
     }
 
     private static void Drive(RecordingStore store, IReadOnlyList<ApprovalSlot> slots, ISquadAgent squad,
-        IMarketAgent market, bool live)
+        IMarketAgent market, FulfilmentMode mode)
     {
-        FulfilmentProgram.Process(store, _ => slots, _ => market, _ => squad, live);
+        FulfilmentProgram.Process(store, _ => slots, _ => market, _ => squad, mode);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class FulfilmentOrderTests
         });
         ScriptedSquad squad = new(log, [Empty(0), Empty(1), Empty(2)]);
 
-        Drive(store, [Owned(0, 11), Owned(1, 12), Bought(2)], squad, market, true);
+        Drive(store, [Owned(0, 11), Owned(1, 12), Bought(2)], squad, market, FulfilmentMode.Live);
 
         var firstPlacement = log.FindIndex(entry => entry.StartsWith("place-in-app"));
         var firstSearch = log.FindIndex(entry => entry.StartsWith("search"));
@@ -70,7 +70,7 @@ public class FulfilmentOrderTests
             [new TradeState("t1", "closed", "highest", 800)]);
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, market, true);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, market, FulfilmentMode.Live);
 
         Assert.Contains("place-in-app 1 99", log);
         Assert.Equal(PlacementOutcome.Placed, store.Placements(1)[1].Outcome);
@@ -85,7 +85,7 @@ public class FulfilmentOrderTests
         ScriptedMarket market = new(log, new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [] });
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, market, true);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, market, FulfilmentMode.Live);
 
         Assert.Equal(FulfilmentState.Buying, store.State);
         Assert.Equal(PlacementOutcome.Placed, store.Placements(1)[0].Outcome);
@@ -104,12 +104,14 @@ public class FulfilmentOrderTests
             [0] = [Listing("t1", 800)]
         });
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, first, true);
+        first.Polls.Enqueue([new TradeState("t1", "active", "none", 0, 10, 800, 99)]);
+
+        Drive(store, [Owned(0, 11), Bought(1)], squad, first, FulfilmentMode.Live);
 
         ScriptedMarket second = new(log, new Dictionary<int, IReadOnlyList<AuctionListing>>(), null,
-            [new TradeState("t1", "closed", "highest", 800)]);
+            [new TradeState("t1", "closed", "highest", 800, 0, 0, 99)]);
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, second, true);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, second, FulfilmentMode.Live);
 
         Assert.Equal(1, log.Count(entry => entry.StartsWith("bid")));
         Assert.Equal(2, log.Count(entry => entry.StartsWith("place-in-app")));
@@ -127,7 +129,7 @@ public class FulfilmentOrderTests
         });
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]) { Refuse = 0 };
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, market, true);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, market, FulfilmentMode.Live);
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("search"));
         Assert.DoesNotContain(log, entry => entry.StartsWith("bid"));
@@ -145,7 +147,7 @@ public class FulfilmentOrderTests
         });
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, market, false);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, market, FulfilmentMode.Dry);
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("place-in-app"));
         Assert.DoesNotContain(log, entry => entry.StartsWith("bid"));
@@ -162,7 +164,7 @@ public class FulfilmentOrderTests
         ScriptedMarket market = new(log, new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [] });
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, market, false);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, market, FulfilmentMode.Dry);
 
         Assert.Contains("open 1234", log);
     }
@@ -175,7 +177,7 @@ public class FulfilmentOrderTests
         ScriptedMarket market = new(log, new Dictionary<int, IReadOnlyList<AuctionListing>>());
         RefusingSquad squad = new();
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, market, false);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, market, FulfilmentMode.Dry);
 
         Assert.Equal(FulfilmentState.Pending, store.State);
         Assert.DoesNotContain(log, entry => entry.StartsWith("search"));
@@ -189,7 +191,7 @@ public class FulfilmentOrderTests
         ScriptedMarket market = new(log, new Dictionary<int, IReadOnlyList<AuctionListing>>());
         RefusingSquad squad = new();
 
-        Drive(store, [Owned(0, 11), Bought(1)], squad, market, true);
+        Drive(store, [Owned(0, 11), Bought(1)], squad, market, FulfilmentMode.Live);
 
         Assert.Equal(FulfilmentState.Failed, store.State);
         Assert.DoesNotContain(log, entry => entry.StartsWith("search"));

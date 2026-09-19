@@ -99,7 +99,49 @@ public sealed class ScriptedMarket : IMarketAgent
 
     public IReadOnlyList<TradeState> Standing()
     {
-        return Standings;
+        return Targets();
+    }
+
+    public IReadOnlyList<TradeState> Targets()
+    {
+        return Polls.Count > 0 ? Polls.Dequeue() : Standings;
+    }
+
+    public Queue<IReadOnlyList<TradeState>> Polls { get; } = new();
+
+    public List<string> Watched { get; } = [];
+
+    public List<string> Claimed { get; } = [];
+
+    public int Watch(IReadOnlyList<AuctionListing> listings)
+    {
+        foreach (var listing in listings) Watched.Add(listing.TradeId);
+
+        log_.Add($"watch {string.Join(",", listings.Select(listing => listing.TradeId))}");
+
+        return WatchRefused ? 0 : listings.Count;
+    }
+
+    public bool WatchRefused { get; init; }
+
+    public BidReceipt BidOnTarget(TradeState target, uint amount)
+    {
+        log_.Add($"bid {target.TradeId} {amount}");
+
+        return new BidReceipt(outcomes_.GetValueOrDefault(target.TradeId, BidOutcome.Registered),
+            Actual ?? amount, "scripted", !Withhold);
+    }
+
+    public bool Claim(TradeState target)
+    {
+        Claimed.Add(target.TradeId);
+        log_.Add($"claim {target.TradeId}");
+
+        return true;
+    }
+
+    public void Pause(int milliseconds)
+    {
     }
 }
 
@@ -112,7 +154,7 @@ public static class FulfilmentFixtures
 
     public static AuctionListing Listing(string tradeId, uint startingBid, int rating = 68)
     {
-        return new AuctionListing(tradeId, "active", "none", 300, 0, startingBid, 0, rating, "CB", 0, 0, 1, 1, 0,
+        return new AuctionListing(tradeId, "active", "none", 120, 0, startingBid, 0, rating, "CB", 0, 0, 1, 1, 0,
             13, 14, 0, []);
     }
 
@@ -121,9 +163,10 @@ public static class FulfilmentFixtures
         return new GapRecord(slot, "CB", Specification(estimate), CardCeiling.For(estimate), outcome);
     }
 
-    public static FulfilmentRun Run(bool dryRun, long ceiling, FulfilmentState state = FulfilmentState.Pending)
+    public static FulfilmentRun Run(FulfilmentMode mode, long ceiling,
+        FulfilmentState state = FulfilmentState.Pending)
     {
-        return new FulfilmentRun(1, 7, 1234, state, dryRun, ceiling, 2000, "");
+        return new FulfilmentRun(1, 7, 1234, state, mode, ceiling, 2000, "");
     }
 }
 
@@ -165,6 +208,64 @@ public sealed class ScriptedSquad : ISquadAgent
     private SquadView View(int challengeId)
     {
         return new SquadView(challengeId, "442", slots_.Values.OrderBy(slot => slot.Index).ToList());
+    }
+}
+
+public sealed class RefusingMarket : IMarketAgent
+{
+    public int Searches { get; private set; }
+
+    public int Bids { get; set; }
+
+    public MarketSearch Search(MarketSpecification specification, uint ceiling)
+    {
+        Searches++;
+
+        return new MarketSearch("refusing", [FulfilmentFixtures.Listing("t1", 100)]);
+    }
+
+    public BidReceipt Bid(MarketChoice choice, uint amount)
+    {
+        Bids++;
+
+        throw new InvalidOperationException("A bid was sent when no bid should have been reachable.");
+    }
+
+    public IReadOnlyList<TradeState> Standing()
+    {
+        return Targets();
+    }
+
+    public IReadOnlyList<TradeState> Targets()
+    {
+        return Polls.Count > 0 ? Polls.Dequeue() : [];
+    }
+
+    public Queue<IReadOnlyList<TradeState>> Polls { get; } = new();
+
+    public int Watches { get; private set; }
+
+    public int Watch(IReadOnlyList<AuctionListing> listings)
+    {
+        Watches++;
+
+        return listings.Count;
+    }
+
+    public BidReceipt BidOnTarget(TradeState target, uint amount)
+    {
+        Bids++;
+
+        throw new InvalidOperationException("A bid was sent when no bid should have been reachable.");
+    }
+
+    public bool Claim(TradeState target)
+    {
+        return false;
+    }
+
+    public void Pause(int milliseconds)
+    {
     }
 }
 

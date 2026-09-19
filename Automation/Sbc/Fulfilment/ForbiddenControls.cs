@@ -10,8 +10,7 @@ public static class ForbiddenControls
         "sell",
         "discard",
         "list on transfer market",
-        "transfer list",
-        "send to"
+        "transfer list"
     ];
 
     public static void Require(string label)

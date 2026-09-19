@@ -47,4 +47,13 @@ public class RunOptionsTests
         Assert.False(RunOptions.Parse(["--fulfil-sbc"]).FulfilLive);
         Assert.True(RunOptions.Parse(["--fulfil-sbc", "--fulfil-live"]).FulfilLive);
     }
+
+    [Fact]
+    public void PlaceLiveIsItsOwnFlagAndNeverTurnsBuyingOn()
+    {
+        Assert.False(RunOptions.Parse(["--fulfil-sbc"]).PlaceLive);
+        Assert.True(RunOptions.Parse(["--fulfil-sbc", "--place-live"]).PlaceLive);
+        Assert.False(RunOptions.Parse(["--fulfil-sbc", "--place-live"]).FulfilLive);
+        Assert.False(RunOptions.Parse(["--fulfil-sbc", "--fulfil-live"]).PlaceLive);
+    }
 }

@@ -91,13 +91,15 @@ public static class TargetRowState
     private const string CLOSED_STATE = "closed";
     private const string HIGHEST_STATE = "highest";
 
-    public static TradeState? Of(string classes, ModelSnapshot? model, uint currentBid)
+    public static TradeState? Of(RowSnapshot row)
     {
-        var tokens = classes.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        var model = row.TrustedModel;
+        var tokens = row.Classes.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
 
         return model?.TradeId is null
             ? null
-            : new TradeState(model.TradeId, State(tokens, model), BidState(tokens, model), currentBid);
+            : new TradeState(model.TradeId, State(tokens, model), BidState(tokens, model), row.BidValue ?? 0,
+                model.SecondsLeft, row.NextBid ?? 0, model.ItemId ?? 0);
     }
 
     private static string State(IReadOnlySet<string> tokens, ModelSnapshot model)

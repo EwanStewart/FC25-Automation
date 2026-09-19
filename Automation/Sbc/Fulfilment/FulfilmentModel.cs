@@ -41,10 +41,17 @@ public sealed record FulfilmentRun(
     int ApprovalId,
     int ChallengeId,
     FulfilmentState State,
-    bool DryRun,
+    FulfilmentMode Mode,
     long SpendCeiling,
     long EstimatedCost,
-    string Detail);
+    string Detail)
+{
+    public bool DryRun => Mode == FulfilmentMode.Dry;
+
+    public bool BuysLive => Mode == FulfilmentMode.Live;
+
+    public bool PlacesLive => Mode is FulfilmentMode.PlaceLive or FulfilmentMode.Live;
+}
 
 public sealed record GapRecord(
     int SlotIndex,
@@ -76,7 +83,14 @@ public sealed record MarketSearch(string Description, IReadOnlyList<AuctionListi
 
 public sealed record BidReceipt(BidOutcome Outcome, uint Amount, string Detail, bool Placed = true);
 
-public sealed record TradeState(string TradeId, string State, string BidState, uint CurrentBid);
+public sealed record TradeState(
+    string TradeId,
+    string State,
+    string BidState,
+    uint CurrentBid,
+    int? SecondsLeft = null,
+    uint MinimumBid = 0,
+    long ItemId = 0);
 
 public interface IMarketAgent
 {
@@ -85,6 +99,16 @@ public interface IMarketAgent
     BidReceipt Bid(MarketChoice choice, uint amount);
 
     IReadOnlyList<TradeState> Standing();
+
+    IReadOnlyList<TradeState> Targets();
+
+    int Watch(IReadOnlyList<AuctionListing> listings);
+
+    BidReceipt BidOnTarget(TradeState target, uint amount);
+
+    bool Claim(TradeState target);
+
+    void Pause(int milliseconds);
 }
 
 public interface IFulfilmentStore

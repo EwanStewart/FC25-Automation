@@ -39,6 +39,11 @@ public static class SquadPlan
             .Select(slot => slot.Owned ? FromClub(slot) : FromGap(slot, gaps)).ToList();
     }
 
+    public static bool Held(string source)
+    {
+        return source is FROM_CLUB or FROM_MARKET;
+    }
+
     public static IReadOnlyList<SquadTarget> Owned(IReadOnlyList<SquadTarget> targets)
     {
         return targets.Where(target => target.Source == FROM_CLUB).ToList();

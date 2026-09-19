@@ -3,6 +3,13 @@ using Automation.Flow;
 
 namespace Automation.Trading;
 
+public enum RowModels
+{
+    None,
+    Watched,
+    Results
+}
+
 public sealed record ModelSnapshot(
     string? TradeId,
     int? SecondsLeft,
@@ -12,7 +19,8 @@ public sealed record ModelSnapshot(
     uint? StartingBid,
     string? Name,
     bool? Updating = null,
-    int? AgeMs = null);
+    int? AgeMs = null,
+    long? ItemId = null);
 
 public sealed record RowSnapshot(
     int Index,

@@ -61,24 +61,140 @@ public sealed class SbcSquadAgent : ISquadAgent
 
     private const string PanelButtonCentreScript = """
         const button = Array.from(document.querySelectorAll('div.DetailPanel button'))
-            .filter(entry => (entry.textContent || '').trim() === arguments[0])[0];
+            .filter(entry => !entry.disabled && (entry.textContent || '').trim() === arguments[0] &&
+                entry.getBoundingClientRect().width > 0)[0];
         if (!button) return '';
         button.scrollIntoView({block: 'center'});
         const rect = button.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return '';
         return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
         """;
 
-    private const string PickerItemCentreScript = """
-        const items = document.querySelectorAll('div.DetailPanel li.listFUTItem, section.ui-layout-right li.listFUTItem');
-        const item = items[arguments[0]];
-        if (!item) return '';
-        item.scrollIntoView({block: 'center'});
-        const rect = item.getBoundingClientRect();
+    private const string LiveSquadScript = """
+        function holder(node, depth) {
+            if (!node || depth > 8) return null;
+            if (node._squad && node._challengeId) return node;
+            const kids = node.childViewControllers || [];
+            for (let i = 0; i < kids.length; i++) {
+                const found = holder(kids[i], depth + 1);
+                if (found) return found;
+            }
+            return null;
+        }
+        const flows = (window.getAppMain && getAppMain().getRootViewController().gameflowControllers) || [];
+        let owner = null;
+        for (let i = 0; i < flows.length && !owner; i++) owner = holder(flows[i], 0);
+        if (!owner) return '';
+        const slots = owner._squad.getSlots() || [];
+        const players = slots.map(slot => ({
+            index: slot.index,
+            itemData: {
+                id: slot.item ? slot.item.id : 0,
+                assetId: slot.item ? (slot.item.definitionId || 0) : 0,
+                rating: slot.item ? slot.item.rating : 0,
+                preferredPosition: (slot.position || {}).typeName || '',
+                itemState: slot.item && slot.item.id ? 'free' : 'invalid'
+            }
+        }));
+        return JSON.stringify({
+            challengeId: owner._challengeId,
+            squad: {
+                formation: owner._squad._formation ? owner._squad._formation.name : '',
+                players: players
+            }
+        });
+        """;
+
+    private const string ClubSearchCentreScript = """
+        const slotWanted = Number(arguments[0]);
+        const label = arguments[1];
+        function bound(node, depth) {
+            if (!node || depth > 8) return -1;
+            if (node.slot && typeof node.slot.index === 'number') return node.slot.index;
+            const kids = node.childViewControllers || [];
+            for (let i = 0; i < kids.length; i++) {
+                const found = bound(kids[i], depth + 1);
+                if (found >= 0) return found;
+            }
+            return -1;
+        }
+        function panel(node, depth) {
+            if (!node || depth > 8) return null;
+            if (node.pinnedItemVC !== undefined && node.clubSearchType !== undefined) return node;
+            const kids = node.childViewControllers || [];
+            for (let i = 0; i < kids.length; i++) {
+                const found = panel(kids[i], depth + 1);
+                if (found) return found;
+            }
+            return null;
+        }
+        const flows = (window.getAppMain && getAppMain().getRootViewController().gameflowControllers) || [];
+        let owner = null;
+        for (let i = 0; i < flows.length && !owner; i++) owner = panel(flows[i], 0);
+        if (!owner || bound(owner, 0) !== slotWanted) return '';
+        const button = Array.from(document.querySelectorAll('div.ut-club-search-filters-view button'))
+            .filter(entry => !entry.disabled && (entry.textContent || '').trim() === label &&
+                entry.getBoundingClientRect().width > 0)[0];
+        if (!button) return '';
+        button.scrollIntoView({block: 'center'});
+        const rect = button.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return '';
         return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
         """;
 
-    private const string PickerCountScript = """
-        return document.querySelectorAll('div.DetailPanel li.listFUTItem, section.ui-layout-right li.listFUTItem').length;
+    private const string PickerCentreScript = """
+        const slotWanted = Number(arguments[0]);
+        const itemWanted = String(arguments[1]);
+        function picker(node, depth) {
+            if (!node || depth > 8) return null;
+            if (node.clubViewModel && node.clubViewModel._collection) return node;
+            const kids = node.childViewControllers || [];
+            for (let i = 0; i < kids.length; i++) {
+                const found = picker(kids[i], depth + 1);
+                if (found) return found;
+            }
+            return null;
+        }
+        const flows = (window.getAppMain && getAppMain().getRootViewController().gameflowControllers) || [];
+        let owner = null;
+        for (let i = 0; i < flows.length && !owner; i++) owner = picker(flows[i], 0);
+        if (!owner) return '';
+        if (typeof owner.slotIndex === 'number' && owner.slotIndex !== slotWanted) return '';
+        const collection = owner.clubViewModel._collection || [];
+        const rows = document.querySelectorAll('li.listFUTItem.has-action');
+        if (rows.length !== collection.length) return '';
+        let wanted = -1;
+        for (let i = 0; i < collection.length; i++) if (String(collection[i].id) === itemWanted) wanted = i;
+        if (wanted < 0) return '';
+        const row = rows[wanted];
+        if (!row) return '';
+        row.scrollIntoView({block: 'center'});
+        const action = row.querySelector('button.btnAction') || row;
+        const rect = action.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return '';
+        return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
+        """;
+
+    private const string PickerItemsScript = """
+        function picker(node, depth) {
+            if (!node || depth > 8) return null;
+            if (node.clubViewModel && node.clubViewModel._collection) return node;
+            const kids = node.childViewControllers || [];
+            for (let i = 0; i < kids.length; i++) {
+                const found = picker(kids[i], depth + 1);
+                if (found) return found;
+            }
+            return null;
+        }
+        const flows = (window.getAppMain && getAppMain().getRootViewController().gameflowControllers) || [];
+        let owner = null;
+        for (let i = 0; i < flows.length && !owner; i++) owner = picker(flows[i], 0);
+        if (!owner) return 'no club picker is open';
+        const collection = owner.clubViewModel._collection || [];
+        const rows = document.querySelectorAll('li.listFUTItem.has-action').length;
+        return rows + ' row(s) for ' + collection.length + ' card(s): ' + collection
+            .map(item => (item._staticData ? item._staticData.name : '?') + ' ' + item.rating + ' ' + item.id)
+            .join(', ');
         """;
 
     private const string EntryLabelsScript = """
@@ -98,6 +214,7 @@ public sealed class SbcSquadAgent : ISquadAgent
         """;
 
     private const string ADD_PLAYER = "Add Player";
+    private const string CLUB_SEARCH = "Search";
     private const string SBC_TITLE = "SBC";
 
     private const string ENTRY_SELECTOR =
@@ -119,6 +236,8 @@ public sealed class SbcSquadAgent : ISquadAgent
 
     private static readonly TimeSpan ScreenWait = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan SquadWait = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan ControlWait = TimeSpan.FromSeconds(25);
+    private static readonly TimeSpan PanelWait = TimeSpan.FromSeconds(6);
 
     private readonly ChromeDriver driver_;
     private readonly Screen screen_;
@@ -144,7 +263,7 @@ public sealed class SbcSquadAgent : ISquadAgent
 
         EnterChallenge();
 
-        var answered = Remember(Settled(since, challengeId));
+        var answered = Remember(Fresh(challengeId) ?? Settled(since, challengeId));
         var view = answered ?? Remembered(challengeId);
 
         if (view is null)
@@ -180,64 +299,110 @@ public sealed class SbcSquadAgent : ISquadAgent
     public void Place(int slotIndex, SquadTarget target)
     {
         ForbiddenControls.Require(ADD_PLAYER);
+        ForbiddenControls.Require(CLUB_SEARCH);
 
-        var opened = ClickAtCentre(driver_.ExecuteScript(SlotCentreScript,
-            slotIndex.ToString(CultureInfo.InvariantCulture)) as string ?? string.Empty);
+        var slot = slotIndex.ToString(CultureInfo.InvariantCulture);
+        var asked = Asked(slot);
+        var searched = asked && Pressed(ControlWait, ClubSearchCentreScript, slot, CLUB_SEARCH);
+
+        Walked(slotIndex, target, asked, searched);
+
+        if (searched) Choose(slotIndex, slot, target);
 
         Thread.Sleep(SCREEN_SETTLE_MS);
-
-        var since = DateTime.UtcNow;
-        var asked = opened && ClickPanelButton(ADD_PLAYER);
-
-        Thread.Sleep(SCREEN_SETTLE_MS);
-
-        if (asked) Choose(target, since);
     }
 
     public SquadView Read(int challengeId)
     {
-        var since = DateTime.UtcNow - TimeSpan.FromSeconds(30);
-
-        return Remember(Settled(since, challengeId)) ??
-               new SquadView(challengeId, string.Empty, []);
+        return Remember(Fresh(challengeId)) ?? new SquadView(challengeId, string.Empty, []);
     }
 
-    private void Choose(SquadTarget target, DateTime since)
+    private bool Asked(string slot)
     {
-        var index = PickerIndex(target, since);
+        var attempt = 0;
+        var asked = false;
 
-        if (index >= 0)
+        while (!asked && attempt < OPEN_ATTEMPTS)
         {
-            ClickAtCentre(driver_.ExecuteScript(PickerItemCentreScript, index) as string ?? string.Empty);
-            Thread.Sleep(SCREEN_SETTLE_MS);
+            Pressed(ControlWait, SlotCentreScript, slot);
+            asked = Pressed(PanelWait, PanelButtonCentreScript, ADD_PLAYER);
+            attempt++;
         }
-        else
-        {
-            Console.WriteLine($"Slot {target.SlotIndex}: '{target.Name}' is not in the club picker list.");
-        }
+
+        return asked;
     }
 
-    private int PickerIndex(SquadTarget target, DateTime since)
+    private void Walked(int slotIndex, SquadTarget target, bool asked, bool searched)
     {
-        var deadline = DateTime.UtcNow + SquadWait;
-        var items = PickerItems(since);
+        if (!searched)
+            Console.WriteLine($"  slot {slotIndex} ({target.Name}): '{ADD_PLAYER}' pressed {asked}, " +
+                              $"club search started {searched}.");
+    }
 
-        while (items.Count == 0 && DateTime.UtcNow < deadline)
+    private void Choose(int slotIndex, string slot, SquadTarget target)
+    {
+        var item = target.ItemId.ToString(CultureInfo.InvariantCulture);
+
+        if (!Pressed(ControlWait, PickerCentreScript, slot, item)) Missed(slotIndex, target);
+    }
+
+    private void Missed(int slotIndex, SquadTarget target)
+    {
+        var listed = driver_.ExecuteScript(PickerItemsScript) as string ?? "nothing";
+
+        Console.WriteLine($"  slot {slotIndex}: the club picker never offered {target.Name} " +
+                          $"({target.ItemId}); it held {listed}.");
+    }
+
+    private bool Pressed(TimeSpan wait, string script, params object[] arguments)
+    {
+        var centre = Waited(wait, script, arguments);
+
+        Thread.Sleep(SCROLL_SETTLE_MS);
+
+        var confirmed = centre.Length > 0 ? Centre(script, arguments) : string.Empty;
+
+        return ClickAtCentre(confirmed.Length > 0 ? confirmed : centre);
+    }
+
+    private string Waited(TimeSpan wait, string script, object[] arguments)
+    {
+        var deadline = DateTime.UtcNow + wait;
+        var centre = Centre(script, arguments);
+
+        while (centre.Length == 0 && DateTime.UtcNow < deadline)
         {
             Thread.Sleep(RESPONSE_POLL_MS);
-            items = PickerItems(since);
+            centre = Centre(script, arguments);
         }
 
-        var shown = Convert.ToInt32(driver_.ExecuteScript(PickerCountScript) ?? 0);
-        var index = items.ToList().FindIndex(player => player.Id == target.ItemId);
-
-        return index >= 0 && index < shown ? index : -1;
+        return centre;
     }
 
-    private IReadOnlyList<ClubPlayer> PickerItems(DateTime since)
+    private string Centre(string script, object[] arguments)
     {
-        return network_.Since(since, CaptureKind.Club).Where(capture => capture.Body.Length > 0)
-            .Select(capture => ClubInventory.Parse(capture.Body)).LastOrDefault(players => players.Count > 0) ?? [];
+        return driver_.ExecuteScript(script, arguments) as string ?? string.Empty;
+    }
+
+    private SquadView? Fresh(int challengeId)
+    {
+        var deadline = DateTime.UtcNow + SquadWait;
+        var view = LiveSquad(challengeId);
+
+        while (view is null && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(RESPONSE_POLL_MS);
+            view = LiveSquad(challengeId);
+        }
+
+        return view;
+    }
+
+    private SquadView? LiveSquad(int challengeId)
+    {
+        var view = SquadReader.Read(driver_.ExecuteScript(LiveSquadScript) as string ?? string.Empty);
+
+        return view is not null && view.ChallengeId == challengeId ? view : null;
     }
 
     private void EnterChallenge()
@@ -382,13 +547,6 @@ public sealed class SbcSquadAgent : ISquadAgent
         return ClickAtCentre(settled);
     }
 
-    private bool ClickPanelButton(string label)
-    {
-        ForbiddenControls.Require(label);
-
-        return ClickAtCentre(driver_.ExecuteScript(PanelButtonCentreScript, label) as string ?? string.Empty);
-    }
-
     private SquadView? Settled(DateTime since, int challengeId)
     {
         var deadline = DateTime.UtcNow + SquadWait;
@@ -449,7 +607,8 @@ public sealed class SbcSquadAgent : ISquadAgent
 
         if (parts.Length == 2 &&
             double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) &&
-            double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+            double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y) &&
+            x > 0 && y > 0)
             clicked = mouse_.ClickAt(x, y);
 
         return clicked;

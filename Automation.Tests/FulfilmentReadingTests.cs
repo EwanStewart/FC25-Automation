@@ -14,6 +14,29 @@ public class FulfilmentReadingTests
          ]}}
         """;
 
+    private const string LIVE_SQUAD = """
+        {"challengeId":14,"squad":{"formation":"f424","players":[
+          {"index":0,"itemData":{"id":0,"assetId":0,"rating":0,"preferredPosition":"GK","itemState":"invalid"}},
+          {"index":1,"itemData":{"id":942212306556,"assetId":86938,"rating":65,"preferredPosition":"RB","itemState":"free"}},
+          {"index":2,"itemData":{"id":942808952425,"assetId":251659,"rating":69,"preferredPosition":"CB","itemState":"free"}},
+          {"index":11,"itemData":{"id":0,"assetId":0,"rating":0,"preferredPosition":"","itemState":"invalid"}}
+        ]}}
+        """;
+
+    [Fact]
+    public void TheSquadTheAppHoldsInMemoryReadsBackLikeTheSquadOnTheWire()
+    {
+        var view = SquadReader.Read(LIVE_SQUAD);
+
+        Assert.Equal(14, view?.ChallengeId);
+        Assert.Equal("f424", view?.Formation);
+        Assert.Equal(942212306556, view?.Slots[1].ItemId);
+        Assert.True(view?.Slots[1].Filled);
+        Assert.Equal(942808952425, view?.Slots[2].ItemId);
+        Assert.False(view?.Slots[0].Filled);
+        Assert.False(view?.Slots[3].Filled);
+    }
+
     [Fact]
     public void TheChallengeSquadReadsBackAsSlotsWithTheirCards()
     {
@@ -69,23 +92,48 @@ public class FulfilmentReadingTests
         Assert.Equal(0, SquadReader.ChallengeIn("https://utas.mob.v1.fut.ea.com/ut/game/fc27/sbs/sets"));
     }
 
+    private static RowSnapshot Row(string classes, ModelSnapshot? model, string bid)
+    {
+        return new RowSnapshot(0, classes, "Name", "70", "CB", "", "", "", bid, "300", "", model);
+    }
+
     [Fact]
     public void ATargetRowReportsWhatTheModelSaysAboutTheTrade()
     {
-        var state = TargetRowState.Of("listFUTItem has-auction-data",
-            new ModelSnapshot("t1", 30, "highest", "active", 700, 300, "Name"), 700);
+        var state = TargetRowState.Of(Row("listFUTItem has-auction-data",
+            new ModelSnapshot("t1", 30, "highest", "active", 700, 300, "Name", null, null, 55), "700"));
 
         Assert.Equal("t1", state?.TradeId);
         Assert.Equal("active", state?.State);
         Assert.Equal("highest", state?.BidState);
         Assert.Equal(700u, state?.CurrentBid);
+        Assert.Equal(30, state?.SecondsLeft);
+        Assert.Equal(55, state?.ItemId);
+    }
+
+    [Fact]
+    public void ATargetRowCarriesTheNextBidTheRowWouldTake()
+    {
+        var state = TargetRowState.Of(Row("listFUTItem has-auction-data",
+            new ModelSnapshot("t1", 30, "none", "active", 700, 300, "Name"), "700"));
+
+        Assert.True(state?.MinimumBid > 700u);
+    }
+
+    [Fact]
+    public void ATargetRowWithNoBidYetAsksForTheStartPrice()
+    {
+        var state = TargetRowState.Of(Row("listFUTItem has-auction-data",
+            new ModelSnapshot("t1", 30, "none", "active", 0, 300, "Name"), ""));
+
+        Assert.Equal(300u, state?.MinimumBid);
     }
 
     [Fact]
     public void AWonRowReadsAsAClosedTradeWeLed()
     {
-        var state = TargetRowState.Of("listFUTItem has-auction-data won",
-            new ModelSnapshot("t1", 0, "highest", "", 700, 300, "Name"), 700);
+        var state = TargetRowState.Of(Row("listFUTItem has-auction-data won",
+            new ModelSnapshot("t1", 0, "highest", "", 700, 300, "Name"), "700"));
 
         Assert.Equal("closed", state?.State);
         Assert.Equal("highest", state?.BidState);
@@ -94,8 +142,8 @@ public class FulfilmentReadingTests
     [Fact]
     public void AnExpiredRowReadsAsAnEndedTrade()
     {
-        var state = TargetRowState.Of("listFUTItem has-auction-data expired",
-            new ModelSnapshot("t1", 0, "outbid", "", 900, 300, "Name"), 900);
+        var state = TargetRowState.Of(Row("listFUTItem has-auction-data expired",
+            new ModelSnapshot("t1", 0, "outbid", "", 900, 300, "Name"), "900"));
 
         Assert.Equal("expired", state?.State);
     }
@@ -103,6 +151,6 @@ public class FulfilmentReadingTests
     [Fact]
     public void ARowWithNoTrustedModelIsNotReportedAtAll()
     {
-        Assert.Null(TargetRowState.Of("listFUTItem has-auction-data", null, 0));
+        Assert.Null(TargetRowState.Of(Row("listFUTItem has-auction-data", null, "0")));
     }
 }
