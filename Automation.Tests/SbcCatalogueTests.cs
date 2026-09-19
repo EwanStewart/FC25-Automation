@@ -40,12 +40,13 @@ public class SbcCatalogueTests
     }
 
     [Fact]
-    public void LeavesTheChallengeSquadCallAlone()
+    public void KeepsTheChallengeSquadCallOutOfTheChallengeListing()
     {
         var kind = UtasPayloads.Classify("POST",
             "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/sbs/challenge/42");
 
-        Assert.Equal(CaptureKind.Other, kind);
+        Assert.Equal(CaptureKind.SbcSquad, kind);
+        Assert.NotEqual(CaptureKind.SbcChallenges, kind);
     }
 
     [Fact]

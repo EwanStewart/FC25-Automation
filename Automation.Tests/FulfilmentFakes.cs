@@ -63,6 +63,8 @@ public sealed class ScriptedMarket : IMarketAgent
     private readonly Dictionary<string, BidOutcome> outcomes_;
     private readonly List<string> log_;
 
+    public bool Withhold { get; init; }
+
     public ScriptedMarket(List<string> log, Dictionary<int, IReadOnlyList<AuctionListing>> results,
         Dictionary<string, BidOutcome>? outcomes = null, IReadOnlyList<TradeState>? standing = null)
     {
@@ -90,7 +92,7 @@ public sealed class ScriptedMarket : IMarketAgent
         log_.Add($"bid {choice.Listing.TradeId} {amount}");
 
         return new BidReceipt(outcomes_.GetValueOrDefault(choice.Listing.TradeId, BidOutcome.Registered), amount,
-            "scripted");
+            "scripted", !Withhold);
     }
 
     public IReadOnlyList<TradeState> Standing()

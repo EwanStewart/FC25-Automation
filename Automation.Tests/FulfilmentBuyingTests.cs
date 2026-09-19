@@ -197,6 +197,20 @@ public class FulfilmentBuyingTests
     }
 
     [Fact]
+    public void ABidTheAgentNeverSendsBecauseThePriceMovedIsNotTreatedAsAmbiguous()
+    {
+        List<string> log = [];
+        RecordingStore store = new(log);
+        ScriptedMarket market = new(log,
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 800)] }) { Withhold = true };
+
+        var result = new GapBuyer(market, store).Buy(Run(false, 100000), [Gap(0)]);
+
+        Assert.Equal(GapOutcome.TooExpensive, store.Gaps(1)[0].Outcome);
+        Assert.Equal(FulfilmentState.Buying, result.State);
+    }
+
+    [Fact]
     public void ABidOvertakenAsItLandedLeavesTheGapOutbid()
     {
         var (result, store, _) = Buy(Run(false, 100000), [Gap(0)],

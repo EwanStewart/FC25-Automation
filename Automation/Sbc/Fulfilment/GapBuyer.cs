@@ -112,7 +112,7 @@ public sealed class GapBuyer
         store_.SaveGap(run.Id, gap with { Outcome = GapOutcome.Attempting, Simulated = false });
 
         var receipt = market_.Bid(choice, choice.Price);
-        var placed = gap with { Outcome = Landed(receipt.Outcome), Simulated = false, Detail = receipt.Detail };
+        var placed = gap with { Outcome = Landed(receipt), Simulated = false, Detail = receipt.Detail };
 
         return new GapStep(placed, placed.Outcome == GapOutcome.Unresolved ? Names(placed) : string.Empty,
             FulfilmentState.Failed);
@@ -130,14 +130,16 @@ public sealed class GapBuyer
         };
     }
 
-    private static GapOutcome Landed(BidOutcome outcome)
+    private static GapOutcome Landed(BidReceipt receipt)
     {
-        return outcome switch
-        {
-            BidOutcome.Registered => GapOutcome.Bidding,
-            BidOutcome.Overtaken => GapOutcome.Outbid,
-            _ => GapOutcome.Unresolved
-        };
+        return receipt.Placed
+            ? receipt.Outcome switch
+            {
+                BidOutcome.Registered => GapOutcome.Bidding,
+                BidOutcome.Overtaken => GapOutcome.Outbid,
+                _ => GapOutcome.Unresolved
+            }
+            : GapOutcome.TooExpensive;
     }
 
     private static GapRecord Missed(GapRecord gap, MarketSearch search, uint ceiling)

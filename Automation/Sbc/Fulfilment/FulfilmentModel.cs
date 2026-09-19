@@ -74,7 +74,7 @@ public sealed record PlacementRecord(
 
 public sealed record MarketSearch(string Description, IReadOnlyList<AuctionListing> Listings);
 
-public sealed record BidReceipt(BidOutcome Outcome, uint Amount, string Detail);
+public sealed record BidReceipt(BidOutcome Outcome, uint Amount, string Detail, bool Placed = true);
 
 public sealed record TradeState(string TradeId, string State, string BidState, uint CurrentBid);
 

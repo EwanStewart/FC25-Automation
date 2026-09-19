@@ -18,6 +18,13 @@ public readonly record struct TargetFacts(
     string? BidState = null,
     bool Frozen = false);
 
+public readonly record struct BidAttempt(
+    BidOutcome Outcome,
+    string Reason,
+    bool Typed,
+    bool Clicked,
+    DateTime ClickedAt);
+
 public static class Snipe
 {
     private const string HIGHEST_STATE = "highest";

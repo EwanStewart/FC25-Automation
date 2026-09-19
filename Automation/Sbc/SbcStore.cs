@@ -199,6 +199,16 @@ public sealed class SbcStore
                 reader.GetBoolean(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetInt32(7)));
     }
 
+    public ChallengeRoute? ReadChallengeRoute(int challengeId)
+    {
+        const string query =
+            "SELECT c.challenge_id, COALESCE(s.name, ''), c.name FROM SbcChallenges c LEFT JOIN SbcSets s ON s.set_id = c.set_id WHERE c.challenge_id = @challenge";
+
+        return Read(query, new Dictionary<string, object> { ["@challenge"] = challengeId },
+            reader => new ChallengeRoute(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)))
+            .FirstOrDefault();
+    }
+
     private List<T> Read<T>(string query, Dictionary<string, object> parameters, Func<MySqlDataReader, T> map)
     {
         List<T> result = [];
