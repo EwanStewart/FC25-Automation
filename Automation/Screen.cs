@@ -44,7 +44,8 @@ public class Screen
                     bidState: auction.bidState, tradeState: auction.tradeState,
                     currentBid: auction.currentBid, startingBid: auction.startingBid,
                     updating: auction.isUpdating === true, ageMs: typeof auction.getAge === 'function' ? auction.getAge() : null,
-                    name: item._staticData ? item._staticData.name : null, rating: item.rating, used: false } : null;
+                    name: item._staticData ? item._staticData.name : null, rating: item.rating,
+                    itemId: item.id, used: false } : null;
             }).filter(model => model !== null);
         } catch (error) { models = []; }
         const coins = text => { const parsed = parseInt(String(text).replace(/,/g, ''), 10); return isNaN(parsed) ? null : parsed; };
@@ -52,7 +53,8 @@ public class Screen
             const match = models.find(model => !model.used && model.name === name && String(model.rating) === rating && model.startingBid === start);
             if (match) match.used = true;
             return match ? { tradeId: match.tradeId, secondsLeft: match.secondsLeft, bidState: match.bidState, tradeState: match.tradeState,
-                currentBid: match.currentBid, startingBid: match.startingBid, name: match.name, updating: match.updating, ageMs: match.ageMs } : null;
+                currentBid: match.currentBid, startingBid: match.startingBid, name: match.name, updating: match.updating,
+                ageMs: match.ageMs, itemId: match.itemId } : null;
         };
         const text = (li, selector) => { const element = li.querySelector(selector); return element ? element.innerText.trim() : ''; };
         const value = (li, label) => {

@@ -70,7 +70,7 @@ public sealed class MarketAgent : IMarketAgent
         ports_.Pause(SETTLE_MS);
 
         return screen_.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched)
-            .Select(row => TargetRowState.Of(row.Classes, row.TrustedModel, row.BidValue ?? 0))
+            .Select(TargetRowState.Of)
             .Where(state => state is not null).Select(state => state!).ToList();
     }
 

@@ -19,7 +19,8 @@ public sealed record ModelSnapshot(
     uint? StartingBid,
     string? Name,
     bool? Updating = null,
-    int? AgeMs = null);
+    int? AgeMs = null,
+    long? ItemId = null);
 
 public sealed record RowSnapshot(
     int Index,
