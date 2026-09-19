@@ -119,3 +119,41 @@ CatalogueImports records each run: its source, the number of items written, the 
 The importer waits PAGE_DELAY_MS between pages, 1.5 seconds by default, set in Automation/Catalogue/CatalogueProgram.cs. MAX_PAGES_PER_RUN caps a run and defaults to no cap. A run that stops part way leaves its import row open at the last page it finished, and the next run carries on from the page after it. A run that reaches the end closes its row, so the run after that starts at page one and refreshes the catalogue.
 
 Swap in another provider by writing another IPlayerSource. The HTTP calls are the only part of Automation/Catalogue that touches the network, so the tests drive the parsing and mapping from saved pages under Automation.Tests/CatalogueFixtures.
+
+## Squad building challenges
+
+The SBC solver reads a challenge, drafts a squad from the club and offers it for approval in a local panel. It never bids, buys, lists or submits. Approving writes a row and stops there.
+
+### Requirements
+
+A challenge arrives from GET /ut/game/fc27/sbs/setId/{setId}/challenges. Its elgReq array groups by eligibilitySlot: one SCOPE entry sets the comparison, an optional PLAYER_COUNT turns the slot into a count of matching players, and a slot with no count constrains every player. The eligibility key numbers come from SBCEligibilityKey in the shipped FC 27 bundle, so SCOPE is 13, PLAYER_QUALITY is 3 and ALL_PLAYERS_CHEMISTRY_POINTS is 36.
+
+RequirementParser reads that JSON. RequirementTextParser reads the same requirements as the panel renders them, lines such as "Scotland: Min. 1 Player" and "Player Quality: Exactly Silver", and produces the same model. Names resolve through a NameLookup because the catalogue holds no per-card attributes. A key or a line the parser does not understand becomes an Unsupported requirement, which always fails, so a squad never reads as valid while something went unread.
+
+### Chemistry
+
+ChemistryCalculator follows UTSquadChemCalculatorUtils.calculate from the FC 27 web app bundle. Eleven field slots, three points each, thirty-three in total. Contributions gather per club, league and nation, and only from a player standing in a position its card lists; a player out of position scores nothing and feeds no threshold. The manager feeds its league and nation but never its club. Icons and Heroes take the full three and lift every league in the squad once.
+
+The threshold table is not shipped with the client. FC 27 fetches it from /ut/game/fc27/chemistry/profiles along with the club team links from /chemistry/teamlinks, and neither has been captured. The default table is the published one: club 2, 4 and 7 players for one point each, league 3, 5 and 8, nation 2, 5 and 8. Against the real active squad that scores 24 where the app reported 25. A single club team link between a women's club and its men's club closes the gap exactly, which matches what the squad holds, but it is unproven. Treat chemistry as an estimate until the two tables are captured.
+
+### Solving
+
+SquadSolver builds a CP-SAT model over the eleven slots. A candidate may only stand in a position it can play. Owned cards cost a hundredth of their market average, so the objective spends them freely and buys as little as it can. A gap is filled by a synthetic candidate carrying an attribute specification, a quality, a rating band and any pinned nation, league, club or rarity, because the market searches on attributes and the catalogue holds no per-card attributes. Specifications are generated per slot so two purchases never share an invented club.
+
+The squad rating bound constrains the mean, which implies the real rating, so the solver is conservative and can miss a squad that only clears the bar on the above-average bonus. The real rating is always recomputed and reported. A star rating requirement or an unsupported requirement makes the solver refuse rather than draft something it cannot check.
+
+### Wiring and running
+
+Automation/Program.cs is untouched. Wire these entry points beside the existing catalogue and club switches:
+
+    SbcProgram.ImportChallenges(path)   stores a captured challenges body
+    SbcProgram.Draft(budget)            returns a drafted squad per stored challenge
+    SbcProgram.Report(budget)           prints one
+
+The panel is a separate project:
+
+    dotnet run --project Automation.Web/Automation.Web.csproj
+
+It binds to 127.0.0.1:5199 only and reads the same fc25 database. The list shows every stored challenge and whether it drafts. The challenge page shows the squad with names, ratings, positions and per slot chemistry, marks owned against bought, and shows every requirement with a pass or fail marker. Approve writes an SbcApprovals row and its slots, and the button stays disabled while any requirement fails.
+
+MySQL/sbc.sql holds SbcChallenges, SbcApprovals and SbcApprovalSlots. It is mounted beside the other schema files in docker-compose.yml. An existing container has already run its init scripts, so apply it by hand with docker exec -i fc25-mysql mysql -uroot -proot < MySQL/sbc.sql.
