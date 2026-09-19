@@ -121,6 +121,11 @@ public sealed class MarketAgent : IMarketAgent
         ports_.OpenTransferTargets();
         ports_.Pause(SETTLE_MS);
 
+        return Targets();
+    }
+
+    public IReadOnlyList<TradeState> Targets()
+    {
         return screen_.Snapshot(ElementKeys.TARGET_ROWS, RowModels.Watched)
             .Select(TargetRowState.Of)
             .Where(state => state is not null).Select(state => state!).ToList();

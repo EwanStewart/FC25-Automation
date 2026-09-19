@@ -27,6 +27,11 @@ public sealed class SimulatedMarket : IMarketAgent
         return market_.Standing();
     }
 
+    public IReadOnlyList<TradeState> Targets()
+    {
+        return market_.Targets();
+    }
+
     public int Watch(IReadOnlyList<AuctionListing> listings)
     {
         return 0;

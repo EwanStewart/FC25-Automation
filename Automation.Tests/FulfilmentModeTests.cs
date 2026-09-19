@@ -91,10 +91,14 @@ public class FulfilmentModeTests
         List<string> log = [];
         var store = Store(log);
         ScriptedSquad squad = new(log, [Empty(0), Empty(1)]);
+        var market = Market(log);
 
-        Drive(store, squad, Market(log), FulfilmentMode.Live);
+        market.Polls.Enqueue([new TradeState("t1", "active", "none", 0, 10, 800, 77)]);
+
+        Drive(store, squad, market, FulfilmentMode.Live);
 
         Assert.Contains("place-in-app 0 11", log);
+        Assert.Contains("watch t1", log);
         Assert.Contains(log, entry => entry.StartsWith("bid t1"));
         Assert.Equal(GapOutcome.Bidding, store.Gaps(1)[0].Outcome);
     }

@@ -99,6 +99,11 @@ public sealed class ScriptedMarket : IMarketAgent
 
     public IReadOnlyList<TradeState> Standing()
     {
+        return Targets();
+    }
+
+    public IReadOnlyList<TradeState> Targets()
+    {
         return Polls.Count > 0 ? Polls.Dequeue() : Standings;
     }
 
@@ -149,7 +154,7 @@ public static class FulfilmentFixtures
 
     public static AuctionListing Listing(string tradeId, uint startingBid, int rating = 68)
     {
-        return new AuctionListing(tradeId, "active", "none", 300, 0, startingBid, 0, rating, "CB", 0, 0, 1, 1, 0,
+        return new AuctionListing(tradeId, "active", "none", 120, 0, startingBid, 0, rating, "CB", 0, 0, 1, 1, 0,
             13, 14, 0, []);
     }
 
@@ -227,6 +232,11 @@ public sealed class RefusingMarket : IMarketAgent
     }
 
     public IReadOnlyList<TradeState> Standing()
+    {
+        return Targets();
+    }
+
+    public IReadOnlyList<TradeState> Targets()
     {
         return Polls.Count > 0 ? Polls.Dequeue() : [];
     }

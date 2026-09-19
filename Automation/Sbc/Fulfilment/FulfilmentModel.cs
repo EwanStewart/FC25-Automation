@@ -100,6 +100,8 @@ public interface IMarketAgent
 
     IReadOnlyList<TradeState> Standing();
 
+    IReadOnlyList<TradeState> Targets();
+
     int Watch(IReadOnlyList<AuctionListing> listings);
 
     BidReceipt BidOnTarget(TradeState target, uint amount);

@@ -104,10 +104,12 @@ public class FulfilmentOrderTests
             [0] = [Listing("t1", 800)]
         });
 
+        first.Polls.Enqueue([new TradeState("t1", "active", "none", 0, 10, 800, 99)]);
+
         Drive(store, [Owned(0, 11), Bought(1)], squad, first, FulfilmentMode.Live);
 
         ScriptedMarket second = new(log, new Dictionary<int, IReadOnlyList<AuctionListing>>(), null,
-            [new TradeState("t1", "closed", "highest", 800)]);
+            [new TradeState("t1", "closed", "highest", 800, 0, 0, 99)]);
 
         Drive(store, [Owned(0, 11), Bought(1)], squad, second, FulfilmentMode.Live);
 
