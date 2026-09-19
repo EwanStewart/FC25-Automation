@@ -1,6 +1,7 @@
 namespace Automation.Trading;
 
-public sealed record RunOptions(bool SmokeTest, string SmokeTarget, bool NoShutdown, uint LoopMinutes, bool SnipeOnly)
+public sealed record RunOptions(bool SmokeTest, string SmokeTarget, bool NoShutdown, uint LoopMinutes, bool SnipeOnly,
+    bool ImportPlayers)
 {
     private const string SMOKE = "--smoke";
     private const string LOOP = "--loop";
@@ -8,7 +9,7 @@ public sealed record RunOptions(bool SmokeTest, string SmokeTarget, bool NoShutd
     public static RunOptions Parse(IReadOnlyList<string> args)
     {
         return new RunOptions(args.Contains(SMOKE), ValueAfter(args, SMOKE) ?? "all", args.Contains("--no-shutdown"),
-            ParseLoopMinutes(args), args.Contains("--snipe"));
+            ParseLoopMinutes(args), args.Contains("--snipe"), args.Contains("--import-players"));
     }
 
     private static uint ParseLoopMinutes(IReadOnlyList<string> args)
