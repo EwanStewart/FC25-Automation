@@ -43,9 +43,10 @@ public sealed class MarketAgent : IMarketAgent
         ports_.Pause(SETTLE_MS);
 
         var body = Settled(since);
+        var rows = screen_.Snapshot(ElementKeys.RESULT_ROWS, RowModels.None).Count;
 
         return new MarketSearch(MarketFilter.Describe(specification, ceiling, pins),
-            UtasPayloads.ParseAuctions(body));
+            MarketCandidateChoice.Shown(UtasPayloads.ParseAuctions(body), rows));
     }
 
     public BidReceipt Bid(MarketChoice choice, uint amount)

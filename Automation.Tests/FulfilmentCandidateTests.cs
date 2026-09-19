@@ -111,4 +111,25 @@ public class FulfilmentCandidateTests
 
         Assert.Equal("a", chosen?.Listing.TradeId);
     }
+
+    [Fact]
+    public void TheListingTheAppNeverDrewIsNotACandidate()
+    {
+        IReadOnlyList<AuctionListing> listings = [Listing("a", 800), Listing("b", 700), Listing("c", 100)];
+
+        var shown = MarketCandidateChoice.Shown(listings, 2);
+
+        Assert.Equal(["a", "b"], shown.Select(listing => listing.TradeId));
+        Assert.Equal("b", MarketCandidateChoice.Best(Specification(), shown, 1000)?.Listing.TradeId);
+    }
+
+    [Fact]
+    public void RowsThatMatchOrOutnumberTheListingsTrimNothing()
+    {
+        IReadOnlyList<AuctionListing> listings = [Listing("a", 800), Listing("b", 700)];
+
+        Assert.Equal(2, MarketCandidateChoice.Shown(listings, 2).Count);
+        Assert.Equal(2, MarketCandidateChoice.Shown(listings, 5).Count);
+        Assert.Equal(2, MarketCandidateChoice.Shown(listings, 0).Count);
+    }
 }

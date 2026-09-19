@@ -19,6 +19,11 @@ public static class MarketCandidateChoice
             .ThenBy(choice => choice.Listing.TradeId, StringComparer.Ordinal).FirstOrDefault();
     }
 
+    public static IReadOnlyList<AuctionListing> Shown(IReadOnlyList<AuctionListing> listings, int rows)
+    {
+        return rows > 0 && rows < listings.Count ? listings.Take(rows).ToList() : listings;
+    }
+
     public static uint Price(AuctionListing listing)
     {
         return listing.CurrentBid > 0
