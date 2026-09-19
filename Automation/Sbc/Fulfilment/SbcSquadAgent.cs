@@ -175,6 +175,22 @@ public sealed class SbcSquadAgent : ISquadAgent
         return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
         """;
 
+    private const string FilterPanelCentreScript = """
+        const results = document.querySelector('div.ut-club-search-results-view');
+        if (!results) return '';
+        if (document.querySelector('div.ut-club-search-filters-view')) return '';
+        let host = results;
+        while (host && !(host.tagName === 'SECTION' && host.classList.contains('ut-navigation-container-view')))
+            host = host.parentElement;
+        if (!host) return '';
+        const button = host.querySelector('button.ut-navigation-button-control');
+        if (!button || button.disabled) return '';
+        button.scrollIntoView({block: 'center'});
+        const rect = button.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return '';
+        return (rect.left + rect.width / 2) + ',' + (rect.top + rect.height / 2);
+        """;
+
     private const string FilterControlsScript = """
         return JSON.stringify(Array.from(document.querySelectorAll(
             'div.ut-club-search-filters-view div.ut-search-filter-control')).map(function (control, index) {
@@ -393,10 +409,17 @@ public sealed class SbcSquadAgent : ISquadAgent
 
     private bool Cleared()
     {
-        var control = ClubSearchFilters.PositionControl(SettledFilterControls());
+        var control = ClubSearchFilters.PositionControl(Reopened());
 
         return control != ClubSearchFilters.NOTHING &&
                Pressed(PanelWait, FilterClearCentreScript, control.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private IReadOnlyList<FilterControl> Reopened()
+    {
+        if (FilterControls().Count == 0) Pressed(PanelWait, FilterPanelCentreScript);
+
+        return SettledFilterControls();
     }
 
     private void Widened(int slotIndex, bool cleared)
