@@ -25,6 +25,11 @@ def fetch_json(url):
     return json.loads(fetch(url).decode("utf-8-sig"))
 
 
+def shown(loc, key):
+    value = loc.get(key)
+    return value.strip() if value else None
+
+
 def content_version():
     html = fetch(WEB_APP).decode("utf-8", "replace")
     guid = re.search(r"fut_guid\s*=\s*[\"']([^\"']+)[\"']", html)
@@ -57,23 +62,23 @@ def club_leagues(guid, year):
 
 
 def nations(loc, ids):
-    return {str(value): loc[NATION_KEY.format(id=value)] for value in ids
-            if NATION_KEY.format(id=value) in loc}
+    found = ((value, shown(loc, NATION_KEY.format(id=value))) for value in ids)
+    return {str(value): name for value, name in found if name}
 
 
 def leagues(loc, year, ids):
     result = {}
     for value in ids:
-        name = loc.get(LEAGUE_KEY.format(year=year, id=value))
-        abbreviation = loc.get(LEAGUE_ABBR_KEY.format(year=year, id=value))
+        name = shown(loc, LEAGUE_KEY.format(year=year, id=value))
+        abbreviation = shown(loc, LEAGUE_ABBR_KEY.format(year=year, id=value))
         if name and abbreviation:
             result[str(value)] = {"name": name, "abbreviation": abbreviation}
     return result
 
 
 def clubs(loc, year, ids):
-    return {str(value): loc[CLUB_KEY.format(year=year, id=value)] for value in sorted(ids)
-            if CLUB_KEY.format(year=year, id=value) in loc}
+    found = ((value, shown(loc, CLUB_KEY.format(year=year, id=value))) for value in sorted(ids))
+    return {str(value): name for value, name in found if name}
 
 
 def build():
