@@ -17,10 +17,13 @@
       "commonName": "De Bruyne",
       "league": 13,
       "nation": 7,
-      "club": 11,
+      "club": 10,
       "rarity": 1,
       "position": "CM",
-      "positionAlternatives": ["CAM", "CDM"],
+      "positionAlternatives": [
+        "CAM",
+        "CDM"
+      ],
       "color": "gold",
       "rating": 91,
       "pace": 72,
@@ -29,6 +32,7 @@
     {
       "id": 1041,
       "resourceId": 50580996,
+      "resourceBaseId": 213661,
       "name": "Scott McTominay",
       "commonName": null,
       "league": 31,
@@ -43,6 +47,7 @@
     {
       "id": 2377,
       "resourceId": null,
+      "resourceBaseId": null,
       "name": "Callum Doyle",
       "league": null,
       "nation": null,

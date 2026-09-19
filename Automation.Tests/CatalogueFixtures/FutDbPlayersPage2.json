@@ -10,6 +10,7 @@
     {
       "id": 3108,
       "resourceId": 67675548,
+      "resourceBaseId": 229237,
       "name": "Gabriel Martinelli",
       "commonName": "Martinelli",
       "league": 13,
@@ -17,13 +18,17 @@
       "club": 1,
       "rarity": 12,
       "position": "LM",
-      "positionAlternatives": ["LW", "ST"],
+      "positionAlternatives": [
+        "LW",
+        "ST"
+      ],
       "color": "silver",
       "rating": 78
     },
     {
       "resourceId": 12345678,
-      "name": "Row Without A Definition Id",
+      "resourceBaseId": 231747,
+      "name": "Row Without A Futdb Id",
       "positionAlternatives": [],
       "rating": 64
     }

@@ -1,8 +1,9 @@
 namespace Automation.Catalogue;
 
 public sealed record PlayerRecord(
-    int DefinitionId,
+    int FutDbId,
     long? ResourceId,
+    int? AssetId,
     string Name,
     string? CommonName,
     int? Rating,

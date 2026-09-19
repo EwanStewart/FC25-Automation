@@ -1,7 +1,8 @@
 USE fc25;
 
 CREATE TABLE IF NOT EXISTS Players (
-    definition_id INT NOT NULL,
+    futdb_id INT NOT NULL,
+    asset_id INT NULL,
     resource_id BIGINT NULL,
     name VARCHAR(255) NOT NULL,
     common_name VARCHAR(255) NULL,
@@ -14,8 +15,9 @@ CREATE TABLE IF NOT EXISTS Players (
     rarity_id INT NULL,
     card_colour VARCHAR(8) NULL,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (definition_id),
-    INDEX idx_players_resource (resource_id),
+    PRIMARY KEY (futdb_id),
+    UNIQUE KEY uq_players_resource (resource_id),
+    INDEX idx_players_asset (asset_id),
     INDEX idx_players_rating (rating),
     INDEX idx_players_club (club_id),
     INDEX idx_players_league (league_id),

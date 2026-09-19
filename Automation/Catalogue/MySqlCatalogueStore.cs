@@ -7,9 +7,9 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
     public const string DEFAULT_CONNECTION_STRING = "Server=localhost;Database=fc25;Uid=root;Pwd=root;";
 
     private const string UPSERT_PLAYER =
-        "INSERT INTO Players (definition_id, resource_id, name, common_name, rating, preferred_position, alternate_positions, club_id, league_id, nation_id, rarity_id, card_colour) " +
-        "VALUES (@definitionId, @resourceId, @name, @commonName, @rating, @preferredPosition, @alternatePositions, @clubId, @leagueId, @nationId, @rarityId, @cardColour) AS incoming " +
-        "ON DUPLICATE KEY UPDATE resource_id = incoming.resource_id, name = incoming.name, common_name = incoming.common_name, rating = incoming.rating, preferred_position = incoming.preferred_position, alternate_positions = incoming.alternate_positions, club_id = incoming.club_id, league_id = incoming.league_id, nation_id = incoming.nation_id, rarity_id = incoming.rarity_id, card_colour = incoming.card_colour, last_updated = CURRENT_TIMESTAMP";
+        "INSERT INTO Players (futdb_id, asset_id, resource_id, name, common_name, rating, preferred_position, alternate_positions, club_id, league_id, nation_id, rarity_id, card_colour) " +
+        "VALUES (@futDbId, @assetId, @resourceId, @name, @commonName, @rating, @preferredPosition, @alternatePositions, @clubId, @leagueId, @nationId, @rarityId, @cardColour) AS incoming " +
+        "ON DUPLICATE KEY UPDATE asset_id = incoming.asset_id, resource_id = incoming.resource_id, name = incoming.name, common_name = incoming.common_name, rating = incoming.rating, preferred_position = incoming.preferred_position, alternate_positions = incoming.alternate_positions, club_id = incoming.club_id, league_id = incoming.league_id, nation_id = incoming.nation_id, rarity_id = incoming.rarity_id, card_colour = incoming.card_colour, last_updated = CURRENT_TIMESTAMP";
 
     private const string SELECT_LATEST_IMPORT =
         "SELECT id, last_page, outcome FROM CatalogueImports WHERE source = @source ORDER BY id DESC LIMIT 1";
@@ -89,7 +89,8 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
     private static void SavePlayer(MySqlConnection connection, MySqlTransaction transaction, PlayerRecord player)
     {
         using MySqlCommand command = new(UPSERT_PLAYER, connection, transaction);
-        command.Parameters.AddWithValue("@definitionId", player.DefinitionId);
+        command.Parameters.AddWithValue("@futDbId", player.FutDbId);
+        command.Parameters.AddWithValue("@assetId", Value(player.AssetId));
         command.Parameters.AddWithValue("@resourceId", Value(player.ResourceId));
         command.Parameters.AddWithValue("@name", player.Name);
         command.Parameters.AddWithValue("@commonName", Value(player.CommonName));

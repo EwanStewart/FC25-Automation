@@ -86,7 +86,9 @@ MySQL/players.sql creates the two tables. docker-compose only seeds setup.sql, s
 docker exec -i fc25-mysql mysql -uroot -proot < MySQL/players.sql
 ```
 
-Players is keyed on the card's definition id, which FutDB publishes as id. Each row holds the resource id, the full and common names, the rating, the preferred position, the alternate positions as one comma separated column, the club, league, nation and rarity ids, the card colour and a last_updated stamp. Indexes cover rating, club, league, nation, position and name. An import rewrites a player in place, so a refresh leaves one row per card.
+Players holds three ids. futdb_id is FutDB's own row id and the primary key. asset_id is EA's asset id, which FutDB publishes as resourceBaseId, and resource_id is EA's resource id. EA's club API returns owned items with no name on them, only assetId and resourceId, so those two columns are how the rest of the system reaches a name. asset_id is indexed and resource_id is unique, and a null resource id does not block the unique key.
+
+Each row also holds the full and common names, the rating, the preferred position, the alternate positions as one comma separated column, the club, league, nation and rarity ids, the card colour and a last_updated stamp. FutDB gives club, league, nation and rarity as numbers rather than names, and they line up with EA's own numbering: Manchester City is club 10, the Premier League is league 13 and Belgium is nation 7. Indexes cover asset_id, rating, club, league, nation, position and name. An import rewrites a player in place, so a refresh leaves one row per card.
 
 CatalogueImports records each run: its source, the number of items written, the last page finished, the page total, the start and finish times and the outcome.
 

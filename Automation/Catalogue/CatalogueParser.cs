@@ -9,7 +9,7 @@ public static class CatalogueParser
     private const string PAGE_CURRENT = "pageCurrent";
     private const string PAGE_TOTAL = "pageTotal";
     private const string COUNT_TOTAL = "countTotal";
-    private const string PLAYER_ID = "id";
+    private const string SOURCE_ID = "id";
 
     public static CataloguePage ParsePage(string json)
     {
@@ -59,18 +59,19 @@ public static class CatalogueParser
         if (items.ValueKind != JsonValueKind.Array)
             throw new CatalogueFormatException("The catalogue page items were not an array.");
 
-        return items.EnumerateArray().Where(HasDefinitionId).Select(ReadPlayer).ToList();
+        return items.EnumerateArray().Where(HasSourceId).Select(ReadPlayer).ToList();
     }
 
-    private static bool HasDefinitionId(JsonElement item)
+    private static bool HasSourceId(JsonElement item)
     {
-        return NullableInteger(item, PLAYER_ID).HasValue;
+        return NullableInteger(item, SOURCE_ID).HasValue;
     }
 
     private static PlayerRecord ReadPlayer(JsonElement item)
     {
-        var result = new PlayerRecord(NullableInteger(item, PLAYER_ID) ?? 0, NullableLong(item, "resourceId"),
-            Text(item, "name") ?? string.Empty, Text(item, "commonName"), NullableInteger(item, "rating"),
+        var result = new PlayerRecord(NullableInteger(item, SOURCE_ID) ?? 0, NullableLong(item, "resourceId"),
+            NullableInteger(item, "resourceBaseId"), Text(item, "name") ?? string.Empty, Text(item, "commonName"),
+            NullableInteger(item, "rating"),
             Text(item, "position"), Texts(item, "positionAlternatives"), NullableInteger(item, "club"),
             NullableInteger(item, "league"), NullableInteger(item, "nation"), NullableInteger(item, "rarity"),
             Text(item, "color"));
