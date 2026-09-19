@@ -15,6 +15,8 @@ internal class Program
         if (options.ImportPlayers) Environment.Exit(Catalogue.CatalogueProgram.Run());
         else if (options.CaptureClub) CaptureClub(options);
         else if (options.DraftSbc) Sbc.SbcProgram.Report(SBC_DEFAULT_BUDGET);
+        else if (options.SummariseSbc) Sbc.SbcProgram.ReportSummary(SBC_DEFAULT_BUDGET);
+        else if (options.CaptureSbc) CaptureSbc(options);
         else RunTradingConfigurations(options);
     }
 
@@ -28,6 +30,14 @@ internal class Program
         foreach (var run in toRun) RunConfiguration(run, options);
 
         if (!options.SmokeTest && !options.NoShutdown && options.LoopMinutes == 0) Utility.Utility.ShutdownPc();
+    }
+
+    private static void CaptureSbc(Trading.RunOptions options)
+    {
+        using var bot = new Fc25("", options);
+        var reading = bot.CaptureSbcCatalogue();
+
+        Console.WriteLine($"SBC capture {reading.Outcome}: {reading.Detail}");
     }
 
     private static void CaptureClub(Trading.RunOptions options)
