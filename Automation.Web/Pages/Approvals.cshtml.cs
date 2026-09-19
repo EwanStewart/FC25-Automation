@@ -22,9 +22,12 @@ public class ApprovalsModel : PageModel
 
     [TempData] public string? Message { get; set; }
 
+    public int Completed { get; private set; }
+
     public void OnGet()
     {
         Approvals = drafts_.Approvals();
+        Completed = drafts_.CompletedApprovals();
     }
 
     public IActionResult OnPostRemove(int approvalId)

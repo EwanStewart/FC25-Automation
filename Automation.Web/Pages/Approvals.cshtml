@@ -14,6 +14,11 @@
     <p class="estimate">@Model.Message</p>
 }
 
+@if (Model.Completed > 0)
+{
+    <p class="estimate">@Model.Completed built and hidden. Submit them in the game.</p>
+}
+
 <form method="post" class="fulfil">
     <button type="submit" name="live" value="false">Fulfil approvals (dry run)</button>
     <label>

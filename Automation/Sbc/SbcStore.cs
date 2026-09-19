@@ -181,11 +181,17 @@ public sealed class SbcStore
     public IReadOnlyList<ApprovalRecord> ReadApprovals()
     {
         const string query =
-            "SELECT id, challenge_id, challenge_name, formation, squad_rating, chemistry, purchase_count, estimated_cost, state, approved_at FROM SbcApprovals ORDER BY approved_at DESC";
+            "SELECT a.id, a.challenge_id, a.challenge_name, a.formation, a.squad_rating, a.chemistry, a.purchase_count, a.estimated_cost, a.state, a.approved_at FROM SbcApprovals a LEFT JOIN SbcFulfilments f ON f.approval_id = a.id WHERE COALESCE(f.state, '') <> 'built' ORDER BY a.approved_at DESC";
 
         return Read(query, [], reader => new ApprovalRecord(reader.GetInt32(0), reader.GetInt32(1),
             reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.GetInt32(5), reader.GetInt32(6),
             reader.GetInt64(7), reader.GetString(8), reader.GetDateTime(9)));
+    }
+
+    public int CountCompletedApprovals()
+    {
+        return Scalar("SELECT COUNT(*) FROM SbcApprovals a JOIN SbcFulfilments f ON f.approval_id = a.id "
+            + "WHERE f.state = 'built'", []);
     }
 
     public IReadOnlyList<ApprovalSlot> ReadApprovalSlots(int approvalId)

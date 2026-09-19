@@ -80,6 +80,11 @@ public sealed class DraftService
         store_.RemoveApproval(approvalId);
     }
 
+    public int CompletedApprovals()
+    {
+        return store_.CountCompletedApprovals();
+    }
+
     public IReadOnlyList<ApprovalRecord> Approvals()
     {
         return store_.ReadApprovals();
