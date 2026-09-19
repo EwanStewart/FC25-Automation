@@ -182,7 +182,7 @@ public class Fc25 : IDisposable
         _codeRequestedAt = DateTimeOffset.UtcNow;
         _loginProgress = _loginProgress with { CodeRequested = true };
         _screen.TryClick(ElementKeys.SEND_CODE, ShortWait);
-        Console.WriteLine($"Requested an EA verification code at {_codeRequestedAt:HH:mm:ss}.");
+        Console.WriteLine($"Requested an EA verification code at {_codeRequestedAt.ToLocalTime():HH:mm:ss}.");
     }
 
     private void SubmitVerificationCode()
