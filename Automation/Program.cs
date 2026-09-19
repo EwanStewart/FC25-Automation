@@ -2,6 +2,8 @@
 
 internal class Program
 {
+    private const long SBC_DEFAULT_BUDGET = 50000;
+
     /// <summary>
     /// Main entry point to application.
     /// </summary>
@@ -12,6 +14,7 @@ internal class Program
 
         if (options.ImportPlayers) Environment.Exit(Catalogue.CatalogueProgram.Run());
         else if (options.CaptureClub) CaptureClub(options);
+        else if (options.DraftSbc) Sbc.SbcProgram.Report(SBC_DEFAULT_BUDGET);
         else RunTradingConfigurations(options);
     }
 
