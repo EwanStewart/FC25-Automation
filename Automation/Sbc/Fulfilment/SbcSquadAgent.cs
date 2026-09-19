@@ -162,10 +162,13 @@ public sealed class SbcSquadAgent : ISquadAgent
         if (typeof owner.slotIndex === 'number' && owner.slotIndex !== slotWanted) return '';
         const collection = owner.clubViewModel._collection || [];
         const rows = document.querySelectorAll('li.listFUTItem.has-action');
-        if (rows.length !== collection.length) return '';
+        if (rows.length === 0 || rows.length > collection.length) return '';
         let wanted = -1;
         for (let i = 0; i < collection.length; i++) if (String(collection[i].id) === itemWanted) wanted = i;
-        if (wanted < 0) return '';
+        if (wanted < 0 || wanted >= rows.length) {
+            rows[rows.length - 1].scrollIntoView({block: 'end'});
+            return '';
+        }
         const row = rows[wanted];
         if (!row) return '';
         row.scrollIntoView({block: 'center'});
