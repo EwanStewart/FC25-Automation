@@ -22,4 +22,5 @@ run() {
   echo "Fulfilment run finished $(date -Is)"
 }
 
+export repoDir dll logDir logFile
 exec /usr/bin/flock -n -o "$lock" bash -c "$(declare -f run); run $* >> '$logFile' 2>&1"
