@@ -70,6 +70,33 @@ public class UtasPayloadTests
     }
 
     [Fact]
+    public void ItemAttributesComeOffTheListingSoACardCanBeCheckedAgainstASpecification()
+    {
+        const string body = """
+            {"auctionInfo":[{"tradeId":1,"tradeState":"active","bidState":"none","expires":60,"currentBid":0,"startingBid":300,"buyNowPrice":0,
+             "itemData":{"id":943223967342,"assetId":239023,"rating":66,"preferredPosition":"CM","possiblePositions":["CM","CDM"],"teamid":11,"leagueId":13,"nation":14,"rareflag":1}}]}
+            """;
+        var auction = UtasPayloads.ParseAuctions(body)[0];
+
+        Assert.Equal(943223967342, auction.ItemId);
+        Assert.Equal(239023, auction.AssetId);
+        Assert.Equal(11, auction.TeamId);
+        Assert.Equal(13, auction.LeagueId);
+        Assert.Equal(14, auction.NationId);
+        Assert.Equal(1, auction.RareFlag);
+        Assert.Equal(["CM", "CDM"], auction.PossiblePositions);
+    }
+
+    [Fact]
+    public void ListingsWithoutItemAttributesReadAsUnknownRatherThanFailing()
+    {
+        var auction = UtasPayloads.ParseAuctions(SEARCH)[2];
+
+        Assert.Equal(0, auction.TeamId);
+        Assert.Empty(auction.PossiblePositions ?? []);
+    }
+
+    [Fact]
     public void FailedBidResponseCarriesTheServersReason()
     {
         var result = UtasPayloads.BidResult(470, """{"code":"470","reason":"Bid too low","string":"Permission Denied"}""", "1");

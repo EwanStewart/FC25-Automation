@@ -28,7 +28,14 @@ public sealed record AuctionListing(
     int Rating,
     string Position,
     uint LastSalePrice,
-    uint MarketAverage);
+    uint MarketAverage,
+    long ItemId = 0,
+    int AssetId = 0,
+    int TeamId = 0,
+    int LeagueId = 0,
+    int NationId = 0,
+    int RareFlag = 0,
+    IReadOnlyList<string>? PossiblePositions = null);
 
 public sealed record BidResponse(BidOutcome Outcome, string Reason);
 
@@ -133,7 +140,14 @@ public static class UtasPayloads
             Number(item, "rating"),
             Text(item, "preferredPosition"),
             (uint)Number(item, "lastSalePrice"),
-            (uint)Number(item, "marketAverage"));
+            (uint)Number(item, "marketAverage"),
+            Identity(item, "id"),
+            Number(item, "assetId"),
+            Number(item, "teamid"),
+            Number(item, "leagueId"),
+            Number(item, "nation"),
+            Number(item, "rareflag"),
+            Positions(item));
     }
 
     private static string Text(JsonElement element, string name)
@@ -142,6 +156,29 @@ public static class UtasPayloads
 
         if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value))
             result = value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : value.ToString();
+
+        return result;
+    }
+
+    private static long Identity(JsonElement element, string name)
+    {
+        long result = 0;
+
+        if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) &&
+            value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var parsed)) result = parsed;
+
+        return result;
+    }
+
+    private static IReadOnlyList<string> Positions(JsonElement element)
+    {
+        IReadOnlyList<string> result = [];
+
+        if (element.ValueKind == JsonValueKind.Object &&
+            element.TryGetProperty("possiblePositions", out var value) &&
+            value.ValueKind == JsonValueKind.Array)
+            result = value.EnumerateArray().Where(entry => entry.ValueKind == JsonValueKind.String)
+                .Select(entry => entry.GetString() ?? string.Empty).Where(entry => entry.Length > 0).ToList();
 
         return result;
     }
