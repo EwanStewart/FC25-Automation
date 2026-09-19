@@ -1,0 +1,84 @@
+{
+ "challenges": [
+  {
+   "name": "Anfield Ambition",
+   "priority": 0,
+   "status": "IN_PROGRESS",
+   "setId": 13,
+   "description": "Celebrate Bradley Barcola's transfer to Liverpool with this challenge!",
+   "challengeId": 30,
+   "endTime": 208124,
+   "repeatable": false,
+   "formation": "f433",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "SAME_LEAGUE_COUNT",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 5,
+     "eligibilityValue": 4
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "NATION_COUNT",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 7,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "CLUB_COUNT",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 9,
+     "eligibilityValue": 3
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "PLAYER_QUALITY",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 3,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 4,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "CHEMISTRY_POINTS",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 35,
+     "eligibilityValue": 8
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 5,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    }
+   ],
+   "elgDesc": [],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "CUSTOM_BRICK_CHALLENGE",
+   "challengeImageId": "300000-11f49783-bf31",
+   "contentId": 23504
+  }
+ ]
+}

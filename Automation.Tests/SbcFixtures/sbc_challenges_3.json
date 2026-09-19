@@ -1,0 +1,187 @@
+{
+ "challenges": [
+  {
+   "name": "Room To Grow",
+   "priority": 1,
+   "status": "NOT_STARTED",
+   "setId": 3,
+   "description": "Exchange a full squad with a maximum OVR of 64.",
+   "challengeId": 13,
+   "endTime": 281440092,
+   "repeatable": false,
+   "formation": "f4222",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "PLAYER_COUNT",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 2,
+     "eligibilityValue": 11
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "PLAYER_LEVEL",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 17,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "TEAM_RATING_1_TO_100",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 19,
+     "eligibilityValue": 64
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    }
+   ],
+   "elgDesc": [],
+   "awards": [
+    {
+     "value": 208,
+     "type": "pack",
+     "halId": 2,
+     "count": 1,
+     "isUntradeable": true,
+     "loan": 0,
+     "loanType": "NONE"
+    }
+   ],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "330109-abdae97e-5704",
+   "contentId": 22548
+  },
+  {
+   "name": "Build Up Play",
+   "priority": 2,
+   "status": "NOT_STARTED",
+   "setId": 3,
+   "description": "Exchange a full squad with OVRs between 65 and 74.",
+   "challengeId": 14,
+   "endTime": 281440092,
+   "repeatable": false,
+   "formation": "f424",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "PLAYER_COUNT",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 2,
+     "eligibilityValue": 11
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "PLAYER_LEVEL",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 17,
+     "eligibilityValue": 2
+    }
+   ],
+   "elgDesc": [],
+   "awards": [
+    {
+     "value": 300,
+     "type": "pack",
+     "halId": 3,
+     "count": 1,
+     "isUntradeable": true,
+     "loan": 0,
+     "loanType": "NONE"
+    }
+   ],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "330110-53520eed-3eae",
+   "contentId": 22549
+  },
+  {
+   "name": "Raw Power",
+   "priority": 3,
+   "status": "NOT_STARTED",
+   "setId": 3,
+   "description": "Exchange a full squad with a maximum OVR of 85 and a minimum Team Chemistry rating of 10.",
+   "challengeId": 15,
+   "endTime": 281440092,
+   "repeatable": false,
+   "formation": "f442",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "PLAYER_COUNT",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 2,
+     "eligibilityValue": 11
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    },
+    {
+     "type": "PLAYER_LEVEL",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 17,
+     "eligibilityValue": 3
+    },
+    {
+     "type": "TEAM_RATING_1_TO_100",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 19,
+     "eligibilityValue": 85
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 2,
+     "eligibilityKey": 13,
+     "eligibilityValue": 1
+    },
+    {
+     "type": "CHEMISTRY_POINTS",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 35,
+     "eligibilityValue": 10
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 3,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    }
+   ],
+   "elgDesc": [],
+   "awards": [
+    {
+     "value": 301,
+     "type": "pack",
+     "halId": 3,
+     "count": 1,
+     "isUntradeable": true,
+     "loan": 0,
+     "loanType": "NONE"
+    }
+   ],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "330111-1179c910-c62a",
+   "contentId": 22550
+  }
+ ]
+}

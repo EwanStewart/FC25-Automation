@@ -1,0 +1,36 @@
+{
+ "challenges": [
+  {
+   "name": "Gold Upgrade",
+   "priority": 0,
+   "status": "NOT_STARTED",
+   "setId": 6,
+   "description": "Exchange Gold items for rewards.",
+   "challengeId": 18,
+   "endTime": 281439991,
+   "repeatable": true,
+   "formation": "f41212",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "PLAYER_QUALITY",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 3,
+     "eligibilityValue": 3
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 0
+    }
+   ],
+   "elgDesc": [],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "300000-11f49783-bf31",
+   "contentId": 22556
+  }
+ ]
+}

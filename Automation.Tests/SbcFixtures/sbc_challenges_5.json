@@ -1,0 +1,36 @@
+{
+ "challenges": [
+  {
+   "name": "Silver Upgrade",
+   "priority": 0,
+   "status": "IN_PROGRESS",
+   "setId": 5,
+   "description": "Exchange Silver items for rewards.",
+   "challengeId": 42,
+   "endTime": 281418502,
+   "repeatable": true,
+   "formation": "f41212",
+   "timesCompleted": 0,
+   "elgReq": [
+    {
+     "type": "PLAYER_QUALITY",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 3,
+     "eligibilityValue": 2
+    },
+    {
+     "type": "SCOPE",
+     "eligibilitySlot": 1,
+     "eligibilityKey": 13,
+     "eligibilityValue": 2
+    }
+   ],
+   "elgDesc": [],
+   "elgOperation": "AND",
+   "tutorial": 0,
+   "type": "OPEN_CHALLENGE",
+   "challengeImageId": "300000-11f49783-bf31",
+   "contentId": 24867
+  }
+ ]
+}
