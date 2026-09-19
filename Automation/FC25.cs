@@ -83,9 +83,14 @@ public class Fc25 : IDisposable
             EnsureLoggedIn();
             GetCoinTotal();
 
-            if (options.SmokeTest) SmokeTestRoutine();
-            else if (_fulfilSbc) FulfilSbcRoutine();
-            else ListAndBidRoutine();
+            var capturing = options.CaptureClub || options.CaptureSbc;
+
+            if (!capturing)
+            {
+                if (options.SmokeTest) SmokeTestRoutine();
+                else if (_fulfilSbc) FulfilSbcRoutine();
+                else ListAndBidRoutine();
+            }
         }
         catch (RunStoppedException exception)
         {

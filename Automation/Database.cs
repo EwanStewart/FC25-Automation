@@ -430,12 +430,28 @@ public static class Database
 
             foreach (var player in players) UpsertClubPlayer(connection, player);
 
-            if (players.Count > 0) new Sbc.DraftCache().Invalidate();
+            if (players.Count > 0)
+            {
+                RemoveClubPlayersAbsentFrom(connection, players);
+                new Sbc.DraftCache().Invalidate();
+            }
         }
         catch (MySqlException ex)
         {
             Console.WriteLine($"MySQL Error: {ex.Message}");
         }
+    }
+
+    private static void RemoveClubPlayersAbsentFrom(MySqlConnection connection, IReadOnlyList<ClubPlayer> players)
+    {
+        var kept = string.Join(',', players.Select(player => player.Id));
+
+        using MySqlCommand players_ = new($"DELETE FROM ClubPlayers WHERE id NOT IN ({kept})", connection);
+        players_.ExecuteNonQuery();
+
+        using MySqlCommand exclusions = new(
+            $"DELETE FROM ExcludedClubPlayers WHERE club_player_id NOT IN ({kept})", connection);
+        exclusions.ExecuteNonQuery();
     }
 
     private static void UpsertClubPlayer(MySqlConnection connection, ClubPlayer player)

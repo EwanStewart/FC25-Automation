@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model ClubModel
 @{
     ViewData["Title"] = "Club";
@@ -10,6 +10,12 @@
 {
     <p class="estimate">@Model.Message</p>
 }
+
+
+<form method="post" asp-page-handler="Refresh" class="refresh">
+    <button type="submit">Refresh club from the game</button>
+    <span class="estimate">Reads your club from the app and clears the drafted squads.</span>
+</form>
 
 <table>
     <thead>

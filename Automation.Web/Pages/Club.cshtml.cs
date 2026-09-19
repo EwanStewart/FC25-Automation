@@ -1,4 +1,4 @@
-using Automation.Sbc;
+﻿using Automation.Sbc;
 using Automation.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -8,10 +8,12 @@ namespace Automation.Web.Pages;
 public class ClubModel : PageModel
 {
     private readonly DraftService drafts_;
+    private readonly FulfilmentLauncher launcher_;
 
-    public ClubModel(DraftService drafts)
+    public ClubModel(DraftService drafts, FulfilmentLauncher launcher)
     {
         drafts_ = drafts;
+        launcher_ = launcher;
     }
 
     public IReadOnlyList<SquadPlayer> Players { get; private set; } = [];
@@ -24,6 +26,13 @@ public class ClubModel : PageModel
     {
         Players = drafts_.ClubPlayers();
         Excluded = drafts_.Exclusions();
+    }
+
+    public IActionResult OnPostRefresh()
+    {
+        Message = launcher_.CaptureClub();
+
+        return RedirectToPage();
     }
 
     public IActionResult OnPostToggle(long playerId, bool excluded)
