@@ -24,7 +24,8 @@ public enum GapOutcome
     TooExpensive,
     Unmapped,
     Simulated,
-    Unresolved
+    Unresolved,
+    Mismatched
 }
 
 public enum PlacementOutcome

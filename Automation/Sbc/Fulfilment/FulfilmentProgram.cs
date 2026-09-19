@@ -2,17 +2,23 @@ using Automation.Trading;
 
 namespace Automation.Sbc.Fulfilment;
 
+public sealed record FulfilmentSources(
+    Func<int, ChallengeRequirements?> Challenge,
+    Func<IReadOnlyList<SquadPlayer>> Club,
+    Func<int, CardAttributes?> Card);
+
 public static class FulfilmentProgram
 {
     public static void Process(IFulfilmentStore store, Func<int, IReadOnlyList<ApprovalSlot>> slots,
-        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentMode mode)
+        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentMode mode,
+        FulfilmentSources? sources = null)
     {
         var queued = store.Queued();
 
         Console.WriteLine(
             $"{queued.Count} approval(s) queued for fulfilment, {FulfilmentModes.Describe(mode)}.");
 
-        foreach (var run in queued) Guarded(store, slots, market, squad, Switched(run, mode));
+        foreach (var run in queued) Guarded(store, slots, market, squad, Switched(run, mode), sources);
     }
 
     private static FulfilmentRun Switched(FulfilmentRun run, FulfilmentMode mode)
@@ -21,11 +27,12 @@ public static class FulfilmentProgram
     }
 
     private static void Guarded(IFulfilmentStore store, Func<int, IReadOnlyList<ApprovalSlot>> slots,
-        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentRun run)
+        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentRun run,
+        FulfilmentSources? sources)
     {
         try
         {
-            One(store, slots, market, squad, run);
+            One(store, slots, market, squad, run, sources);
         }
         catch (RunStoppedException exception)
         {
@@ -42,7 +49,8 @@ public static class FulfilmentProgram
     }
 
     private static void One(IFulfilmentStore store, Func<int, IReadOnlyList<ApprovalSlot>> slots,
-        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentRun run)
+        Func<FulfilmentRun, IMarketAgent> market, Func<FulfilmentRun, ISquadAgent> squad, FulfilmentRun run,
+        FulfilmentSources? sources)
     {
         var plan = slots(run.ApprovalId);
         SquadBuilder builder = new(squad(run), store);
@@ -52,7 +60,7 @@ public static class FulfilmentProgram
         var owned = Owned(store, builder, run, plan);
         var outcome = owned.Halted
             ? new RunOutcome(FulfilmentState.Failed, owned.Detail)
-            : Shop(store, market, builder, run, plan);
+            : Shop(store, market, builder, run, plan, sources);
 
         Settle(store, run, plan, outcome);
     }
@@ -71,9 +79,10 @@ public static class FulfilmentProgram
     }
 
     private static RunOutcome Shop(IFulfilmentStore store, Func<FulfilmentRun, IMarketAgent> market,
-        SquadBuilder builder, FulfilmentRun run, IReadOnlyList<ApprovalSlot> plan)
+        SquadBuilder builder, FulfilmentRun run, IReadOnlyList<ApprovalSlot> plan, FulfilmentSources? sources)
     {
-        var bought = new GapBuyer(Buying(market, run), store).Buy(run, store.Gaps(run.Id));
+        var gaps = store.Gaps(run.Id);
+        var bought = new GapBuyer(Buying(market, run), store, Census(sources, run, plan, gaps)).Buy(run, gaps);
 
         Console.WriteLine($"  market: {Lower(bought.State)} {bought.Detail}".TrimEnd());
 
@@ -84,6 +93,15 @@ public static class FulfilmentProgram
         return placed.Halted
             ? new RunOutcome(FulfilmentState.Failed, placed.Detail)
             : new RunOutcome(bought.State, bought.Detail);
+    }
+
+    private static SquadCensus? Census(FulfilmentSources? sources, FulfilmentRun run,
+        IReadOnlyList<ApprovalSlot> plan, IReadOnlyList<GapRecord> gaps)
+    {
+        return sources is null
+            ? null
+            : SquadCensus.Of(sources.Challenge(run.ChallengeId), plan, sources.Club(), gaps,
+                ChemistryThresholds.Default, TeamLinks.None, sources.Card);
     }
 
     private static IMarketAgent Buying(Func<FulfilmentRun, IMarketAgent> market, FulfilmentRun run)

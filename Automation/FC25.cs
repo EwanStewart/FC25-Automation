@@ -380,7 +380,17 @@ public class Fc25 : IDisposable
         MySqlFulfilmentStore store = new();
 
         FulfilmentProgram.Process(store, catalogue.ReadApprovalSlots, _ => MarketSide(),
-            run => SquadSide(catalogue, run), FulfilmentModes.Chosen(_fulfilLive, _placeLive));
+            run => SquadSide(catalogue, run), FulfilmentModes.Chosen(_fulfilLive, _placeLive),
+            Sources(catalogue));
+    }
+
+    private static FulfilmentSources Sources(SbcStore catalogue)
+    {
+        var challenges = catalogue.ReadChallenges();
+
+        return new FulfilmentSources(
+            challenge => challenges.FirstOrDefault(entry => entry.ChallengeId == challenge),
+            catalogue.ReadEveryClubPlayer, catalogue.ReadCard);
     }
 
     private MarketAgent MarketSide()

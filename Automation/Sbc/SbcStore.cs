@@ -205,6 +205,21 @@ public sealed class SbcStore
                 reader.GetBoolean(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetInt32(7)));
     }
 
+    public CardAttributes? ReadCard(int assetId)
+    {
+        const string query =
+            "SELECT club_id, league_id, nation_id, rarity_id, rating FROM Players WHERE asset_id = @asset AND club_id IS NOT NULL ORDER BY last_updated DESC LIMIT 1";
+
+        return Read(query, new Dictionary<string, object> { ["@asset"] = assetId },
+            reader => new CardAttributes(Whole(reader, 0), Whole(reader, 1), Whole(reader, 2), Whole(reader, 3),
+                Whole(reader, 4))).FirstOrDefault();
+    }
+
+    private static int Whole(MySqlDataReader reader, int column)
+    {
+        return reader.IsDBNull(column) ? 0 : (int)reader.GetInt64(column);
+    }
+
     public ChallengeRoute? ReadChallengeRoute(int challengeId)
     {
         const string query =
