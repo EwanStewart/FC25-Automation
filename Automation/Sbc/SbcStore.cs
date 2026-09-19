@@ -32,7 +32,7 @@ public sealed class SbcStore
     public IReadOnlyList<SquadPlayer> ReadClubPlayers()
     {
         const string query =
-            "SELECT c.id, c.asset_id, COALESCE(NULLIF(p.common_name, ''), p.name, CONCAT('Asset ', c.asset_id)), c.rating, c.preferred_position, c.possible_positions, c.team_id, c.league_id, c.nation, c.rare_flag, c.untradeable, c.market_average FROM ClubPlayers c LEFT JOIN Players p ON p.asset_id = c.asset_id ORDER BY c.rating DESC, c.id";
+            "SELECT c.id, c.asset_id, COALESCE(NULLIF(p.common_name, ''), p.name, CONCAT('Asset ', c.asset_id)), c.rating, c.preferred_position, c.possible_positions, c.team_id, c.league_id, c.nation, c.rare_flag, c.untradeable, c.market_average FROM ClubPlayers c LEFT JOIN Players p ON p.asset_id = c.asset_id WHERE c.id NOT IN (SELECT club_player_id FROM ExcludedClubPlayers) ORDER BY c.rating DESC, c.id";
 
         return Read(query, [], reader => new SquadPlayer(reader.GetInt64(0), reader.GetInt32(1), reader.GetString(2),
             reader.GetInt32(3), reader.GetString(4), Positions(reader.GetString(5)), reader.GetInt32(6),
@@ -207,6 +207,34 @@ public sealed class SbcStore
         return Read(query, new Dictionary<string, object> { ["@challenge"] = challengeId },
             reader => new ChallengeRoute(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)))
             .FirstOrDefault();
+    }
+
+    public IReadOnlyList<SquadPlayer> ReadEveryClubPlayer()
+    {
+        const string query =
+            "SELECT c.id, c.asset_id, COALESCE(NULLIF(p.common_name, ''), p.name, CONCAT('Asset ', c.asset_id)), c.rating, c.preferred_position, c.possible_positions, c.team_id, c.league_id, c.nation, c.rare_flag, c.untradeable, c.market_average FROM ClubPlayers c LEFT JOIN Players p ON p.asset_id = c.asset_id ORDER BY c.rating DESC, c.id";
+
+        return Read(query, [], reader => new SquadPlayer(reader.GetInt64(0), reader.GetInt32(1), reader.GetString(2),
+            reader.GetInt32(3), reader.GetString(4), Positions(reader.GetString(5)), reader.GetInt32(6),
+            reader.GetInt32(7), reader.GetInt32(8), reader.GetInt32(9), reader.GetBoolean(10), reader.GetInt32(11),
+            true));
+    }
+
+    public IReadOnlyList<long> ReadExclusions()
+    {
+        return Read("SELECT club_player_id FROM ExcludedClubPlayers", [], reader => reader.GetInt64(0));
+    }
+
+    public void Exclude(long clubPlayerId)
+    {
+        Execute("INSERT IGNORE INTO ExcludedClubPlayers (club_player_id) VALUES (@player)",
+            new Dictionary<string, object> { ["@player"] = clubPlayerId });
+    }
+
+    public void Include(long clubPlayerId)
+    {
+        Execute("DELETE FROM ExcludedClubPlayers WHERE club_player_id = @player",
+            new Dictionary<string, object> { ["@player"] = clubPlayerId });
     }
 
     public void RemoveApproval(int approvalId)

@@ -1,0 +1,43 @@
+@page
+@model ClubModel
+@{
+    ViewData["Title"] = "Club";
+}
+
+<h1>Club players</h1>
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <p class="estimate">@Model.Message</p>
+}
+
+<table>
+    <thead>
+    <tr>
+        <th>Player</th>
+        <th>Rating</th>
+        <th>Position</th>
+        <th>Untradeable</th>
+        <th>Use in solver</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var player in Model.Players)
+    {
+        var excluded = Model.Excluded.Contains(player.Id);
+        <tr class="@(excluded ? "excluded" : null)">
+            <td>@player.Name</td>
+            <td>@player.Rating</td>
+            <td>@player.PreferredPosition</td>
+            <td>@(player.Untradeable ? "yes" : "no")</td>
+            <td>
+                <form method="post" asp-page-handler="Toggle">
+                    <input type="hidden" name="playerId" value="@player.Id" />
+                    <input type="hidden" name="excluded" value="@((!excluded).ToString().ToLowerInvariant())" />
+                    <button type="submit">@(excluded ? "Include" : "Exclude")</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

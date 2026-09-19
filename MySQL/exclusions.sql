@@ -1,0 +1,7 @@
+USE fc25;
+
+CREATE TABLE IF NOT EXISTS ExcludedClubPlayers (
+    club_player_id BIGINT UNSIGNED NOT NULL,
+    excluded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (club_player_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
