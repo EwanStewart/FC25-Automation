@@ -216,6 +216,34 @@ public class FulfilmentBuildingTests
     }
 
     [Fact]
+    public void TheControlThatOpensTheSquadIsTheStartChallengeButton()
+    {
+        Assert.Equal("Start Challenge", ChallengeEntry.Opening(["Start Challenge"]));
+        Assert.Equal("Start Challenge", ChallengeEntry.Opening(["  Start Challenge  "]));
+    }
+
+    [Fact]
+    public void AChallengeAlreadyUnderWayIsReopenedWithGoToChallenge()
+    {
+        Assert.Equal("Go to Challenge", ChallengeEntry.Opening(["Go to Challenge"]));
+    }
+
+    [Fact]
+    public void AChallengeThatOffersNoWayIntoTheSquadNamesNoControl()
+    {
+        Assert.Equal(string.Empty, ChallengeEntry.Opening([]));
+        Assert.Equal(string.Empty, ChallengeEntry.Opening(["Complete"]));
+        Assert.Equal(string.Empty, ChallengeEntry.Opening(["Expired"]));
+    }
+
+    [Fact]
+    public void TheControlThatWouldExchangeThePlayersIsNeverChosen()
+    {
+        Assert.Equal(string.Empty, ChallengeEntry.Opening(["Exchange Players"]));
+        Assert.Equal("Start Challenge", ChallengeEntry.Opening(["Exchange Players", "Start Challenge"]));
+    }
+
+    [Fact]
     public void NoFulfilmentSourceFileReachesForASubmitControl()
     {
         var root = SourceTree.Root();
