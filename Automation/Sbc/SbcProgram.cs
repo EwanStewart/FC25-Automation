@@ -35,6 +35,8 @@ public static class SbcProgram
         Console.WriteLine($"solvable from owned players alone: {summary.SolvedFromOwnedPlayers}");
         Console.WriteLine(
             $"solvable after buying: {summary.SolvedWithPurchases} needing {summary.Purchases} cards for about {summary.PurchaseCost} coins");
+        Console.WriteLine(
+            $"purchases resting on an unverified card combination: {summary.UnverifiedPurchases} across {summary.SolvesRestingOnUnverifiedCards} squads");
         Console.WriteLine($"unsolvable: {summary.Unsolvable}");
         Console.WriteLine($"refused for an unsupported requirement: {summary.Refused}");
 
