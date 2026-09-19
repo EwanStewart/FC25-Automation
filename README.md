@@ -172,11 +172,14 @@ Every listing in the captured search response is still checked against the gap s
 
 Every bid is written to the database before it is placed and its outcome after, so a crash cannot leave a spend untracked. A re-run reads the trades back first and turns each standing bid into won, outbid or expired. Won gaps are never bought again. Outbid and expired gaps are retried. A bid written down that cannot be read back on any trade stops the run and is recorded as unresolved, because a retry there could buy the same card twice. A bid the market refuses stops the run the same way.
 
-Once every gap is won, the builder opens the challenge, places each card from the club picker and verifies the placement against the squad the app sends back, slot by slot. A slot that will not take its card stops the build with a record. Filling the last slot is the end of the job.
+Once every gap is won, the builder opens the challenge and places each card, slot by slot. Pressing Add Player on a slot opens a club search panel pinned to that slot, and the cards only appear once Search is pressed. The wanted row is found by matching the item id against the club search collection the app holds, never by position in a response. Each placement is verified against the squad entity the app itself holds, because the client serves a cached squad with no request and a placement checked against a captured response always looks missing. A slot that will not take its card stops the build with a record. Filling the last slot is the end of the job.
 
-Fulfilment is dry by default and a dry run places no bid and moves no card. It searches, evaluates, writes down what it would buy and at what price, commits against the same ledger so it exercises the real ceiling, and leaves the approval queued so the live run still picks it up. Only --fulfil-live turns the bidding on.
+Fulfilment is dry by default and a dry run places no bid and moves no card. It searches, evaluates, writes down what it would buy and at what price, commits against the same ledger so it exercises the real ceiling, and leaves the approval queued so the live run still picks it up.
+
+There are three modes. --place-live sits between the other two: it clicks cards into the squad for real while buying stays simulated, so placement can be exercised without a coin leaving the account. Its market agent is wrapped so that Bid throws rather than sends, and a card the run only pretended to buy is never placed. A run that did not buy live stays queued whatever it placed, because a squad completed with a simulated card is not finished.
 
     ./fulfil.sh                 dry run, takes the shared run.lock
+    ./fulfil.sh --place-live    real placement, simulated buying
     ./fulfil.sh --fulfil-live   the same run, allowed to bid
 
 Automation/Program.cs is untouched. The --fulfil-sbc flag falls through its existing default branch into the bot, which runs Fc25.FulfilSbcRoutine instead of the trading routine. Always pass --no-shutdown, as that default branch shuts the machine down without it. fulfil.sh does both.
