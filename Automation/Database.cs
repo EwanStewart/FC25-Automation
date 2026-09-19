@@ -12,6 +12,8 @@ public static class Database
     private const string Password = "root";
     private static readonly string ConnectionString;
 
+    public static string Connection => ConnectionString;
+
     static Database()
     {
         ConnectionString = GetConnectionString();

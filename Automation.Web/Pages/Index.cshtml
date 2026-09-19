@@ -1,0 +1,52 @@
+@page
+@using Automation.Sbc
+@model IndexModel
+@{
+    ViewData["Title"] = "Challenges";
+}
+
+<h1>Squad building challenges</h1>
+
+<p>Budget for purchases: @Model.Budget.ToString("N0") coins.</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Challenge</th>
+        <th>Formation</th>
+        <th>Outcome</th>
+        <th>Rating</th>
+        <th>Chemistry</th>
+        <th>To buy</th>
+        <th>Estimated cost</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var drafted in Model.Drafted)
+    {
+        <tr>
+            <td>@drafted.Challenge.Name</td>
+            <td>@drafted.Challenge.Formation</td>
+            <td class="@(drafted.Squad.Outcome == SolveOutcome.Solved ? "pass" : "fail")">@drafted.Squad.Outcome</td>
+            <td>@(drafted.Squad.Assessment?.Rating.ToString() ?? "-")</td>
+            <td>@(drafted.Squad.Assessment is null ? "-" : $"{drafted.Squad.Assessment.Chemistry.Total} of 33")</td>
+            <td>@drafted.Squad.PurchaseCount</td>
+            <td>@drafted.Squad.EstimatedCost.ToString("N0")</td>
+            <td>
+                @if (drafted.Squad.Outcome == SolveOutcome.Solved)
+                {
+                    <a href="/Challenge/@drafted.Challenge.ChallengeId?budget=@Model.Budget">Open</a>
+                }
+                else
+                {
+                    @drafted.Squad.Detail
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<p class="estimate">Chemistry is an estimate. The FC 27 client fetches its chemistry threshold table and its club
+    team links from the server, and neither has been captured, so a squad can read one or two points low.</p>

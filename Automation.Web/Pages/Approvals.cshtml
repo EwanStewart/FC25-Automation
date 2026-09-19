@@ -1,0 +1,39 @@
+@page
+@model ApprovalsModel
+@{
+    ViewData["Title"] = "Approvals";
+}
+
+<h1>Recorded approvals</h1>
+
+<p>An approval records intent for a later phase. Nothing has been bid, bought, listed or submitted.</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Approved</th>
+        <th>Challenge</th>
+        <th>Formation</th>
+        <th>Rating</th>
+        <th>Chemistry</th>
+        <th>To buy</th>
+        <th>Estimated cost</th>
+        <th>State</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var approval in Model.Approvals)
+    {
+        <tr>
+            <td>@approval.ApprovedAt.ToString("yyyy-MM-dd HH:mm")</td>
+            <td>@approval.ChallengeName</td>
+            <td>@approval.Formation</td>
+            <td>@approval.SquadRating</td>
+            <td class="estimate">@approval.Chemistry of 33</td>
+            <td>@approval.PurchaseCount</td>
+            <td>@approval.EstimatedCost.ToString("N0")</td>
+            <td>@approval.State</td>
+        </tr>
+    }
+    </tbody>
+</table>
