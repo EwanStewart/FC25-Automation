@@ -23,4 +23,8 @@
         </None>
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="Sbc\MarketReferenceData.json" />
+    </ItemGroup>
+
 </Project>
