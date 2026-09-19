@@ -83,7 +83,14 @@ public sealed record MarketSearch(string Description, IReadOnlyList<AuctionListi
 
 public sealed record BidReceipt(BidOutcome Outcome, uint Amount, string Detail, bool Placed = true);
 
-public sealed record TradeState(string TradeId, string State, string BidState, uint CurrentBid);
+public sealed record TradeState(
+    string TradeId,
+    string State,
+    string BidState,
+    uint CurrentBid,
+    int? SecondsLeft = null,
+    uint MinimumBid = 0,
+    long ItemId = 0);
 
 public interface IMarketAgent
 {
