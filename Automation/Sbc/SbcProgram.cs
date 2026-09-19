@@ -35,7 +35,7 @@ public static class SbcProgram
         Console.WriteLine($"solvable from owned players alone: {summary.SolvedFromOwnedPlayers}");
         Console.WriteLine(
             $"solvable after buying: {summary.SolvedWithPurchases} needing {summary.Purchases} cards for about {summary.PurchaseCost} coins");
-        Console.WriteLine($"unsolvable within the budget: {summary.Unsolvable}");
+        Console.WriteLine($"unsolvable: {summary.Unsolvable}");
         Console.WriteLine($"refused for an unsupported requirement: {summary.Refused}");
 
         foreach (var unsupported in summary.UnsupportedTypes)
