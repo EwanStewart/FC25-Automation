@@ -1,0 +1,57 @@
+{
+  "pagination": {
+    "countCurrent": 3,
+    "countTotal": 5,
+    "pageCurrent": 1,
+    "pageTotal": 2,
+    "itemsPerPage": 3
+  },
+  "items": [
+    {
+      "id": 226,
+      "resourceId": 50553196,
+      "resourceBaseId": 192985,
+      "firstName": "Kevin",
+      "lastName": "De Bruyne",
+      "name": "Kevin De Bruyne",
+      "commonName": "De Bruyne",
+      "league": 13,
+      "nation": 7,
+      "club": 11,
+      "rarity": 1,
+      "position": "CM",
+      "positionAlternatives": ["CAM", "CDM"],
+      "color": "gold",
+      "rating": 91,
+      "pace": 72,
+      "shooting": 88
+    },
+    {
+      "id": 1041,
+      "resourceId": 50580996,
+      "name": "Scott McTominay",
+      "commonName": null,
+      "league": 31,
+      "nation": 42,
+      "club": 48,
+      "rarity": 1,
+      "position": "CM",
+      "positionAlternatives": [],
+      "color": "gold",
+      "rating": 81
+    },
+    {
+      "id": 2377,
+      "resourceId": null,
+      "name": "Callum Doyle",
+      "league": null,
+      "nation": null,
+      "club": null,
+      "rarity": null,
+      "position": null,
+      "positionAlternatives": [],
+      "color": null,
+      "rating": null
+    }
+  ]
+}

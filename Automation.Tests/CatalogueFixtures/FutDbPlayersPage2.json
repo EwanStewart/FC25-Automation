@@ -1,0 +1,31 @@
+{
+  "pagination": {
+    "countCurrent": 2,
+    "countTotal": 5,
+    "pageCurrent": 2,
+    "pageTotal": 2,
+    "itemsPerPage": 3
+  },
+  "items": [
+    {
+      "id": 3108,
+      "resourceId": 67675548,
+      "name": "Gabriel Martinelli",
+      "commonName": "Martinelli",
+      "league": 13,
+      "nation": 54,
+      "club": 1,
+      "rarity": 12,
+      "position": "LM",
+      "positionAlternatives": ["LW", "ST"],
+      "color": "silver",
+      "rating": 78
+    },
+    {
+      "resourceId": 12345678,
+      "name": "Row Without A Definition Id",
+      "positionAlternatives": [],
+      "rating": 64
+    }
+  ]
+}
