@@ -75,3 +75,29 @@ For a scheduled bot, add `*/10 * * * * /path/to/FC25-Automation/cron.sh` to the 
 ## Running on Windows
 
 Build in your IDE, then run Start.bat.
+
+## Player catalogue
+
+The bot keeps a local copy of the EA Sports FC player catalogue in MySQL. The rest of the system can then look a player up by rating, club, league, nation or position without asking a third party each time.
+
+MySQL/players.sql creates the two tables. docker-compose only seeds setup.sql, so apply the catalogue schema once by hand:
+
+```
+docker exec -i fc25-mysql mysql -uroot -proot < MySQL/players.sql
+```
+
+Players is keyed on the card's definition id, which FutDB publishes as id. Each row holds the resource id, the full and common names, the rating, the preferred position, the alternate positions as one comma separated column, the club, league, nation and rarity ids, the card colour and a last_updated stamp. Indexes cover rating, club, league, nation, position and name. An import rewrites a player in place, so a refresh leaves one row per card.
+
+CatalogueImports records each run: its source, the number of items written, the last page finished, the page total, the start and finish times and the outcome.
+
+The catalogue comes from FutDB, documented at https://futdb.app/api/doc. The API wants a key in the X-AUTH-TOKEN header and pages /api/players. Put the key in the .env file at the root of the repository under FUT_DB_KEY. With no key the import stops and names the key rather than crashing.
+
+Swap the provider by writing another IPlayerSource. The HTTP call is the only part of Automation/Catalogue that touches the network, so the tests drive the parsing and mapping from saved pages under Automation.Tests/CatalogueFixtures.
+
+The importer waits PAGE_DELAY_MS between pages, 1.5 seconds by default, set in Automation/Catalogue/CatalogueProgram.cs. MAX_PAGES_PER_RUN caps a run and defaults to no cap. A run that stops part way leaves its import row open at the last page it finished, and the next run carries on from the page after it. A run that reaches the end closes its row, so the run after that starts at page one and refreshes the catalogue.
+
+--import-players runs the import and exits. Program.Main does not call it yet, so add the call where options.ImportPlayers is read:
+
+```
+if (options.ImportPlayers) Environment.Exit(Catalogue.CatalogueProgram.Run());
+```
