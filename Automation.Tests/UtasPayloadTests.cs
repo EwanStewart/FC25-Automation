@@ -51,6 +51,11 @@ public class UtasPayloadTests
     [InlineData("GET", "https://pin-river.data.ea.com/pinEvents", CaptureKind.Other)]
     [InlineData("OPTIONS", "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/transfermarket?num=21&start=0&type=player&definitionId=5", CaptureKind.Other)]
     [InlineData("OPTIONS", "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/trade/608459623171/bid", CaptureKind.Other)]
+    [InlineData("POST", "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/club", CaptureKind.Club)]
+    [InlineData("OPTIONS", "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/club", CaptureKind.Other)]
+    [InlineData("GET", "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/squad/active", CaptureKind.ActiveSquad)]
+    [InlineData("OPTIONS", "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/squad/active", CaptureKind.Other)]
+    [InlineData("GET", "https://utas.mob.v1.prd.futc-ext.gcp.ea.com/ut/game/fc27/transfermarket?num=21&start=0&type=player&club=112658", CaptureKind.Search)]
     public void ClassifiesTheAppsRequests(string method, string url, CaptureKind expected)
     {
         Assert.Equal(expected, UtasPayloads.Classify(method, url));

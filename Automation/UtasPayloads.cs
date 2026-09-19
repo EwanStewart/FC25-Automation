@@ -10,6 +10,8 @@ public enum CaptureKind
     Watch,
     Unwatch,
     Watchlist,
+    Club,
+    ActiveSquad,
     Other
 }
 
@@ -65,6 +67,7 @@ public static class UtasPayloads
         var get = utas && method.Equals("GET", StringComparison.OrdinalIgnoreCase);
         var put = utas && method.Equals("PUT", StringComparison.OrdinalIgnoreCase);
         var delete = utas && method.Equals("DELETE", StringComparison.OrdinalIgnoreCase);
+        var post = utas && method.Equals("POST", StringComparison.OrdinalIgnoreCase);
 
         if (get && url.Contains("/transfermarket", StringComparison.Ordinal)) result = CaptureKind.Search;
         else if (get && url.Contains("/trade/status", StringComparison.Ordinal)) result = CaptureKind.TradeStatus;
@@ -73,6 +76,8 @@ public static class UtasPayloads
         else if (put && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watch;
         else if (delete && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Unwatch;
         else if (get && url.Contains("/watchlist", StringComparison.Ordinal)) result = CaptureKind.Watchlist;
+        else if (post && url.EndsWith("/club", StringComparison.Ordinal)) result = CaptureKind.Club;
+        else if (get && url.Contains("/squad/active", StringComparison.Ordinal)) result = CaptureKind.ActiveSquad;
 
         return result;
     }
