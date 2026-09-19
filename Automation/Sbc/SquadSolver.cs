@@ -63,6 +63,7 @@ internal sealed class SquadModel
 public static class SquadSolver
 {
     private const int OWNED_COST_DIVISOR = 100;
+    private const int UNVERIFIED_WEIGHT = 3;
 
     public static SolvedSquad Solve(ChallengeRequirements challenge, IReadOnlyList<SquadPlayer> owned,
         SolveOptions options)
@@ -118,12 +119,19 @@ public static class SquadSolver
 
         result.AddRange(owned.Where(player => Allowed(player, challenge)).Select(player =>
             new Candidate(player, null, null, Math.Max(1, player.MarketAverage / OWNED_COST_DIVISOR))));
-        result.AddRange(MarketCandidates.Generate(challenge, slotPositions)
+        result.AddRange(MarketCandidates.Generate(challenge, owned, slotPositions, MarketReference.Ea)
             .Where(candidate => Allowed(candidate.Player, challenge)).Select(candidate =>
                 new Candidate(candidate.Player, candidate.Specification, candidate.SlotIndex,
-                    candidate.Specification.EstimatedCost)));
+                    Preference(candidate.Specification))));
 
         return result;
+    }
+
+    private static long Preference(MarketSpecification specification)
+    {
+        return specification.Evidence == MarketEvidence.Observed
+            ? specification.EstimatedCost
+            : specification.EstimatedCost * UNVERIFIED_WEIGHT;
     }
 
     private static bool Allowed(SquadPlayer player, ChallengeRequirements challenge)
@@ -234,11 +242,16 @@ public static class SquadSolver
     {
         var raw = squad.Model.NewIntVar(0, 4 * ChemistryCalculator.SLOT_MAX_CHEMISTRY, $"raw{slot}");
 
-        for (var index = 0; index < squad.Candidates.Count; index++)
-            squad.Model.Add(raw == SlotSum(squad, index)).OnlyEnforceIf(squad.Placement[index, slot]);
+        for (var index = 0; index < squad.Candidates.Count; index++) AddCandidateChemistry(squad, slot, index, raw);
 
         squad.Model.AddMinEquality(squad.SlotPoints[slot],
             [raw, LinearExpr.Constant(ChemistryCalculator.SLOT_MAX_CHEMISTRY)]);
+    }
+
+    private static void AddCandidateChemistry(SquadModel squad, int slot, int index, IntVar raw)
+    {
+        if (Playable(squad.Candidates[index], squad.SlotPositions[slot], slot))
+            squad.Model.Add(raw == SlotSum(squad, index)).OnlyEnforceIf(squad.Placement[index, slot]);
     }
 
     private static LinearExpr SlotSum(SquadModel squad, int index)

@@ -6,8 +6,40 @@ public enum MarketEvidence
     Unverified
 }
 
-public sealed record MarketAttributes(int ClubId, int LeagueId, int NationId, bool Domestic,
-    MarketEvidence Evidence);
+public sealed record MarketAttributes(int ClubId, int LeagueId, int NationId, bool Domestic);
+
+public sealed class MarketObservations
+{
+    private readonly IReadOnlySet<(int, int, int, int)> seen_;
+
+    private MarketObservations(IReadOnlySet<(int, int, int, int)> seen)
+    {
+        seen_ = seen;
+    }
+
+    public static MarketObservations Of(IReadOnlyList<SquadPlayer> owned)
+    {
+        return new MarketObservations(owned.SelectMany(Pairings).ToHashSet());
+    }
+
+    public MarketEvidence Evidence(MarketAttributes attributes, PlayerQuality quality)
+    {
+        return seen_.Contains((attributes.ClubId, attributes.LeagueId, attributes.NationId, (int)quality))
+            ? MarketEvidence.Observed
+            : MarketEvidence.Unverified;
+    }
+
+    private static IEnumerable<(int, int, int, int)> Pairings(SquadPlayer player)
+    {
+        var quality = (int)QualityBand.Of(player.Rating);
+
+        return
+        [
+            (player.TeamId, player.LeagueId, player.NationId, quality),
+            (MarketCandidates.UNPINNED_CLUB, player.LeagueId, player.NationId, quality)
+        ];
+    }
+}
 
 public sealed record MarketDomainLimits(int Leagues, int Clubs, int Nations, bool PinClub);
 
@@ -27,11 +59,9 @@ public static class MarketDomain
             MAXIMUM_LEAGUES);
         var nations = Clamp(Demanded(challenge, RequirementKind.DistinctNations) + SLACK, MINIMUM_NATIONS,
             MAXIMUM_NATIONS);
-        var pinClub = PinsClub(challenge);
-        var clubs = pinClub ? Math.Max(Clamp(DemandedClubs(challenge) + SLACK, MINIMUM_CLUBS, MAXIMUM_CLUBS),
-            leagues) : 0;
+        var clubs = Math.Max(Clamp(DemandedClubs(challenge) + SLACK, MINIMUM_CLUBS, MAXIMUM_CLUBS), leagues);
 
-        return new MarketDomainLimits(leagues, clubs, nations, pinClub);
+        return new MarketDomainLimits(leagues, clubs, nations, PinsClub(challenge));
     }
 
     public static IReadOnlyList<MarketAttributes> Build(ChallengeRequirements challenge,
@@ -40,45 +70,45 @@ public static class MarketDomain
         var limits = Limits(challenge);
         var leagues = Leagues(challenge, owned, reference, limits.Leagues);
         var nations = Nations(challenge, owned, reference, leagues, limits.Nations);
-        var clubs = limits.PinClub ? Clubs(challenge, owned, reference, leagues, limits.Clubs) : [];
+        var clubs = Clubs(challenge, owned, reference, leagues, limits.Clubs);
 
-        return limits.PinClub
-            ? Combine(clubs.Select(club => (club, reference.LeagueOf(club))).ToList(), nations, owned, reference)
-            : Combine(leagues.Select(league => (0, league)).ToList(), nations, owned, reference);
+        return Combine(Places(limits, leagues, clubs, reference), nations, reference);
+    }
+
+    private static IReadOnlyList<(int Club, int League)> Places(MarketDomainLimits limits,
+        IReadOnlyList<int> leagues, IReadOnlyList<int> clubs, MarketReference reference)
+    {
+        var pinned = clubs.Select(club => (club, reference.LeagueOf(club))).ToList();
+        var open = leagues.Select(league => (MarketCandidates.UNPINNED_CLUB, league));
+
+        return limits.PinClub ? pinned : open.Concat(pinned).ToList();
     }
 
     private static IReadOnlyList<MarketAttributes> Combine(IReadOnlyList<(int Club, int League)> places,
-        IReadOnlyList<int> nations, IReadOnlyList<SquadPlayer> owned, MarketReference reference)
+        IReadOnlyList<int> nations, MarketReference reference)
     {
-        var observed = Observed(owned);
-
         return places.SelectMany(place => nations.Select(nation => new MarketAttributes(place.Club, place.League,
-            nation, reference.HomeNationOf(place.League) == nation,
-            Evidence(observed, place.Club, place.League, nation)))).ToList();
-    }
-
-    private static IReadOnlySet<(int, int, int)> Observed(IReadOnlyList<SquadPlayer> owned)
-    {
-        return owned.SelectMany(player => new[]
-        {
-            (player.TeamId, player.LeagueId, player.NationId),
-            (0, player.LeagueId, player.NationId)
-        }).ToHashSet();
-    }
-
-    private static MarketEvidence Evidence(IReadOnlySet<(int, int, int)> observed, int club, int league, int nation)
-    {
-        return observed.Contains((club, league, nation)) ? MarketEvidence.Observed : MarketEvidence.Unverified;
+            nation, reference.HomeNationOf(place.League) == nation))).ToList();
     }
 
     private static IReadOnlyList<int> Leagues(ChallengeRequirements challenge, IReadOnlyList<SquadPlayer> owned,
         MarketReference reference, int limit)
     {
         var named = NamedLeagues(challenge, reference);
+        var homelands = Homelands(challenge, reference);
         var ranked = Ranked(owned.Select(player => player.LeagueId));
 
-        return named.Concat(ranked).Concat(reference.LeaguesByClubCount).Where(league => reference.ClubsIn(league)
-            .Count > 0).Distinct().Take(Math.Max(limit, named.Count)).ToList();
+        return named.Concat(homelands).Concat(ranked).Concat(reference.LeaguesByClubCount)
+            .Where(league => reference.ClubsIn(league).Count > 0).Distinct()
+            .Take(Math.Max(limit, named.Count + homelands.Count)).ToList();
+    }
+
+    private static IReadOnlyList<int> Homelands(ChallengeRequirements challenge, MarketReference reference)
+    {
+        var nations = NamedNations(challenge, reference).ToHashSet();
+
+        return reference.LeaguesByClubCount.Where(league => nations.Contains(reference.HomeNationOf(league)))
+            .GroupBy(reference.HomeNationOf).Select(group => group.First()).ToList();
     }
 
     private static IReadOnlyList<int> Nations(ChallengeRequirements challenge, IReadOnlyList<SquadPlayer> owned,

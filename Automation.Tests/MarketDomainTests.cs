@@ -83,13 +83,23 @@ public class MarketDomainTests
     }
 
     [Fact]
-    public void LeavesTheClubUnpinnedWhenNoRequirementCountsClubs()
+    public void OffersAnOpenClubBesideAPinnedOneWhenNoRequirementCountsClubs()
     {
         var domain = MarketDomain.Build(Challenge(Distinct(RequirementKind.DistinctLeagues,
             RequirementComparison.Exact, 3)), Squad(), MarketReference.Ea);
 
-        Assert.All(domain, entry => Assert.Equal(0, entry.ClubId));
+        Assert.Contains(domain, entry => entry.ClubId == MarketCandidates.UNPINNED_CLUB);
+        Assert.Contains(domain, entry => entry.ClubId > MarketCandidates.UNPINNED_CLUB);
         Assert.All(domain, entry => Assert.Contains(entry.LeagueId, MarketReference.Ea.Leagues));
+    }
+
+    [Fact]
+    public void PinsEveryClubWhenARequirementCountsThem()
+    {
+        var domain = MarketDomain.Build(Challenge(Distinct(RequirementKind.DistinctClubs,
+            RequirementComparison.Maximum, 3)), Squad(), MarketReference.Ea);
+
+        Assert.All(domain, entry => Assert.True(entry.ClubId > MarketCandidates.UNPINNED_CLUB));
     }
 
     [Fact]
@@ -150,21 +160,34 @@ public class MarketDomainTests
     }
 
     [Fact]
-    public void MarksALeagueAndNationPairingTheOwnedSquadProvesAsObserved()
+    public void MarksACardTheOwnedSquadProvesAsObserved()
     {
-        var domain = MarketDomain.Build(Challenge(), Squad(), MarketReference.Ea);
+        var observations = MarketObservations.Of(Squad());
 
-        Assert.Contains(domain, entry =>
-            entry.LeagueId == 13 && entry.NationId == 14 && entry.Evidence == MarketEvidence.Observed);
+        Assert.Equal(MarketEvidence.Observed,
+            observations.Evidence(new MarketAttributes(0, 13, 14, true), PlayerQuality.Silver));
+        Assert.Equal(MarketEvidence.Observed,
+            observations.Evidence(new MarketAttributes(8, 13, 14, true), PlayerQuality.Silver));
     }
 
     [Fact]
     public void MarksAPairingNothingProvesAsUnverified()
     {
-        var domain = MarketDomain.Build(Challenge(), Squad(), MarketReference.Ea);
+        var observations = MarketObservations.Of(Squad());
 
-        Assert.Contains(domain, entry =>
-            entry.LeagueId == 13 && entry.NationId == 45 && entry.Evidence == MarketEvidence.Unverified);
+        Assert.Equal(MarketEvidence.Unverified,
+            observations.Evidence(new MarketAttributes(0, 13, 45, false), PlayerQuality.Silver));
+    }
+
+    [Fact]
+    public void WillNotVouchForAQualityBandItHasNeverSeenAtThatClub()
+    {
+        var observations = MarketObservations.Of(Squad());
+
+        Assert.Equal(MarketEvidence.Unverified,
+            observations.Evidence(new MarketAttributes(8, 13, 14, true), PlayerQuality.Bronze));
+        Assert.Equal(MarketEvidence.Unverified,
+            observations.Evidence(new MarketAttributes(8, 13, 14, true), PlayerQuality.Gold));
     }
 
     [Fact]
