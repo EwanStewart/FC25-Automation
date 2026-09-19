@@ -82,6 +82,23 @@ public class GapSnipePlanTests
     }
 
     [Fact]
+    public void NoSecondCardIsBidOnWhileWeAreWinningAFirst()
+    {
+        IReadOnlyList<TradeState> targets = [Target("ours", 40, 300, "highest"), Target("due", 8, 300)];
+
+        Assert.Null(GapSnipePlan.Due(targets, 900));
+    }
+
+    [Fact]
+    public void ACardComesBackIntoPlayOnceTheOneWeLedHasClosed()
+    {
+        IReadOnlyList<TradeState> targets =
+            [Target("done", 0, 0, "highest", "closed"), Target("due", 8, 300)];
+
+        Assert.Equal("due", GapSnipePlan.Due(targets, 900)?.Trade.TradeId);
+    }
+
+    [Fact]
     public void ACardWhoseNextBidBreaksTheCeilingIsLeftAlone()
     {
         IReadOnlyList<TradeState> targets = [Target("dear", 10, 1200)];

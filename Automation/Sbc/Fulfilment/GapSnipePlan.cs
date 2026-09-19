@@ -27,10 +27,20 @@ public static class GapSnipePlan
 
     public static SnipeTarget? Due(IReadOnlyList<TradeState> targets, uint ceiling)
     {
+        return Leading(targets) ? null : Next(targets, ceiling);
+    }
+
+    private static SnipeTarget? Next(IReadOnlyList<TradeState> targets, uint ceiling)
+    {
         return targets.Where(Running).Where(Unheld).Where(Imminent)
             .Where(trade => trade.MinimumBid > 0 && trade.MinimumBid <= ceiling)
             .OrderBy(trade => trade.SecondsLeft)
             .Select(trade => new SnipeTarget(trade, trade.MinimumBid)).FirstOrDefault();
+    }
+
+    private static bool Leading(IReadOnlyList<TradeState> targets)
+    {
+        return targets.Any(trade => Running(trade) && !Unheld(trade));
     }
 
     public static TradeState? Won(IReadOnlyList<TradeState> targets)
