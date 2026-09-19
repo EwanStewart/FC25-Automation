@@ -2,7 +2,7 @@ namespace Automation.Catalogue;
 
 public sealed class FutDbPlayerSource : IPlayerSource
 {
-    public const string SOURCE_NAME = "futdb";
+    public const string SOURCE_NAME = "fut-db";
     private readonly HttpClient client_;
     private readonly string apiKey_;
 
@@ -26,7 +26,7 @@ public sealed class FutDbPlayerSource : IPlayerSource
         using var request = FutDbRequest.BuildPlayersRequest(page, apiKey_);
         using var response = await client_.SendAsync(request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        FutDbRequest.EnsureAccepted((int)response.StatusCode, body);
+        FutDbRequest.EnsureAccepted((int)response.StatusCode, body, FutDbRequest.RetryAfter(response));
 
         return body;
     }

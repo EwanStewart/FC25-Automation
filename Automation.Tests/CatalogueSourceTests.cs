@@ -33,7 +33,7 @@ public class CatalogueSourceTests
         using var request = FutDbRequest.BuildPlayersRequest(4, "abc123");
 
         Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal("https://futdb.app/api/players?page=4", request.RequestUri?.ToString());
+        Assert.Equal("https://api.fut-db.com/api/players?page=4", request.RequestUri?.ToString());
         Assert.Equal("abc123", request.Headers.GetValues(FutDbRequest.API_KEY_HEADER).Single());
     }
 
@@ -47,7 +47,7 @@ public class CatalogueSourceTests
     public void ARejectedKeyReadsAsAConfigurationFailure()
     {
         var error = Assert.Throws<CatalogueConfigurationException>(() =>
-            FutDbRequest.EnsureAccepted((int)HttpStatusCode.Unauthorized, "{\"message\": \"invalid token\"}"));
+            FutDbRequest.EnsureAccepted((int)HttpStatusCode.Unauthorized, "{\"message\": \"invalid token\"}", null));
 
         Assert.Contains("FUT_DB_KEY", error.Message);
     }
@@ -56,16 +56,25 @@ public class CatalogueSourceTests
     public void AThrottledPageReadsAsARequestFailure()
     {
         var error = Assert.Throws<CatalogueRequestException>(() =>
-            FutDbRequest.EnsureAccepted((int)HttpStatusCode.TooManyRequests, "slow down"));
+            FutDbRequest.EnsureAccepted((int)HttpStatusCode.TooManyRequests, "slow down", null));
 
         Assert.Contains("429", error.Message);
         Assert.Contains("slow down", error.Message);
     }
 
     [Fact]
+    public void AThrottledPageNamesTheMomentTheQuotaReturns()
+    {
+        var error = Assert.Throws<CatalogueRequestException>(() => FutDbRequest.EnsureAccepted(
+            (int)HttpStatusCode.TooManyRequests, "{\"code\": 429}", "2026-09-20T06:00:54+00:00"));
+
+        Assert.Contains("2026-09-20T06:00:54+00:00", error.Message);
+    }
+
+    [Fact]
     public void AnAcceptedPagePassesThrough()
     {
-        FutDbRequest.EnsureAccepted((int)HttpStatusCode.OK, "{}");
+        FutDbRequest.EnsureAccepted((int)HttpStatusCode.OK, "{}", null);
     }
 
     [Fact]
@@ -80,17 +89,20 @@ public class CatalogueSourceTests
         Assert.Equal(FutDbPlayerSource.SOURCE_NAME, source.Name);
         Assert.Equal(3, page.Players.Count);
         Assert.Equal("abc123", transport.SeenKey);
-        Assert.Equal("https://futdb.app/api/players?page=1", transport.SeenUrl);
+        Assert.Equal("https://api.fut-db.com/api/players?page=1", transport.SeenUrl);
     }
 
     [Fact]
     public async Task TheSourceReportsAFailedStatusRatherThanParsingIt()
     {
-        var transport = new StubTransport(HttpStatusCode.ServiceUnavailable, "down for maintenance");
+        var transport = new StubTransport(HttpStatusCode.TooManyRequests, "{\"code\": 429}");
         using HttpClient client = new(transport);
         FutDbPlayerSource source = new(client, "abc123");
 
-        await Assert.ThrowsAsync<CatalogueRequestException>(() => source.FetchPageAsync(1, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<CatalogueRequestException>(() =>
+            source.FetchPageAsync(1, CancellationToken.None));
+
+        Assert.Contains("2026-09-20T06:00:54+00:00", error.Message);
     }
 
     private sealed class StubTransport(HttpStatusCode status, string body) : HttpMessageHandler
@@ -105,8 +117,10 @@ public class CatalogueSourceTests
             SeenKey = request.Headers.TryGetValues(FutDbRequest.API_KEY_HEADER, out var values)
                 ? values.Single()
                 : null;
+            HttpResponseMessage response = new(status) { Content = new StringContent(body) };
+            response.Headers.Add(FutDbRequest.RETRY_AFTER_HEADER, "2026-09-20T06:00:54+00:00");
 
-            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
+            return Task.FromResult(response);
         }
     }
 }

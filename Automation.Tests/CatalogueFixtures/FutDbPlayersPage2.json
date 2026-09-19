@@ -22,13 +22,12 @@
         "LW",
         "ST"
       ],
-      "color": "silver",
       "rating": 78
     },
     {
       "resourceId": 12345678,
       "resourceBaseId": 231747,
-      "name": "Row Without A Futdb Id",
+      "name": "Row Without A Source Id",
       "positionAlternatives": [],
       "rating": 64
     }

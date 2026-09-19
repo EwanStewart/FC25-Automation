@@ -24,10 +24,10 @@
         "CAM",
         "CDM"
       ],
-      "color": "gold",
       "rating": 91,
       "pace": 72,
-      "shooting": 88
+      "shooting": 88,
+      "version": "Rare"
     },
     {
       "id": 1041,
@@ -41,7 +41,6 @@
       "rarity": 1,
       "position": "CM",
       "positionAlternatives": [],
-      "color": "gold",
       "rating": 81
     },
     {
@@ -55,7 +54,6 @@
       "rarity": null,
       "position": null,
       "positionAlternatives": [],
-      "color": null,
       "rating": null
     }
   ]

@@ -75,7 +75,7 @@ public class CatalogueImporterTests
         Assert.Equal(3, result.PlayersSaved);
         Assert.Equal(2, result.PagesFetched);
         Assert.Equal(CataloguePlan.OUTCOME_COMPLETE, result.Outcome);
-        Assert.Equal([1001, 1002, 1003], store.Saved.Select(player => player.FutDbId));
+        Assert.Equal([1001L, 1002L, 1003L], store.Saved.Select(player => player.FutDbId));
     }
 
     [Fact]
@@ -169,10 +169,10 @@ public class CatalogueImporterTests
         ];
     }
 
-    private static PlayerRecord Player(int futDbId)
+    private static PlayerRecord Player(long futDbId)
     {
-        return new PlayerRecord(futDbId, futDbId * 10L, futDbId + 200000, $"Player {futDbId}", null, 80, "ST", ["CF"],
-            1, 2, 3, 4, "gold");
+        return new PlayerRecord(futDbId, futDbId * 10L, futDbId + 200000L, $"Player {futDbId}", null, 80, "ST",
+            ["CF"], 1, 2, 3, 4);
     }
 
     private sealed class StubSource(IReadOnlyList<CataloguePage> pages) : IPlayerSource

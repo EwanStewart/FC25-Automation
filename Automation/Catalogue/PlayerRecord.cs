@@ -1,18 +1,17 @@
 namespace Automation.Catalogue;
 
 public sealed record PlayerRecord(
-    int FutDbId,
+    long FutDbId,
     long? ResourceId,
-    int? AssetId,
+    long? AssetId,
     string Name,
     string? CommonName,
     int? Rating,
     string? PreferredPosition,
     IReadOnlyList<string> AlternatePositions,
-    int? ClubId,
-    int? LeagueId,
-    int? NationId,
-    int? RarityId,
-    string? CardColour);
+    long? ClubId,
+    long? LeagueId,
+    long? NationId,
+    long? RarityId);
 
 public sealed record CataloguePage(int PageCurrent, int PageTotal, int CountTotal, IReadOnlyList<PlayerRecord> Players);

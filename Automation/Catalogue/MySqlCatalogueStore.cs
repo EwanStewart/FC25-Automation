@@ -7,9 +7,9 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
     public const string DEFAULT_CONNECTION_STRING = "Server=localhost;Database=fc25;Uid=root;Pwd=root;";
 
     private const string UPSERT_PLAYER =
-        "INSERT INTO Players (futdb_id, asset_id, resource_id, name, common_name, rating, preferred_position, alternate_positions, club_id, league_id, nation_id, rarity_id, card_colour) " +
-        "VALUES (@futDbId, @assetId, @resourceId, @name, @commonName, @rating, @preferredPosition, @alternatePositions, @clubId, @leagueId, @nationId, @rarityId, @cardColour) AS incoming " +
-        "ON DUPLICATE KEY UPDATE asset_id = incoming.asset_id, resource_id = incoming.resource_id, name = incoming.name, common_name = incoming.common_name, rating = incoming.rating, preferred_position = incoming.preferred_position, alternate_positions = incoming.alternate_positions, club_id = incoming.club_id, league_id = incoming.league_id, nation_id = incoming.nation_id, rarity_id = incoming.rarity_id, card_colour = incoming.card_colour, last_updated = CURRENT_TIMESTAMP";
+        "INSERT INTO Players (futdb_id, asset_id, resource_id, name, common_name, rating, preferred_position, alternate_positions, club_id, league_id, nation_id, rarity_id) " +
+        "VALUES (@futDbId, @assetId, @resourceId, @name, @commonName, @rating, @preferredPosition, @alternatePositions, @clubId, @leagueId, @nationId, @rarityId) AS incoming " +
+        "ON DUPLICATE KEY UPDATE asset_id = incoming.asset_id, resource_id = incoming.resource_id, name = incoming.name, common_name = incoming.common_name, rating = incoming.rating, preferred_position = incoming.preferred_position, alternate_positions = incoming.alternate_positions, club_id = incoming.club_id, league_id = incoming.league_id, nation_id = incoming.nation_id, rarity_id = incoming.rarity_id, last_updated = CURRENT_TIMESTAMP";
 
     private const string SELECT_LATEST_IMPORT =
         "SELECT id, last_page, outcome FROM CatalogueImports WHERE source = @source ORDER BY id DESC LIMIT 1";
@@ -101,7 +101,6 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
         command.Parameters.AddWithValue("@leagueId", Value(player.LeagueId));
         command.Parameters.AddWithValue("@nationId", Value(player.NationId));
         command.Parameters.AddWithValue("@rarityId", Value(player.RarityId));
-        command.Parameters.AddWithValue("@cardColour", Value(player.CardColour));
         command.ExecuteNonQuery();
     }
 

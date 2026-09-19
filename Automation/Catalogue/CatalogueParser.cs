@@ -64,17 +64,16 @@ public static class CatalogueParser
 
     private static bool HasSourceId(JsonElement item)
     {
-        return NullableInteger(item, SOURCE_ID).HasValue;
+        return NullableLong(item, SOURCE_ID).HasValue;
     }
 
     private static PlayerRecord ReadPlayer(JsonElement item)
     {
-        var result = new PlayerRecord(NullableInteger(item, SOURCE_ID) ?? 0, NullableLong(item, "resourceId"),
-            NullableInteger(item, "resourceBaseId"), Text(item, "name") ?? string.Empty, Text(item, "commonName"),
-            NullableInteger(item, "rating"),
-            Text(item, "position"), Texts(item, "positionAlternatives"), NullableInteger(item, "club"),
-            NullableInteger(item, "league"), NullableInteger(item, "nation"), NullableInteger(item, "rarity"),
-            Text(item, "color"));
+        var result = new PlayerRecord(NullableLong(item, SOURCE_ID) ?? 0, NullableLong(item, "resourceId"),
+            NullableLong(item, "resourceBaseId"), Text(item, "name") ?? string.Empty, Text(item, "commonName"),
+            NullableInteger(item, "rating"), Text(item, "position"), Texts(item, "positionAlternatives"),
+            NullableLong(item, "club"), NullableLong(item, "league"), NullableLong(item, "nation"),
+            NullableLong(item, "rarity"));
 
         return result;
     }
