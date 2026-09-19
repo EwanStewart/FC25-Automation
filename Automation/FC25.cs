@@ -20,6 +20,7 @@ public class Fc25 : IDisposable
     private const int MAX_WON_ITEM_ATTEMPTS = 50;
     private const int MAX_CREDENTIAL_ATTEMPTS = 2;
     private const int RELOAD_SETTLE_MS = 3000;
+    private const string PIN_SMOKE_TARGET = "pins";
 
     private static readonly TimeSpan StandardWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ShortWait = TimeSpan.FromSeconds(3);
@@ -245,6 +246,12 @@ public class Fc25 : IDisposable
 
     private void SmokeTestRoutine()
     {
+        if (_smokeTarget is PIN_SMOKE_TARGET) ReportPinCoverage();
+        else SmokeBidPasses();
+    }
+
+    private void SmokeBidPasses()
+    {
         var clubItems = _smokeTarget is "all" or "club";
         var players = _smokeTarget is "all" or "players";
 
@@ -253,6 +260,81 @@ public class Fc25 : IDisposable
         if (clubItems) RunClubItemBidPass(true);
         if (clubItems && _bidsPlaced == 0) RunClubItemBidPass(false);
         if (players && _bidsPlaced == 0) RunSnipePass();
+    }
+
+    private void ReportPinCoverage()
+    {
+        GoToTransfers();
+        GoToTransferMarket();
+        RequireClick(ElementKeys.PLAYER_ITEMS_TRANSFER_MARKET);
+        RequireClick(ElementKeys.RESET);
+        ReportNationCoverage();
+        ReportLeagueCoverage();
+        ReportClubCoverage();
+    }
+
+    private void ReportNationCoverage()
+    {
+        var offered = DropdownOptions(ElementKeys.NATIONALITY_DROPDOWN);
+
+        ReportOfferedNames("Country/Region", offered,
+            MarketReference.Ea.Nations.Select(nation => (nation, MarketNames.Ea.Nation(nation))).ToList());
+    }
+
+    private void ReportLeagueCoverage()
+    {
+        var offered = DropdownOptions(ElementKeys.LEAGUE_DROPDOWN);
+
+        ReportOfferedNames("League", offered,
+            MarketReference.Ea.Leagues.Select(league => (league, MarketNames.Ea.League(league))).ToList());
+    }
+
+    private void ReportClubCoverage()
+    {
+        foreach (var league in MarketReference.Ea.Leagues) ReportClubsInLeague(league);
+    }
+
+    private void ReportClubsInLeague(int league)
+    {
+        var name = MarketNames.Ea.League(league);
+
+        RequireClick(ElementKeys.RESET);
+
+        if (name is null || !ApplyDropdownChoice(ElementKeys.LEAGUE_DROPDOWN, name, true))
+            Console.WriteLine($"League {league} does not pin, so its clubs were not read.");
+        else
+            ReportOfferedNames($"Clubs in league {league}", DropdownOptions(ElementKeys.CLUB_DROPDOWN),
+                MarketReference.Ea.ClubsIn(league).Select(club => (club, MarketNames.Ea.Club(club))).ToList());
+    }
+
+    private static void ReportOfferedNames(string what, IReadOnlySet<string> offered,
+        IReadOnlyList<(int Id, string? Name)> shipped)
+    {
+        var missing = shipped.Where(entry => entry.Name is null || !offered.Contains(entry.Name))
+            .Select(entry => entry.Id).ToList();
+
+        Console.WriteLine(
+            $"{what}: {offered.Count} options offered, {shipped.Count - missing.Count} of {shipped.Count} ids pin.");
+
+        if (missing.Count > 0) Console.WriteLine($"{what} ids that do not pin: {string.Join(", ", missing)}");
+    }
+
+    private IReadOnlySet<string> DropdownOptions(ElementKeys dropdown)
+    {
+        RequireClick(dropdown);
+        Thread.Sleep(300);
+
+        var control = _screen.WaitVisible(dropdown, ShortWait);
+        HashSet<string> result = [];
+
+        if (control is not null)
+            result = control.FindElements(By.XPath(".//li")).Select(option => option.Text.Trim())
+                .Where(text => text.Length > 0).ToHashSet(StringComparer.Ordinal);
+
+        _screen.Click(dropdown, ShortWait);
+        Thread.Sleep(150);
+
+        return result;
     }
 
     public void RunCycleSafely()
