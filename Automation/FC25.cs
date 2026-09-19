@@ -17,6 +17,7 @@ public class Fc25 : IDisposable
     private const int MAX_LISTING_ATTEMPTS = 200;
     private const int MAX_WON_ITEM_ATTEMPTS = 50;
     private const int MAX_CREDENTIAL_ATTEMPTS = 2;
+    private const int RELOAD_SETTLE_MS = 3000;
 
     private static readonly TimeSpan StandardWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ShortWait = TimeSpan.FromSeconds(3);
@@ -26,6 +27,7 @@ public class Fc25 : IDisposable
     private readonly ChromeDriver _driver;
     private readonly Screen _screen;
     private readonly NetworkObserver _network = new();
+    private readonly MouseInput _mouse = new();
     private readonly string _user;
     private readonly uint _maxBids;
     private readonly string _smokeTarget;
@@ -97,6 +99,7 @@ public class Fc25 : IDisposable
             Database.AddSnipeEvent(failure.Kind.ToString(), "http", (uint)failure.Status, null, null, null,
                 $"{failure.Time:HH:mm:ss} {(failure.Url.Length > 190 ? failure.Url[..190] : failure.Url)}");
 
+        _mouse.Dispose();
         _network.Dispose();
 
         try
@@ -273,6 +276,21 @@ public class Fc25 : IDisposable
         if (!_snipeOnly) RunClubItemBidPass(true);
         if (!_snipeOnly && HasBidCapacity()) RunClubItemBidPass(false);
         if (HasBidCapacity()) RunSnipePass();
+    }
+
+    public ClubReading CaptureClubInventory()
+    {
+        if (!_mouse.Enabled) _mouse.Start(Browser.DebuggerHttp);
+
+        return new ClubCapture(_driver, _screen, _network, _mouse, ReloadForClubCapture).Capture();
+    }
+
+    private void ReloadForClubCapture()
+    {
+        _screen.DismissDialog();
+        _driver.Navigate().Refresh();
+        Thread.Sleep(RELOAD_SETTLE_MS);
+        EnsureLoggedIn();
     }
 
     private void MaintainTransfers()
