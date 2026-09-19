@@ -62,7 +62,8 @@ public static class MarketCandidates
     {
         List<PlayerFilter?> result = [null];
 
-        result.AddRange(challenge.Requirements.Where(requirement => requirement.Kind == RequirementKind.PlayerCount)
+        result.AddRange(challenge.Requirements.Where(requirement =>
+                requirement.Kind is RequirementKind.PlayerCount or RequirementKind.PlayerLevelCount)
             .SelectMany(requirement => requirement.Filters)
             .Where(filter => filter.Kind is PlayerFilterKind.Nation or PlayerFilterKind.League
                 or PlayerFilterKind.Club or PlayerFilterKind.Rarity)

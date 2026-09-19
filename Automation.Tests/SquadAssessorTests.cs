@@ -135,4 +135,60 @@ public class SquadAssessorTests
 
         return SquadAssessor.Assess(challenge, squad, null, ChemistryThresholds.Default, TeamLinks.None);
     }
+
+    [Fact]
+    public void ATierCountOnlyCountsCardsOfThatTier()
+    {
+        var squad = Eleven(80).ToList();
+        squad[0] = Player(0, 70, "GK", 5, 13, 14, 0);
+        var requirement = new SquadRequirement(RequirementKind.PlayerLevelCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Level, (int)PlayerQuality.Silver, "Silver")], "Silver: Min. 1 Players");
+
+        var assessment = Assess(squad, [requirement]);
+
+        Assert.True(assessment.IsValid);
+        Assert.Equal(1, assessment.Outcomes.Single().Actual);
+    }
+
+    [Fact]
+    public void ATierCountDoesNotCountHigherCards()
+    {
+        var requirement = new SquadRequirement(RequirementKind.PlayerLevelCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Level, (int)PlayerQuality.Bronze, "Bronze")], "Bronze: Min. 1 Players");
+
+        var assessment = Assess(Eleven(80), [requirement]);
+
+        Assert.False(assessment.IsValid);
+        Assert.Equal(0, assessment.Outcomes.Single().Actual);
+    }
+
+    [Fact]
+    public void AnExactTierCountFailsWhenTooManyCardsMatch()
+    {
+        var requirement = new SquadRequirement(RequirementKind.PlayerLevelCount, RequirementComparison.Exact, 1,
+            [new PlayerFilter(PlayerFilterKind.Level, (int)PlayerQuality.Gold, "Gold")], "Gold: Exactly 1 Players");
+
+        var assessment = Assess(Eleven(80), [requirement]);
+
+        Assert.False(assessment.IsValid);
+        Assert.Equal(11, assessment.Outcomes.Single().Actual);
+    }
+
+    [Fact]
+    public void ATierCountAndASquadWideQualityFloorAreBothReported()
+    {
+        var squad = Eleven(60).ToList();
+        squad[0] = Player(0, 70, "GK", 5, 13, 14, 0);
+        var level = new SquadRequirement(RequirementKind.PlayerLevelCount, RequirementComparison.Minimum, 1,
+            [new PlayerFilter(PlayerFilterKind.Level, (int)PlayerQuality.Silver, "Silver")], "Silver: Min. 1 Players");
+        var floor = new SquadRequirement(RequirementKind.EveryPlayer, RequirementComparison.Minimum, 0,
+            [new PlayerFilter(PlayerFilterKind.Quality, (int)PlayerQuality.Bronze, "Bronze")],
+            "Player Quality: Min. Bronze");
+
+        var assessment = Assess(squad, [level, floor]);
+
+        Assert.Equal(2, assessment.Outcomes.Count);
+        Assert.True(assessment.IsValid);
+        Assert.Equal(1, assessment.Outcomes[0].Actual);
+    }
 }

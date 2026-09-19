@@ -60,7 +60,7 @@ public static class SquadAssessor
     {
         return requirement.Kind switch
         {
-            RequirementKind.PlayerCount => squad.Count(player =>
+            RequirementKind.PlayerCount or RequirementKind.PlayerLevelCount => squad.Count(player =>
                 Matches(player, requirement.Filters, RequirementComparison.Exact)),
             RequirementKind.EveryPlayer => squad.Count(player =>
                 Matches(player, requirement.Filters, requirement.Comparison)),
@@ -103,6 +103,7 @@ public static class SquadAssessor
         return filter.Kind switch
         {
             PlayerFilterKind.Quality => Compare((int)QualityBand.Of(player.Rating), filter.Value, comparison),
+            PlayerFilterKind.Level => (int)QualityBand.Of(player.Rating) == filter.Value,
             PlayerFilterKind.Rarity => player.RareFlag == filter.Value,
             PlayerFilterKind.Nation => player.NationId == filter.Value,
             PlayerFilterKind.League => player.LeagueId == filter.Value,

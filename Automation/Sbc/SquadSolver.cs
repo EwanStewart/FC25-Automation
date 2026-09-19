@@ -270,6 +270,7 @@ public static class SquadSolver
         switch (requirement.Kind)
         {
             case RequirementKind.PlayerCount:
+            case RequirementKind.PlayerLevelCount:
                 AddCount(squad, MatchingUse(squad, requirement), requirement.Value, requirement.Comparison);
                 break;
             case RequirementKind.SquadRating:
