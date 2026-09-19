@@ -25,9 +25,19 @@ public sealed class GapBuyer
             ? Work(run, resolved)
             : new BuyingResult(FulfilmentState.Failed, Names(stalled), resolved);
 
-        store_.SaveState(run.Id, result.State, result.Detail);
+        store_.SaveState(run.Id, Recorded(run, result.State), Reported(run, result));
 
         return result;
+    }
+
+    public static FulfilmentState Recorded(FulfilmentRun run, FulfilmentState state)
+    {
+        return run.DryRun ? FulfilmentState.Pending : state;
+    }
+
+    private static string Reported(FulfilmentRun run, BuyingResult result)
+    {
+        return run.DryRun ? $"dry run reached {result.State}. {result.Detail}".Trim() : result.Detail;
     }
 
     private IReadOnlyList<GapRecord> Resolved(FulfilmentRun run, IReadOnlyList<GapRecord> gaps)

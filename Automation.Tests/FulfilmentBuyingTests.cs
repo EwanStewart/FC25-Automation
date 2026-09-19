@@ -32,6 +32,40 @@ public class FulfilmentBuyingTests
     }
 
     [Fact]
+    public void ADryRunLeavesTheApprovalQueuedSoALiveRunStillPicksItUp()
+    {
+        var (result, store, _) = Buy(Run(true, 3000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 800)] });
+
+        Assert.Equal(FulfilmentState.Building, result.State);
+        Assert.Equal(FulfilmentState.Pending, store.State);
+        Assert.Contains("dry run", store.Detail);
+    }
+
+    [Fact]
+    public void ADryRunThatHitsTheCeilingStillLeavesTheApprovalQueued()
+    {
+        var (result, store, _) = Buy(Run(true, 1000), [Gap(0), Gap(1)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Listing("t1", 900)],
+                [1] = [Listing("t2", 900)]
+            });
+
+        Assert.Equal(FulfilmentState.Aborted, result.State);
+        Assert.Equal(FulfilmentState.Pending, store.State);
+    }
+
+    [Fact]
+    public void ALiveRunRecordsTheStateItActuallyReached()
+    {
+        var (_, store, _) = Buy(Run(false, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>> { [0] = [Listing("t1", 800)] });
+
+        Assert.Equal(FulfilmentState.Buying, store.State);
+    }
+
+    [Fact]
     public void TheRunCeilingStopsTheWholeFulfilmentRatherThanBiddingOn()
     {
         var (result, store, log) = Buy(Run(false, 1000), [Gap(0), Gap(1)],

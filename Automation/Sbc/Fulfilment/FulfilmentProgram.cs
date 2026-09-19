@@ -56,7 +56,8 @@ public static class FulfilmentProgram
     {
         var built = new SquadBuilder(squad(run), store).Build(run, slots(run.ApprovalId), bought.Gaps);
 
-        store.SaveState(run.Id, built.State, built.Detail);
+        store.SaveState(run.Id, GapBuyer.Recorded(run, built.State),
+            run.DryRun ? $"dry run reached {built.State}. {built.Detail}".Trim() : built.Detail);
         Console.WriteLine(built.State == FulfilmentState.Built
             ? $"  squad built for approval {run.ApprovalId}. Check it in the app and finish it yourself."
             : $"  squad not built: {built.Detail}");
