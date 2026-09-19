@@ -34,7 +34,7 @@ public class FulfilmentBuyingTests
 
     private static AuctionListing Asking(string tradeId, uint buyNowPrice)
     {
-        return Listing(tradeId, 300) with { BuyNowPrice = buyNowPrice, Expires = 900 };
+        return Listing(tradeId, 300) with { BuyNowPrice = buyNowPrice, Expires = 3000 };
     }
 
     [Fact]
@@ -361,7 +361,7 @@ public class FulfilmentBuyingTests
         var (_, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
             new Dictionary<int, IReadOnlyList<AuctionListing>>
             {
-                [0] = [Listing("t1", 300) with { Expires = 900 }]
+                [0] = [Listing("t1", 300) with { Expires = 3000 }]
             });
 
         Assert.DoesNotContain(log, entry => entry.StartsWith("watch"));
@@ -375,7 +375,7 @@ public class FulfilmentBuyingTests
         var (_, store, _) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
             new Dictionary<int, IReadOnlyList<AuctionListing>>
             {
-                [0] = [Listing("t1", 300) with { Expires = 900 }, Listing("t2", 400) with { Expires = 900 }]
+                [0] = [Listing("t1", 300) with { Expires = 3000 }, Listing("t2", 400) with { Expires = 3000 }]
             });
 
         Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
@@ -413,6 +413,21 @@ public class FulfilmentBuyingTests
 
         Assert.Equal(GapOutcome.NotFound, store.Gaps(1)[0].Outcome);
         Assert.Contains("matched what this slot needs", store.Gaps(1)[0].Detail);
+    }
+
+    [Fact]
+    public void AWatchThatNeverCameDueLeavesTheGapForTheNextRun()
+    {
+        var (result, store, log) = Buy(Run(FulfilmentMode.Live, 100000), [Gap(0)],
+            new Dictionary<int, IReadOnlyList<AuctionListing>>
+            {
+                [0] = [Listing("t1", 300) with { Expires = 1 }]
+            }, polls: [[Due("t1", 300, 60)]]);
+
+        Assert.Contains("watch t1", log);
+        Assert.DoesNotContain(log, entry => entry.StartsWith("bid"));
+        Assert.Equal(GapOutcome.OutOfReach, store.Gaps(1)[0].Outcome);
+        Assert.Equal(FulfilmentState.Buying, result.State);
     }
 
     [Fact]

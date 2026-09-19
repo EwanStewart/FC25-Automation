@@ -22,7 +22,7 @@ public class GapSnipePlanTests
     public void OnlyTheCardsCloseToEndingAreWorthWatching()
     {
         IReadOnlyList<AuctionListing> listings =
-            [Ending("late", 300, 900), Ending("soon", 300, 170), Ending("now", 300, 20)];
+            [Ending("late", 300, 3000), Ending("soon", 300, 170), Ending("now", 300, 20)];
 
         var shortlist = GapSnipePlan.Shortlist(Specification(), listings, 900);
 
@@ -36,6 +36,22 @@ public class GapSnipePlanTests
 
         Assert.Equal(["soon"], GapSnipePlan.Shortlist(Specification(), listings, 900)
             .Select(listing => listing.TradeId));
+    }
+
+    [Fact]
+    public void TheWaitCoversTheCardThatEndsSoonest()
+    {
+        IReadOnlyList<AuctionListing> shortlist = [Ending("late", 300, 900), Ending("soon", 300, 400)];
+
+        Assert.Equal(400 + GapSnipePlan.WAIT_MARGIN_SECONDS, GapSnipePlan.Wait(shortlist));
+    }
+
+    [Fact]
+    public void TheWaitIsCappedSoARunCannotSitAllDay()
+    {
+        IReadOnlyList<AuctionListing> shortlist = [Ending("late", 300, GapSnipePlan.MAX_WAIT_SECONDS)];
+
+        Assert.Equal(GapSnipePlan.MAX_WAIT_SECONDS, GapSnipePlan.Wait(shortlist));
     }
 
     [Fact]

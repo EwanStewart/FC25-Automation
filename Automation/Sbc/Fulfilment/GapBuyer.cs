@@ -9,7 +9,7 @@ public sealed class GapBuyer
     private const string CEILING_DETAIL = "the run ceiling leaves too little to buy another card";
     private const string UNWATCHED_DETAIL = "no card on the page could be watched";
     private const int POLL_MS = 1000;
-    private const int MAX_POLLS = GapSnipePlan.WATCH_MAX_SECONDS + 60;
+    private const string UNSOLD_DETAIL = "every card watched was still running when the wait ran out";
     private const int CLAIM_POLLS = 20;
 
     private readonly IMarketAgent market_;
@@ -287,17 +287,17 @@ public sealed class GapBuyer
         return watched == 0
             ? new GapStep(gap with { Outcome = GapOutcome.OutOfReach, Simulated = false, Detail = UNWATCHED_DETAIL },
                 string.Empty, FulfilmentState.Buying)
-            : Poll(run, Watching(gap, watched), ceiling, mine);
+            : Poll(run, Watching(gap, watched), ceiling, mine, GapSnipePlan.Wait(shortlist));
     }
 
-    private GapStep Poll(FulfilmentRun run, GapRecord gap, uint ceiling, IReadOnlyList<string> mine)
+    private GapStep Poll(FulfilmentRun run, GapRecord gap, uint ceiling, IReadOnlyList<string> mine, int budget)
     {
         var current = gap;
         var targets = GapSnipePlan.Watched(market_.Standing(), mine);
         var polls = 0;
         var finished = false;
 
-        while (!finished && polls < MAX_POLLS)
+        while (!finished && polls < budget)
         {
             current = Stepped(run, current, targets, ceiling);
             polls++;
@@ -310,8 +310,22 @@ public sealed class GapBuyer
             }
         }
 
-        return new GapStep(current, current.Outcome == GapOutcome.Unresolved ? Names(current) : string.Empty,
+        return Settled(run, Waited(current));
+    }
+
+    private GapStep Settled(FulfilmentRun run, GapRecord gap)
+    {
+        if (gap.Outcome == GapOutcome.OutOfReach) store_.SaveGap(run.Id, gap);
+
+        return new GapStep(gap, gap.Outcome == GapOutcome.Unresolved ? Names(gap) : string.Empty,
             FulfilmentState.Failed);
+    }
+
+    private static GapRecord Waited(GapRecord gap)
+    {
+        return gap.Outcome == GapOutcome.Bidding && gap.TradeId is null
+            ? gap with { Outcome = GapOutcome.OutOfReach, Detail = UNSOLD_DETAIL }
+            : gap;
     }
 
     private GapRecord Stepped(FulfilmentRun run, GapRecord gap, IReadOnlyList<TradeState> targets, uint ceiling)
@@ -474,7 +488,7 @@ public sealed class GapBuyer
 
         if (within > 0)
             result = $"{within} of {fitting} matching card(s) sat at or under {ceiling}, {Ask(cheapest)} " +
-                     $"and none ends within {GapSnipePlan.WATCH_MAX_SECONDS} s";
+                     $"and none ends within {GapSnipePlan.MAX_WAIT_SECONDS} s";
         else if (fitting > 0) result = $"{fitting} card(s) matched but every one sat above {ceiling}";
 
         return result;
