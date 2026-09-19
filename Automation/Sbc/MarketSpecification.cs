@@ -20,7 +20,7 @@ public sealed record MarketSpecification(
         if (LeagueId.HasValue) parts.Add($"league {LeagueId}");
         if (ClubId.HasValue) parts.Add($"club {ClubId}");
         if (RareFlag.HasValue) parts.Add($"rarity {RareFlag}");
-        parts.Add(Evidence == MarketEvidence.Observed ? "observed" : "unverified");
+        parts.Add(Evidence == MarketEvidence.Observed ? "attributes observed" : "attributes unverified");
 
         return string.Join(", ", parts);
     }
