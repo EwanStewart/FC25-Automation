@@ -6,6 +6,19 @@ namespace Automation.Sbc.Fulfilment;
 public static class SquadReader
 {
     private const string EMPTY_STATE = "invalid";
+    private const string CHALLENGE_PATH = "/sbs/challenge/";
+
+    public static int ChallengeIn(string url)
+    {
+        var marker = url.IndexOf(CHALLENGE_PATH, StringComparison.Ordinal);
+        var result = 0;
+
+        if (marker >= 0)
+            int.TryParse(new string(url[(marker + CHALLENGE_PATH.Length)..].TakeWhile(char.IsDigit).ToArray()),
+                out result);
+
+        return result;
+    }
 
     public static SquadView? Read(string json)
     {
