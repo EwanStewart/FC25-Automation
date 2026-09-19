@@ -229,13 +229,23 @@ public sealed class MarketAgent : IMarketAgent
     private bool Pressed(ElementKeys rows, string tradeId, ElementKeys control)
     {
         var row = Row(rows, tradeId);
-        var pressed = row is not null && screen_.Click(row, ShortWait) &&
+        var pressed = row is not null && screen_.Click(row, ShortWait) && Showing(tradeId) &&
                       screen_.Click(control, ShortWait);
 
         ports_.Pause(SETTLE_MS);
         screen_.DismissDialog();
 
         return pressed;
+    }
+
+    private bool Showing(string tradeId)
+    {
+        var opened = screen_.SelectedTrade();
+        var showing = opened == tradeId;
+
+        if (!showing) Console.WriteLine($"The panel opened trade {Named(opened)} rather than {tradeId}.");
+
+        return showing;
     }
 
     private BidReceipt Placed(ElementKeys rows, string tradeId, uint amount, string where)
