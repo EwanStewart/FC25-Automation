@@ -34,10 +34,10 @@ public static class BiddingStrategy
     public const double SEGMENT_MIN_WIN_RATE = 0.10;
     public const uint SEGMENT_COOLDOWN_HOURS = 6;
     public const uint SEGMENT_PROBE_BIDS = 3;
-    public const int SNIPE_BATCH_SIZE = 15;
+    public const int SNIPE_BATCH_SIZE = 30;
     public const uint SNIPE_MAX_BID = 1500;
     public const int SNIPE_POLL_MS = 1000;
-    public const uint SNIPE_MAX_MINUTES = 25;
+    public const uint SNIPE_MAX_MINUTES = 30;
     public const int SNIPE_AIM_SECONDS = 15;
     public const uint SNIPE_WATCH_MIN_MINUTES = 2;
     public const bool NETWORK_OBSERVER = true;

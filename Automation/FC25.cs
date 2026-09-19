@@ -739,7 +739,7 @@ public class Fc25 : IDisposable
         while (morePages && page < MAX_RESULT_PAGES && CanPlaceMoreBids() && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryBidOnSelectedItem(row, info, maxBidCap), () => CanPlaceMoreBids() && WithinScanBudget(started), MIN_AUCTION_MINUTES, PricePolicy.Standard);
+            ProcessCandidates((row, info, _) => TryBidOnSelectedItem(row, info, maxBidCap), () => CanPlaceMoreBids() && WithinScanBudget(started), MIN_AUCTION_MINUTES, MAX_AUCTION_MINUTES, PricePolicy.Standard);
             morePages = CanPlaceMoreBids() && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
@@ -890,39 +890,40 @@ public class Fc25 : IDisposable
 
     #region Bidding
 
-    private void ProcessCandidates(Action<IWebElement, string> action, Func<bool> canContinue, uint minMinutes,
-        PricePolicy policy)
+    private void ProcessCandidates(Action<IWebElement, string, string> action, Func<bool> canContinue,
+        uint minMinutes, uint maxMinutes, PricePolicy policy)
     {
         HashSet<string> done = new();
-        var plan = PlanCandidates(done, minMinutes, policy);
+        var plan = PlanCandidates(done, minMinutes, maxMinutes, policy);
         var position = 0;
         var replans = 0;
 
         while (position < plan.Count && replans < 3 && canContinue())
         {
-            var (index, key) = plan[position];
+            var (index, key, auctionKey) = plan[position];
 
-            if (TryProcessCandidate(index, key, action))
+            if (TryProcessCandidate(index, key, auctionKey, maxMinutes, action))
             {
-                done.Add(key);
+                done.Add(auctionKey);
                 position++;
             }
             else
             {
                 replans++;
-                plan = PlanCandidates(done, minMinutes, policy);
+                plan = PlanCandidates(done, minMinutes, maxMinutes, policy);
                 position = 0;
             }
         }
     }
 
-    private List<(int index, string key)> PlanCandidates(ISet<string> done, uint minMinutes, PricePolicy policy)
+    private List<(int index, string key, string auctionKey)> PlanCandidates(ISet<string> done, uint minMinutes,
+        uint maxMinutes, PricePolicy policy)
     {
-        var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.None);
+        var snapshot = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.Results);
         var candidates = snapshot
-            .Where(row => !done.Contains(row.Key) && RowTriage.IsCandidate(ReadRowFacts(row, policy), minMinutes,
-                MAX_AUCTION_MINUTES, policy.MarginCoins))
-            .Select(row => (row.Index, row.Key))
+            .Where(row => !done.Contains(row.AuctionKey) && RowTriage.IsCandidate(ReadRowFacts(row, policy), minMinutes,
+                maxMinutes, policy.MarginCoins))
+            .Select(row => (row.Index, row.Key, row.AuctionKey))
             .ToList();
 
         Console.WriteLine($"Results page: {snapshot.Count} rows, {candidates.Count} candidates.");
@@ -930,23 +931,24 @@ public class Fc25 : IDisposable
         return candidates;
     }
 
-    private bool TryProcessCandidate(int index, string key, Action<IWebElement, string> action)
+    private bool TryProcessCandidate(int index, string key, string auctionKey, uint maxMinutes,
+        Action<IWebElement, string, string> action)
     {
         var processed = false;
 
         try
         {
-            var current = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.None);
+            var current = _screen.Snapshot(ElementKeys.RESULT_ROWS, RowModels.Results);
             var rows = _screen.FindAll(ElementKeys.RESULT_ROWS);
-            var matches = index < current.Count && index < rows.Count && current[index].Key == key;
+            var matches = index < current.Count && index < rows.Count && current[index].AuctionKey == auctionKey;
             var inWindow = matches && current[index].MinutesLeft.HasValue &&
-                           Pricing.IsWithinBidWindow(current[index].MinutesLeft!.Value, MIN_AUCTION_MINUTES, MAX_AUCTION_MINUTES);
+                           Pricing.IsWithinBidWindow(current[index].MinutesLeft!.Value, MIN_AUCTION_MINUTES, maxMinutes);
 
             if (inWindow && _screen.Click(rows[index], ShortWait))
             {
                 _rowsConsidered++;
                 WaitForSelectedRow(ElementKeys.RESULT_ROWS, index);
-                action(rows[index], key);
+                action(rows[index], key, auctionKey);
             }
 
             processed = matches;
@@ -1353,7 +1355,7 @@ public class Fc25 : IDisposable
         while (morePages && page < MAX_RESULT_PAGES && CanWatchMore(estimates) && WithinScanBudget(started))
         {
             page++;
-            ProcessCandidates((row, info) => TryWatchSelectedItem(row, info, estimates, policy), () => CanWatchMore(estimates) && WithinScanBudget(started), SNIPE_WATCH_MIN_MINUTES, policy);
+            ProcessCandidates((row, info, auctionKey) => TryWatchSelectedItem(row, info, auctionKey, estimates, policy), () => CanWatchMore(estimates) && WithinScanBudget(started), SNIPE_WATCH_MIN_MINUTES, SNIPE_MAX_MINUTES, policy);
             morePages = CanWatchMore(estimates) && !PageIsBeyondWindow() && GoToNextResultsPage();
         }
 
@@ -1365,12 +1367,12 @@ public class Fc25 : IDisposable
         return estimates.Count < SNIPE_BATCH_SIZE && HasBidCapacity() && !_pacing.Ended;
     }
 
-    private void TryWatchSelectedItem(IWebElement row, string info, Dictionary<string, uint> estimates,
-        PricePolicy policy)
+    private void TryWatchSelectedItem(IWebElement row, string info, string auctionKey,
+        Dictionary<string, uint> estimates, PricePolicy policy)
     {
         var bidInput = _screen.WaitVisible(ElementKeys.FIND_ALL_PRICE_INPUTS, ShortWait);
 
-        if (bidInput != null && !estimates.ContainsKey(info))
+        if (bidInput != null && !estimates.ContainsKey(auctionKey))
         {
             var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
             var estimate = minimumBid > _snipeMaxBid
@@ -1379,21 +1381,21 @@ public class Fc25 : IDisposable
 
             if (estimate.HasValue && Snipe.ShouldWatch(estimate.Value, minimumBid, _snipeMargin, _snipeMaxBid,
                     estimates.Count, SNIPE_BATCH_SIZE))
-                WatchSelectedItem(row, info, minimumBid, estimate.Value, estimates);
+                WatchSelectedItem(row, info, auctionKey, minimumBid, estimate.Value, estimates);
             else
                 Database.AddSnipeEvent(info, "skip", null, minimumBid, estimate, ReadTimeText(row),
                     minimumBid > _snipeMaxBid ? "cap" : "margin");
         }
     }
 
-    private void WatchSelectedItem(IWebElement row, string info, uint minimumBid, uint estimate,
+    private void WatchSelectedItem(IWebElement row, string info, string auctionKey, uint minimumBid, uint estimate,
         Dictionary<string, uint> estimates)
     {
         var timeText = ReadTimeText(row);
 
         if (TryWatch(info))
         {
-            estimates[info] = estimate;
+            estimates[auctionKey] = estimate;
             _total += 1;
             Database.AddSnipeEvent(info, "watch", null, minimumBid, estimate, timeText, null);
             Console.WriteLine($"Watching {info} (resale estimate {estimate}, minimum {minimumBid}, {timeText}).");
@@ -1502,7 +1504,7 @@ public class Fc25 : IDisposable
 
     private void LogMissingWatchedItems(IReadOnlyList<RowSnapshot> snapshot, Dictionary<string, uint> estimates)
     {
-        var present = snapshot.Select(row => row.Key).ToHashSet();
+        var present = snapshot.Select(row => row.AuctionKey).ToHashSet();
         var missing = estimates.Keys.Where(key => !present.Contains(key)).ToList();
 
         Console.WriteLine(
@@ -1524,7 +1526,7 @@ public class Fc25 : IDisposable
         {
             var model = row.TrustedModel;
 
-            if (Snipe.IsLive(row.Classes, model?.TradeState) && estimates.TryGetValue(row.Key, out var estimate))
+            if (Snipe.IsLive(row.Classes, model?.TradeState) && estimates.TryGetValue(row.AuctionKey, out var estimate))
                 result.Add((row,
                     new TargetFacts(row.Classes, row.MinutesLeft, row.NextBid, estimate, model?.SecondsLeft,
                         model?.BidState, Snipe.IsFrozen(model?.AgeMs, model?.SecondsLeft))));
@@ -1536,7 +1538,7 @@ public class Fc25 : IDisposable
     private bool RowNeedsAction(RowSnapshot row, TargetFacts facts, Dictionary<string, uint> standing)
     {
         var shown = row.BidValue ?? 0;
-        var ourBidIsUnrecorded = Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key);
+        var ourBidIsUnrecorded = Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.AuctionKey);
 
         return ourBidIsUnrecorded || Snipe.ShouldBid(facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS);
     }
@@ -1545,7 +1547,7 @@ public class Fc25 : IDisposable
     {
         var shown = row.BidValue ?? 0;
 
-        if (Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.Key))
+        if (Snipe.IsOurs(facts) && shown > standing.GetValueOrDefault(row.AuctionKey))
             ConfirmUnrecordedBid(row, facts, standing);
         else if (Snipe.ShouldBid(facts, _snipeMargin, _snipeMaxBid, SNIPE_AIM_SECONDS))
             SnipeRow(row, facts, standing);
@@ -1556,7 +1558,8 @@ public class Fc25 : IDisposable
         var amount = row.BidValue ?? 0;
 
         Console.WriteLine($"Found our bid of {amount} on {row.Key} that was not recorded; recording it.");
-        RecordSnipeBid(row.Key, amount, facts.Estimate, standing, row.Time, "confirmed", SnapshotBidContext(row, amount));
+        RecordSnipeBid(row.Key, row.AuctionKey, amount, facts.Estimate, standing, row.Time, "confirmed",
+            SnapshotBidContext(row, amount));
     }
 
     private BidContext SnapshotBidContext(RowSnapshot row, uint minimumBid)
@@ -1568,7 +1571,7 @@ public class Fc25 : IDisposable
     {
         var element = FindTargetRow(row.Index);
 
-        if (standing.ContainsKey(row.Key))
+        if (standing.ContainsKey(row.AuctionKey))
             Database.AddSnipeEvent(row.Key, "outbid", row.BidValue, facts.MinimumBid, facts.Estimate, row.Time,
                 facts.SecondsLeft?.ToString());
 
@@ -1593,7 +1596,7 @@ public class Fc25 : IDisposable
         Dictionary<string, uint> standing, DateTime clicked)
     {
         var minimumBid = Utility.Utility.CommaSeperatedNumberToUInt(bidInput.GetAttribute("value") ?? "0");
-        var previous = standing.GetValueOrDefault(row.Key);
+        var previous = standing.GetValueOrDefault(row.AuctionKey);
         var delta = minimumBid > previous ? minimumBid - previous : 0;
         var confirmed = facts with { MinimumBid = minimumBid };
 
@@ -1602,7 +1605,7 @@ public class Fc25 : IDisposable
         else if (!Pricing.FitsExposureLimit(_coinBalance, _coinsCommitted, delta, MAX_EXPOSURE_SHARE))
             RecordSnipeSkip(row.Key, minimumBid, facts.Estimate, row.Time, "budget");
         else
-            PlaceSnipeBid(row.Key, bidInput, minimumBid, facts.Estimate, standing, row.Time,
+            PlaceSnipeBid(row.Key, row.AuctionKey, bidInput, minimumBid, facts.Estimate, standing, row.Time,
                 SnapshotBidContext(row, minimumBid), clicked, row.TrustedModel?.TradeId);
     }
 
@@ -1625,7 +1628,7 @@ public class Fc25 : IDisposable
         return new BidAttempt(outcome, reason, typed, clicked, clickedAt);
     }
 
-    private void PlaceSnipeBid(string info, IWebElement bidInput, uint amount, uint estimate,
+    private void PlaceSnipeBid(string info, string auctionKey, IWebElement bidInput, uint amount, uint estimate,
         Dictionary<string, uint> standing, string timeText, BidContext context, DateTime rowClicked, string? tradeId)
     {
         var attempt = SendBid(bidInput, amount, tradeId);
@@ -1633,7 +1636,8 @@ public class Fc25 : IDisposable
         var detail = $"{chain}, {attempt.Reason}";
 
         if (attempt.Outcome == BidOutcome.Registered)
-            RecordSnipeBid(info, amount, estimate, standing, timeText, standing.ContainsKey(info) ? "rebid" : "bid", context, detail);
+            RecordSnipeBid(info, auctionKey, amount, estimate, standing, timeText,
+                standing.ContainsKey(auctionKey) ? "rebid" : "bid", context, detail);
         else if (attempt.Outcome == BidOutcome.Overtaken)
             RecordOvertakenBid(info, amount, estimate, timeText, detail);
         else
@@ -1686,17 +1690,18 @@ public class Fc25 : IDisposable
         Console.WriteLine($"Bid on {info} at {amount} was overtaken before it showed; trying again next poll.");
     }
 
-    private void RecordSnipeBid(string info, uint amount, uint estimate, Dictionary<string, uint> standing,
-        string timeText, string eventName, BidContext context, string? detail = null)
+    private void RecordSnipeBid(string info, string auctionKey, uint amount, uint estimate,
+        Dictionary<string, uint> standing, string timeText, string eventName, BidContext context,
+        string? detail = null)
     {
-        var previous = standing.GetValueOrDefault(info);
-        var first = !standing.ContainsKey(info);
+        var previous = standing.GetValueOrDefault(auctionKey);
+        var first = !standing.ContainsKey(auctionKey);
 
         if (first) Database.AddBid(info, amount, estimate, context, _segment);
         else Database.RaiseOpenBid(info, amount);
 
         Database.AddSnipeEvent(info, eventName, amount, context.MinimumBid, estimate, timeText, detail);
-        standing[info] = amount;
+        standing[auctionKey] = amount;
         _bidNamesThisRun.Add(info);
         _coinsCommitted += amount > previous ? amount - previous : 0;
         _bidsPlaced += first ? 1u : 0u;
