@@ -40,9 +40,12 @@ public sealed record AuctionListing(
 
 public sealed record BidResponse(BidOutcome Outcome, string Reason);
 
+public sealed record BuyResponse(bool Bought, string Reason);
+
 public static class UtasPayloads
 {
     private const string HIGHEST_STATE = "highest";
+    private const string BOUGHT_STATE = "buyNow";
 
     public static IReadOnlyList<AuctionListing> ParseAuctions(string json)
     {
@@ -108,6 +111,19 @@ public static class UtasPayloads
         else if (auction != null)
             result = new BidResponse(auction.BidState == HIGHEST_STATE ? BidOutcome.Registered : BidOutcome.Overtaken,
                 auction.BidState);
+
+        return result;
+    }
+
+    public static BuyResponse? BuyResult(int status, string json, string tradeId)
+    {
+        BuyResponse? result = null;
+        var auction = ParseAuctions(json).FirstOrDefault(entry => entry.TradeId == tradeId);
+
+        if (status != 200) result = new BuyResponse(false, FailureReason(status, json));
+        else if (auction != null)
+            result = new BuyResponse(auction.BidState == BOUGHT_STATE || auction.BidState == HIGHEST_STATE,
+                $"{auction.TradeState} {auction.BidState}");
 
         return result;
     }

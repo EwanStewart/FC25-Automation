@@ -22,6 +22,7 @@ public enum GapOutcome
     Expired,
     NotFound,
     TooExpensive,
+    OutOfReach,
     Unmapped,
     Simulated,
     Unresolved,
@@ -84,6 +85,8 @@ public sealed record MarketSearch(string Description, IReadOnlyList<AuctionListi
 
 public sealed record BidReceipt(BidOutcome Outcome, uint Amount, string Detail, bool Placed = true);
 
+public sealed record BuyReceipt(bool Bought, uint Amount, string Detail);
+
 public sealed record TradeState(
     string TradeId,
     string State,
@@ -98,6 +101,8 @@ public interface IMarketAgent
     MarketSearch Search(MarketSpecification specification, uint ceiling);
 
     BidReceipt Bid(MarketChoice choice, uint amount);
+
+    BuyReceipt BuyNow(AuctionListing listing, uint ceiling);
 
     IReadOnlyList<TradeState> Standing();
 
@@ -132,7 +137,7 @@ public static class GapProgress
     public static bool Retryable(GapOutcome outcome)
     {
         return outcome is GapOutcome.Pending or GapOutcome.Outbid or GapOutcome.Expired or GapOutcome.NotFound
-            or GapOutcome.TooExpensive or GapOutcome.Unmapped or GapOutcome.Simulated;
+            or GapOutcome.TooExpensive or GapOutcome.OutOfReach or GapOutcome.Unmapped or GapOutcome.Simulated;
     }
 
     public static bool Holds(GapOutcome outcome)

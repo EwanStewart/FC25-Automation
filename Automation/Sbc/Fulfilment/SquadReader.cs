@@ -98,8 +98,13 @@ public static class TargetRowState
 
         return model?.TradeId is null
             ? null
-            : new TradeState(model.TradeId, State(tokens, model), BidState(tokens, model), row.BidValue ?? 0,
+            : new TradeState(model.TradeId, State(tokens, model), BidState(tokens, model), Bid(row, model),
                 model.SecondsLeft, row.NextBid ?? 0, model.ItemId ?? 0);
+    }
+
+    private static uint Bid(RowSnapshot row, ModelSnapshot model)
+    {
+        return model.CurrentBid ?? row.BidValue ?? 0;
     }
 
     private static string State(IReadOnlySet<string> tokens, ModelSnapshot model)

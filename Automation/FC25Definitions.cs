@@ -63,6 +63,11 @@ public static class Fc25Definitions
         COMPARE_PRICE_BACK_BUTTON,
         RESET,
         MAKE_BID,
+        BUY_NOW,
+        BUY_CONFIRM_TITLE,
+        BUY_CONFIRM_MESSAGE,
+        BUY_CONFIRM,
+        BUY_CANCEL,
         WATCH,
         UNWATCH,
         SEND_TO_CLUB,
@@ -217,6 +222,29 @@ public static class Fc25Definitions
         },
         { ElementKeys.RESET, ("//button[contains(text(), 'Reset')]", "Reset") },
         { ElementKeys.MAKE_BID, ("//button[contains(text(), 'Make Bid')]", "Make Bid") },
+        {
+            ElementKeys.BUY_NOW,
+            ("//section[contains(@class, 'ui-layout-right')]//div[contains(@class, 'bidOptions')]//button[contains(@class, 'buyButton')]",
+                "Buy Now")
+        },
+        {
+            ElementKeys.BUY_CONFIRM_TITLE,
+            ("section.ea-dialog-view-type--message h1.ea-dialog-view--title", "Buy Now Confirmation Title")
+        },
+        {
+            ElementKeys.BUY_CONFIRM_MESSAGE,
+            ("section.ea-dialog-view-type--message p.ea-dialog-view--msg", "Buy Now Confirmation Message")
+        },
+        {
+            ElementKeys.BUY_CONFIRM,
+            ("//section[contains(@class, 'ea-dialog-view-type--message')]//div[contains(@class, 'ut-st-button-group')]/button[normalize-space(.)='Ok']",
+                "Buy Now Confirmation Ok")
+        },
+        {
+            ElementKeys.BUY_CANCEL,
+            ("//section[contains(@class, 'ea-dialog-view-type--message')]//div[contains(@class, 'ut-st-button-group')]/button[normalize-space(.)='Cancel']",
+                "Buy Now Confirmation Cancel")
+        },
         { ElementKeys.WATCH, ("//section[contains(@class, 'ui-layout-right')]//button[normalize-space(text())='Watch']", "Watch") },
         {
             ElementKeys.SEND_TO_CLUB,
