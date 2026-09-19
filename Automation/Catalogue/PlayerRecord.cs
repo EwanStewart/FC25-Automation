@@ -1,7 +1,7 @@
 namespace Automation.Catalogue;
 
 public sealed record PlayerRecord(
-    long FutDbId,
+    long SourceId,
     long? ResourceId,
     long? AssetId,
     string Name,

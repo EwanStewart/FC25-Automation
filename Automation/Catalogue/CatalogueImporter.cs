@@ -72,7 +72,7 @@ public sealed class CatalogueImporter
     private async Task<CataloguePage> ImportPageAsync(long importId, int page, CancellationToken cancellationToken)
     {
         var fetched = await source_.FetchPageAsync(page, cancellationToken);
-        store_.SavePlayers(fetched.Players);
+        store_.SavePlayers(source_.Name, fetched.Players);
         store_.RecordProgress(importId, page, fetched.PageTotal, fetched.Players.Count);
 
         return fetched;

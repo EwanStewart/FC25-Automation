@@ -7,8 +7,8 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
     public const string DEFAULT_CONNECTION_STRING = "Server=localhost;Database=fc25;Uid=root;Pwd=root;";
 
     private const string UPSERT_PLAYER =
-        "INSERT INTO Players (futdb_id, asset_id, resource_id, name, common_name, rating, preferred_position, alternate_positions, club_id, league_id, nation_id, rarity_id) " +
-        "VALUES (@futDbId, @assetId, @resourceId, @name, @commonName, @rating, @preferredPosition, @alternatePositions, @clubId, @leagueId, @nationId, @rarityId) AS incoming " +
+        "INSERT INTO Players (source, source_id, asset_id, resource_id, name, common_name, rating, preferred_position, alternate_positions, club_id, league_id, nation_id, rarity_id) " +
+        "VALUES (@source, @sourceId, @assetId, @resourceId, @name, @commonName, @rating, @preferredPosition, @alternatePositions, @clubId, @leagueId, @nationId, @rarityId) AS incoming " +
         "ON DUPLICATE KEY UPDATE asset_id = incoming.asset_id, resource_id = incoming.resource_id, name = incoming.name, common_name = incoming.common_name, rating = incoming.rating, preferred_position = incoming.preferred_position, alternate_positions = incoming.alternate_positions, club_id = incoming.club_id, league_id = incoming.league_id, nation_id = incoming.nation_id, rarity_id = incoming.rarity_id, last_updated = CURRENT_TIMESTAMP";
 
     private const string SELECT_LATEST_IMPORT =
@@ -56,12 +56,12 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
         return command.LastInsertedId;
     }
 
-    public void SavePlayers(IReadOnlyList<PlayerRecord> players)
+    public void SavePlayers(string source, IReadOnlyList<PlayerRecord> players)
     {
         using var connection = Open();
         using var transaction = connection.BeginTransaction();
 
-        foreach (var player in players) SavePlayer(connection, transaction, player);
+        foreach (var player in players) SavePlayer(connection, transaction, source, player);
 
         transaction.Commit();
     }
@@ -86,10 +86,12 @@ public sealed class MySqlCatalogueStore : ICatalogueStore
         command.ExecuteNonQuery();
     }
 
-    private static void SavePlayer(MySqlConnection connection, MySqlTransaction transaction, PlayerRecord player)
+    private static void SavePlayer(MySqlConnection connection, MySqlTransaction transaction, string source,
+        PlayerRecord player)
     {
         using MySqlCommand command = new(UPSERT_PLAYER, connection, transaction);
-        command.Parameters.AddWithValue("@futDbId", player.FutDbId);
+        command.Parameters.AddWithValue("@source", source);
+        command.Parameters.AddWithValue("@sourceId", player.SourceId);
         command.Parameters.AddWithValue("@assetId", Value(player.AssetId));
         command.Parameters.AddWithValue("@resourceId", Value(player.ResourceId));
         command.Parameters.AddWithValue("@name", player.Name);

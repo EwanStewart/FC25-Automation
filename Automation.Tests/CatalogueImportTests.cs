@@ -75,7 +75,7 @@ public class CatalogueImporterTests
         Assert.Equal(3, result.PlayersSaved);
         Assert.Equal(2, result.PagesFetched);
         Assert.Equal(CataloguePlan.OUTCOME_COMPLETE, result.Outcome);
-        Assert.Equal([1001L, 1002L, 1003L], store.Saved.Select(player => player.FutDbId));
+        Assert.Equal([1001L, 1002L, 1003L], store.Saved.Select(player => player.SourceId));
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public class CatalogueImporterTests
             return 99;
         }
 
-        public void SavePlayers(IReadOnlyList<PlayerRecord> players)
+        public void SavePlayers(string source, IReadOnlyList<PlayerRecord> players)
         {
             Saved.AddRange(players);
         }

@@ -21,7 +21,7 @@ public class CatalogueParserTests
         var page = CatalogueParser.ParsePage(CatalogueFixture.Read("FutDbPlayersPage1.json"));
         var player = page.Players[0];
 
-        Assert.Equal(226L, player.FutDbId);
+        Assert.Equal(226L, player.SourceId);
         Assert.Equal(50553196L, player.ResourceId);
         Assert.Equal(192985L, player.AssetId);
         Assert.Equal("Kevin De Bruyne", player.Name);
@@ -41,7 +41,7 @@ public class CatalogueParserTests
         var page = CatalogueParser.ParsePage(CatalogueFixture.Read("FutDbPlayersPage1.json"));
         var sparse = page.Players[2];
 
-        Assert.Equal(2377L, sparse.FutDbId);
+        Assert.Equal(2377L, sparse.SourceId);
         Assert.Null(sparse.ResourceId);
         Assert.Null(sparse.AssetId);
         Assert.Null(sparse.CommonName);
@@ -57,7 +57,7 @@ public class CatalogueParserTests
         var page = CatalogueParser.ParsePage(CatalogueFixture.Read("FutDbPlayersPage2.json"));
 
         Assert.Single(page.Players);
-        Assert.Equal(3108L, page.Players[0].FutDbId);
+        Assert.Equal(3108L, page.Players[0].SourceId);
     }
 
     [Fact]

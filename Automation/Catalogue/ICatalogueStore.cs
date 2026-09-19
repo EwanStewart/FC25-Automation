@@ -6,7 +6,7 @@ public interface ICatalogueStore
 
     long BeginImport(string source);
 
-    void SavePlayers(IReadOnlyList<PlayerRecord> players);
+    void SavePlayers(string source, IReadOnlyList<PlayerRecord> players);
 
     void RecordProgress(long importId, int page, int pageTotal, int itemCount);
 
