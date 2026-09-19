@@ -8,6 +8,20 @@ public enum ResaleBasis
     LowestAsk
 }
 
+public readonly record struct PricePolicy(ResaleBasis Basis, uint MarginCoins, uint MaxAgeMinutes,
+    uint CheapMaxAgeMinutes)
+{
+    public static readonly PricePolicy Standard = new(ResaleBasis.SecondLowestAsk, BiddingStrategy.MARGIN_COINS,
+        BiddingStrategy.RESALE_MAX_AGE_MINUTES, BiddingStrategy.CHEAP_MAX_AGE_MINUTES);
+
+    public static PricePolicy For(SnipeFilter filter)
+    {
+        return new PricePolicy(filter.Resale, filter.MarginCoins,
+            filter.PriceAgeMinutes ?? BiddingStrategy.RESALE_MAX_AGE_MINUTES,
+            filter.PriceAgeMinutes ?? BiddingStrategy.CHEAP_MAX_AGE_MINUTES);
+    }
+}
+
 public static class Pricing
 {
     public const double TAX_RATE = 0.05;
@@ -152,17 +166,17 @@ public static class Pricing
         return isEven ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
     }
 
-    public static bool NeedsCompareRead(DateTime? latestSighting, DateTime now, bool knownCheap, uint maxAgeHours,
-        uint cheapMaxAgeHours)
+    public static bool NeedsCompareRead(DateTime? latestSighting, DateTime now, bool knownCheap, uint maxAgeMinutes,
+        uint cheapMaxAgeMinutes)
     {
-        var limit = knownCheap ? cheapMaxAgeHours : maxAgeHours;
+        var limit = knownCheap ? cheapMaxAgeMinutes : maxAgeMinutes;
 
         return !latestSighting.HasValue || IsStale(latestSighting.Value, now, limit);
     }
 
-    public static bool IsStale(DateTime latestSighting, DateTime now, uint maxAgeHours)
+    public static bool IsStale(DateTime latestSighting, DateTime now, uint maxAgeMinutes)
     {
-        return now - latestSighting > TimeSpan.FromHours(maxAgeHours);
+        return now - latestSighting > TimeSpan.FromMinutes(maxAgeMinutes);
     }
 
     public static bool FitsExposureLimit(uint balance, uint committedCoins, uint bid, double maxShare)

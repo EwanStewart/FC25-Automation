@@ -9,14 +9,15 @@ public enum SnipeMarket
 public sealed record SnipeFilter(string Name, string? Quality = null, string? Nationality = null,
     string? League = null, string? Club = null, string? Position = null,
     SnipeMarket Market = SnipeMarket.Players, uint MarginCoins = BiddingStrategy.MARGIN_COINS,
-    uint MaxBid = BiddingStrategy.SNIPE_MAX_BID, ResaleBasis Resale = ResaleBasis.SecondLowestAsk);
+    uint MaxBid = BiddingStrategy.SNIPE_MAX_BID, ResaleBasis Resale = ResaleBasis.SecondLowestAsk,
+    uint? PriceAgeMinutes = null);
 
 public static class SnipeFilters
 {
     public static readonly IReadOnlyList<SnipeFilter> RING = new[]
     {
         new SnipeFilter("Bundesliga managers", League: "Bundesliga (GER 1)", Market: SnipeMarket.Managers,
-            MarginCoins: 300, MaxBid: 1000, Resale: ResaleBasis.LowestAsk)
+            MarginCoins: 300, MaxBid: 1000, Resale: ResaleBasis.LowestAsk, PriceAgeMinutes: 10)
     };
 
     public static SnipeFilter? Next(IReadOnlyList<SnipeFilter> ring, string? lastName)
