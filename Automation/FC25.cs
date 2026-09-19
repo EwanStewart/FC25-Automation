@@ -584,10 +584,9 @@ public class Fc25 : IDisposable
 
         if (filterData.Quality != null) SelectDropdownOption(ElementKeys.QUALITY_DROPDOWN, filterData.Quality);
         if (filterData.Nationality != null)
-            SelectDropdownOption(ElementKeys.NATIONALITY_DROPDOWN, filterData.Nationality);
+            ApplyDropdownChoice(ElementKeys.NATIONALITY_DROPDOWN, filterData.Nationality, filterData.PinsOptional);
         if (filterData.Rarity != null) SelectDropdownOption(ElementKeys.RARITY_DROPDOWN, filterData.Rarity);
-        if (filterData.League != null) SelectDropdownOption(ElementKeys.LEAGUE_DROPDOWN, filterData.League);
-        if (filterData.Club != null) SelectDropdownOption(ElementKeys.CLUB_DROPDOWN, filterData.Club);
+        ApplyLeagueAndClub(filterData);
         if (filterData.Position != null) SelectDropdownOption(ElementKeys.POSITION_DROPDOWN, filterData.Position);
 
         SetSearchPrice(ElementKeys.MAX_BID_PRICE_INPUT, filterData.MaxBidPrice);
@@ -703,6 +702,49 @@ public class Fc25 : IDisposable
         _screen.WaitHidden(ElementKeys.CLICK_SHIELD, ShortWait);
         _screen.WaitVisible(ElementKeys.AUCTION_ITEMS, ShortWait);
         Thread.Sleep(500);
+    }
+
+    private void ApplyLeagueAndClub(Filter filterData)
+    {
+        var leagueHeld = filterData.League == null ||
+                         ApplyDropdownChoice(ElementKeys.LEAGUE_DROPDOWN, filterData.League,
+                             filterData.PinsOptional);
+
+        if (filterData.Club != null && leagueHeld)
+            ApplyDropdownChoice(ElementKeys.CLUB_DROPDOWN, filterData.Club, filterData.PinsOptional);
+        else if (filterData.Club != null)
+            Console.WriteLine($"Club '{filterData.Club}' stays unpinned because its league would not pin.");
+    }
+
+    private bool ApplyDropdownChoice(ElementKeys dropdown, string optionText, bool optional)
+    {
+        var result = true;
+
+        if (optional) result = TrySelectDropdownOption(dropdown, optionText);
+        else SelectDropdownOption(dropdown, optionText);
+
+        return result;
+    }
+
+    private bool TrySelectDropdownOption(ElementKeys dropdown, string optionText)
+    {
+        RequireClick(dropdown);
+        Thread.Sleep(150);
+
+        var chosen = _screen.Click(By.XPath($"//li[normalize-space(text())={XPath.Literal(optionText)}]"),
+            ShortWait);
+
+        if (!chosen) AbandonDropdown(dropdown, optionText);
+
+        Thread.Sleep(150);
+
+        return chosen;
+    }
+
+    private void AbandonDropdown(ElementKeys dropdown, string optionText)
+    {
+        Console.WriteLine($"Dropdown option '{optionText}' was not offered; {Elements[dropdown].Item2} stays broad.");
+        _screen.Click(dropdown, ShortWait);
     }
 
     private void SelectDropdownOption(ElementKeys dropdown, ElementKeys option)
